@@ -39,6 +39,7 @@ export class UserRepository {
     });
   }
 
+  // This method is used to find a user by email for authentication purposes. It retrieves the user along with their password hash, organization, and roles.
   findForAuthentication(email: string): Promise<UserEntity | null> {
     return this.repository
       .createQueryBuilder('user')
@@ -49,6 +50,8 @@ export class UserRepository {
       .where('user.email = :email', { email })
       .getOne();
   }
+
+  // This method is used to find a user by their ID and organization ID for authentication purposes. It retrieves the user along with their organization and roles.
 
   findAuthenticatedIdentity(
     userId: string,
@@ -64,9 +67,13 @@ export class UserRepository {
       .getOne();
   }
 
+  // This method is used to update the last login timestamp for a user. It takes the user ID and the new last login timestamp as parameters and updates the corresponding record in the database.
+
   async updateLastLoginAt(userId: string, lastLoginAt: Date): Promise<void> {
     await this.repository.update({ id: userId }, { lastLoginAt });
   }
+
+  // This method is used to find users by organization ID with optional filtering by status and search term. It returns a paginated list of users along with the total count.
 
   findManyByOrganization(
     options: FindOrganizationUsersOptions,
@@ -97,6 +104,8 @@ export class UserRepository {
       .getManyAndCount();
   }
 
+  // This method is used to find a user by their ID and organization ID. It retrieves the user along with their roles.
+
   findByIdAndOrganization(
     userId: string,
     organizationId: string,
@@ -111,6 +120,8 @@ export class UserRepository {
       .getOne();
   }
 
+  // This method is used to find a user by their ID and organization ID for update purposes. It retrieves the user and applies a pessimistic write lock to prevent concurrent updates.
+
   findByIdAndOrganizationForUpdate(
     userId: string,
     organizationId: string,
@@ -124,6 +135,8 @@ export class UserRepository {
       .setLock('pessimistic_write')
       .getOne();
   }
+
+  // This method is used to find a user by their invitation token hash for update purposes. It retrieves the user and applies a pessimistic write lock to prevent concurrent updates.
 
   findByInvitationTokenHashForUpdate(
     invitationTokenHash: string,
@@ -140,6 +153,8 @@ export class UserRepository {
       .setLock('pessimistic_write')
       .getOne();
   }
+
+  // This method is used to find an available invitation by its token hash. It retrieves the user with the specified invitation token hash, ensuring that the user's status is "Invited" and that the invitation has not expired.
 
   findAvailableInvitationByTokenHash(
     invitationTokenHash: string,
