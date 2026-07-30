@@ -246,67 +246,43 @@ POST /organizations/{id}/members/invite
 Remove Member
 DELETE /organizations/{id}/members/{userId}
 
-6. Repository APIs
+## 6. Repository APIs
 
-Base path:
+Base path: `/api/v1/repositories`
 
-/api/v1/repositories
+Repository registration currently stores tenant-scoped metadata. It does not
+clone or index the remote repository.
 
+| Method | Path | Permission |
+|---|---|---|
+| `POST` | `/repositories` | `repository.create` |
+| `GET` | `/repositories` | `repository.read` |
+| `GET` | `/repositories/{repositoryId}` | `repository.read` |
+| `PATCH` | `/repositories/{repositoryId}` | `repository.create` |
+| `DELETE` | `/repositories/{repositoryId}` | `repository.delete` |
+| `POST` | `/repositories/{repositoryId}/members` | `repository.read`, `repository.member.manage` |
+| `GET` | `/repositories/{repositoryId}/members` | `repository.read` |
+| `DELETE` | `/repositories/{repositoryId}/members/{userId}` | `repository.read`, `repository.member.manage` |
 
-Repository is the core CodeMind resource.
+Registration request:
 
-Connect Repository
-POST /repositories
-
-
-Request:
-
+```json
 {
-"name":"payment-service",
-
-"url":"https://github.com/company/payment"
+  "name": "payment-service",
+  "remoteUrl": "https://github.com/company/payment-service.git",
+  "defaultBranch": "main"
 }
+```
 
-Process:
+The URL must use HTTPS and cannot contain credentials, query parameters, or a
+fragment. List filters include `page`, `limit`, `search`, `provider`, and
+`status`.
 
-Create Repository
+Organization scope comes only from the authenticated identity. Unknown and
+cross-organization IDs return HTTP `404`.
 
-
-        |
-
-        v
-
-
-Clone Repository
-
-
-        |
-
-        v
-
-
-Start Indexing
-
-List Repositories
-GET /repositories
-
-
-Supports:
-
-?page=1
-
-&limit=20
-
-&status=active
-
-Get Repository
-GET /repositories/{id}
-
-Update Repository
-PATCH /repositories/{id}
-
-Delete Repository
-DELETE /repositories/{id}
+Membership mutations accept only users belonging to the authenticated
+organization. Adding the same user twice returns HTTP `409`.
 
 7. Repository Analysis APIs
 

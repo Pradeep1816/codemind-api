@@ -69,6 +69,12 @@ export const PERMISSION_DEFINITIONS = [
     description: 'Remove repositories from CodeMind.',
   },
   {
+    name: 'repository.member.manage',
+    resource: 'repository',
+    action: 'member.manage',
+    description: 'Add and remove repository members.',
+  },
+  {
     name: 'knowledge.read',
     resource: 'knowledge',
     action: 'read',

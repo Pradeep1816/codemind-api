@@ -32,7 +32,7 @@ MCP and developer tools
 
 ## Current Status
 
-CodeMind is in the backend-foundation milestone.
+CodeMind is entering the repository-ingestion milestone.
 
 Implemented:
 
@@ -56,6 +56,7 @@ Implemented:
 - One-time, expiring user invitation acceptance
 - Tenant-scoped user status and role management APIs
 - Active-OWNER continuity protection
+- Tenant-scoped repository registration and metadata management
 - Database-aware `GET /health` endpoint
 - URI API versioning under `/api/v1`
 - Global request validation
@@ -68,7 +69,7 @@ Not implemented yet:
 - Invitation email delivery and invitation resend/revoke APIs
 - Password reset, verified email, and MFA
 - Organization settings APIs
-- Repository connection and Git integration
+- Git clone/fetch integration and repository indexing
 - Indexing, parsing, and static analysis
 - Knowledge generation and search
 - AI provider integration
@@ -565,6 +566,60 @@ organization-owned role is required. Status and role mutations are
 transactional and tenant-scoped. CodeMind serializes these mutations at the
 organization boundary and rejects any operation that would remove or disable
 the last active `OWNER`.
+
+## Repository Registration
+
+Register credential-free repository metadata:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/repositories \
+  -H 'Authorization: Bearer <access-token>' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "CodeMind API",
+    "remoteUrl": "https://github.com/codemind/codemind-api.git",
+    "defaultBranch": "main"
+  }'
+```
+
+Registration requires `repository.create`. CodeMind accepts only HTTPS URLs
+without embedded credentials, query parameters, or fragments. Provider type
+is detected from the hostname. The same normalized URL cannot be registered
+twice in one organization.
+
+List tenant-scoped repositories:
+
+```bash
+curl 'http://localhost:3000/api/v1/repositories?page=1&limit=20&provider=github&status=active' \
+  -H 'Authorization: Bearer <access-token>'
+```
+
+`GET /repositories` and `GET /repositories/:repositoryId` require
+`repository.read`. `PATCH /repositories/:repositoryId` updates the name,
+default branch, or active/disabled status and requires `repository.create`.
+`DELETE /repositories/:repositoryId` requires `repository.delete`.
+
+Add an organization user to a repository:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/repositories/101/members \
+  -H 'Authorization: Bearer <access-token>' \
+  -H 'Content-Type: application/json' \
+  -d '{"userId":"<organization-user-id>"}'
+```
+
+Membership listing requires `repository.read`. Adding or removing members
+requires both `repository.read` and `repository.member.manage`; the default
+`OWNER` and `ADMIN` roles receive the management permission. The repository
+and target user must belong to the authenticated organization.
+
+Organization ownership always comes from the authenticated identity.
+Cross-organization IDs return HTTP `404`. This foundation stores metadata
+only; repository membership is now manageable and branch persistence is ready
+for its upcoming API. Git clone/fetch and indexing jobs remain later
+implementation slices. See the
+[repository data model](docs/03-database/repository-model.md) for its ER
+diagram and database constraints.
 
 ## Identity and Access Schema
 

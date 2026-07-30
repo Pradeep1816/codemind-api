@@ -34,4 +34,15 @@ describe('database seed definitions', () => {
       new Set(PERMISSION_DEFINITIONS.map((permission) => permission.name)),
     );
   });
+
+  it('grants repository membership management only to owner and admin', () => {
+    const rolesWithPermission = DEFAULT_ROLE_DEFINITIONS.filter((role) =>
+      role.permissions.includes('repository.member.manage'),
+    ).map((role) => role.name);
+
+    expect(rolesWithPermission).toEqual([
+      DefaultRoleName.Owner,
+      DefaultRoleName.Admin,
+    ]);
+  });
 });

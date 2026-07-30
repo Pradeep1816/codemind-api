@@ -95,6 +95,8 @@ Example:
 
 repository.read
 
+repository.member.manage
+
 repository.index
 
 repository.delete
@@ -393,9 +395,11 @@ Examples:
 
 repository.read
 
-repository.write
+repository.create
 
 repository.delete
+
+repository.member.manage
 
 knowledge.read
 
@@ -421,13 +425,13 @@ mcp.access
 
 repository.read
 
-repository.clone
+repository.create
 
 repository.index
 
-repository.update
-
 repository.delete
+
+repository.member.manage
 
 
 
@@ -497,9 +501,11 @@ Example:
 | Permission | Owner | Admin | Developer | Viewer |
 |---|---|---|---|---|
 | repository.read | ✓ | ✓ | ✓ | ✓ |
+| repository.create | ✓ | ✓ | ✓ | ✗ |
 | repository.index | ✓ | ✓ | ✓ | ✗ |
 | repository.delete | ✓ | ✓ | ✗ | ✗ |
-| ai.query | ✓ | ✓ | ✓ | ✓ |
+| repository.member.manage | ✓ | ✓ | ✗ | ✗ |
+| ai.query | ✓ | ✓ | ✓ | ✗ |
 | user.manage | ✓ | ✓ | ✗ | ✗ |
 
 
