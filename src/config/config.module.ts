@@ -4,6 +4,7 @@ import aiConfig from './ai.config';
 import appConfig from './app.config';
 import databaseConfig from './database.config';
 import { validateEnvironment } from './env.validation';
+import invitationConfig from './invitation.config';
 import jwtConfig from './jwt.config';
 
 @Module({
@@ -12,7 +13,7 @@ import jwtConfig from './jwt.config';
       isGlobal: true,
       cache: true,
       expandVariables: true,
-      load: [appConfig, databaseConfig, jwtConfig, aiConfig],
+      load: [appConfig, databaseConfig, jwtConfig, invitationConfig, aiConfig],
       validate: validateEnvironment,
     }),
   ],

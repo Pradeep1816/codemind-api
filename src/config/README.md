@@ -8,14 +8,15 @@ application startup, and exposes namespaced configuration through NestJS.
 
 ## Files
 
-| File                 | Responsibility                                                    | Namespace  |
-| -------------------- | ----------------------------------------------------------------- | ---------- |
-| `config.module.ts`   | Loads, validates, caches, and globally exposes configuration      | —          |
-| `env.validation.ts`  | Defines required variables, defaults, types, and validation rules | —          |
-| `app.config.ts`      | Application identity and runtime settings                         | `app`      |
-| `database.config.ts` | PostgreSQL connection settings                                    | `database` |
-| `jwt.config.ts`      | JWT signing and expiration settings                               | `jwt`      |
-| `ai.config.ts`       | AI provider connection settings                                   | `ai`       |
+| File                   | Responsibility                                                    | Namespace    |
+| ---------------------- | ----------------------------------------------------------------- | ------------ |
+| `config.module.ts`     | Loads, validates, caches, and globally exposes configuration      | —            |
+| `env.validation.ts`    | Defines required variables, defaults, types, and validation rules | —            |
+| `app.config.ts`        | Application identity and runtime settings                         | `app`        |
+| `database.config.ts`   | PostgreSQL connection settings                                    | `database`   |
+| `jwt.config.ts`        | JWT signing and expiration settings                               | `jwt`        |
+| `invitation.config.ts` | User-invitation expiration settings                               | `invitation` |
+| `ai.config.ts`         | AI provider connection settings                                   | `ai`         |
 
 ## Environment Setup
 
@@ -91,10 +92,10 @@ through migrations.
 
 ### JWT
 
-| Variable         | Required | Default | Description                                |
-| ---------------- | -------: | ------- | ------------------------------------------ |
-| `JWT_SECRET`     |      Yes | —       | Signing secret with at least 32 characters |
-| `JWT_EXPIRES_IN` |       No | `15m`   | Access-token lifetime                      |
+| Variable         | Required | Default | Description                                  |
+| ---------------- | -------: | ------- | -------------------------------------------- |
+| `JWT_SECRET`     |      Yes | —       | Signing secret with at least 32 characters   |
+| `JWT_EXPIRES_IN` |       No | `15m`   | Access-token lifetime, such as `15m` or `1h` |
 
 The `jwt` namespace exposes:
 
@@ -107,6 +108,23 @@ The `jwt` namespace exposes:
 
 Use a secret manager or deployment platform secret in production. Never place
 a real JWT secret in source control.
+
+### Invitations
+
+| Variable               | Required | Default | Description                          |
+| ---------------------- | -------: | ------: | ------------------------------------ |
+| `INVITATION_TTL_HOURS` |       No |    `72` | Invitation lifetime from 1–720 hours |
+
+The `invitation` namespace exposes:
+
+```typescript
+{
+  ttlHours: number;
+}
+```
+
+Invitation tokens use cryptographically secure random bytes. Only their
+SHA-256 hashes are persisted.
 
 ### AI
 
@@ -185,6 +203,8 @@ Startup fails when:
 - `CORS_CREDENTIALS` is not `true` or `false`.
 - `DATABASE_SSL` is not `true` or `false`.
 - `JWT_SECRET` contains fewer than 32 characters.
+- `JWT_EXPIRES_IN` is not a positive duration with a unit.
+- `INVITATION_TTL_HOURS` is outside the allowed 1–720 hour range.
 
 This prevents the application from running with incomplete or unsafe
 configuration.

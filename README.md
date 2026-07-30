@@ -41,6 +41,16 @@ Implemented:
 - PostgreSQL connection through TypeORM
 - TypeORM CLI and migration workflow
 - Initial organization and RBAC database schema
+- Idempotent permission and default-role database seeding
+- Transactional organization and first-owner registration
+- Argon2id password hashing
+- JWT login and bearer-token authentication
+- Authenticated current-user endpoint
+- Organization-scoped permission authorization guard
+- Tenant-scoped organization user list and detail APIs
+- One-time, expiring user invitation acceptance
+- Tenant-scoped user status and role management APIs
+- Active-OWNER continuity protection
 - Database-aware `GET /health` endpoint
 - URI API versioning under `/api/v1`
 - Global request validation
@@ -50,8 +60,9 @@ Implemented:
 
 Not implemented yet:
 
-- Registration, login, and JWT authentication
-- User and organization APIs
+- Refresh tokens, logout, and session management
+- Invitation email delivery and invitation resend/revoke APIs
+- Organization settings APIs
 - Repository connection and Git integration
 - Indexing, parsing, and static analysis
 - Knowledge generation and search
@@ -67,6 +78,9 @@ Not implemented yet:
 | Database         | PostgreSQL                            |
 | ORM              | TypeORM                               |
 | Validation       | class-validator and class-transformer |
+| Password hashing | Argon2id                              |
+| Authentication   | JWT bearer tokens                     |
+| Authorization    | Organization-scoped RBAC permissions  |
 | Security headers | Helmet                                |
 | Testing          | Jest                                  |
 
@@ -119,7 +133,16 @@ defaults, validation rules, and usage examples.
 yarn migration:run
 ```
 
-### 5. Start development mode
+### 5. Seed permissions and roles
+
+```bash
+yarn seed
+```
+
+The seed command is idempotent and can be run again after adding an
+organization.
+
+### 6. Start development mode
 
 ```bash
 yarn start:dev
@@ -159,6 +182,264 @@ The endpoint executes a lightweight PostgreSQL query. It returns HTTP `200`
 when the database is available and HTTP `503` if an established database
 connection becomes unavailable.
 
+## Registration
+
+Create an organization and its first user:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "organizationName": "CodeMind Labs",
+    "organizationSlug": "codemind-labs",
+    "name": "Pradeep Mahto",
+    "email": "pradeep@example.com",
+    "password": "replace-with-a-secure-password"
+  }'
+```
+
+`organizationSlug` accepts lowercase letters, numbers, and single hyphens.
+Passwords must be between 12 and 128 characters.
+
+A successful request returns HTTP `201`:
+
+```json
+{
+  "organization": {
+    "id": "d777f967-62db-428b-95cd-7d4896ec4754",
+    "name": "CodeMind Labs",
+    "slug": "codemind-labs"
+  },
+  "user": {
+    "id": "c3d244c3-a37b-46cc-8832-64665fc9ef27",
+    "email": "pradeep@example.com",
+    "name": "Pradeep Mahto",
+    "status": "active",
+    "role": "OWNER"
+  }
+}
+```
+
+Registration runs in one database transaction. It creates the organization,
+its default roles, the first user, and the user's `OWNER` assignment. A failure
+at any stage rolls back the full operation. Password hashes are never returned.
+
+## Authentication
+
+Log in with the registered email and password:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "email": "pradeep@example.com",
+    "password": "replace-with-a-secure-password"
+  }'
+```
+
+A successful request returns HTTP `200`:
+
+```json
+{
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "tokenType": "Bearer",
+  "expiresIn": "15m",
+  "user": {
+    "id": "c3d244c3-a37b-46cc-8832-64665fc9ef27",
+    "email": "pradeep@example.com",
+    "name": "Pradeep Mahto",
+    "organization": {
+      "id": "d777f967-62db-428b-95cd-7d4896ec4754",
+      "name": "CodeMind Labs",
+      "slug": "codemind-labs"
+    },
+    "roles": ["OWNER"]
+  }
+}
+```
+
+Use the access token to retrieve the current authenticated identity:
+
+```bash
+curl http://localhost:3000/api/v1/auth/me \
+  -H 'Authorization: Bearer <access-token>'
+```
+
+Authentication is secure by default. Only `GET /health`,
+`POST /api/v1/auth/register`, `POST /api/v1/auth/login`, and
+`POST /api/v1/auth/invitations/accept` are public. The guard verifies the
+HS256 token and reloads the user, organization, and roles from PostgreSQL.
+Invited, suspended, or inactive users and organizations are rejected
+immediately.
+
+Permission-protected endpoints declare every permission they require:
+
+```typescript
+@RequirePermissions('user.read', 'user.manage')
+@Post('users')
+createUser() {}
+```
+
+The global permission guard resolves permissions through the authenticated
+user's organization roles. All declared permissions are required. Missing
+permissions return HTTP `403`; unexpected authorization-storage failures are
+handled by the guard's `try/catch` block and return HTTP `503`.
+
+Test the permission guard using the current user's permission endpoint:
+
+```bash
+curl http://localhost:3000/api/v1/auth/me/permissions \
+  -H 'Authorization: Bearer <access-token>'
+```
+
+This endpoint requires `organization.read`. Every seeded default role includes
+that permission. A successful request returns the complete permission-name
+list resolved from the user's organization roles.
+
+## Organization Users
+
+List users in the authenticated user's organization:
+
+```bash
+curl 'http://localhost:3000/api/v1/users?page=1&limit=20&search=owner&status=active' \
+  -H 'Authorization: Bearer <access-token>'
+```
+
+The optional query parameters are:
+
+- `page`: positive page number; defaults to `1`
+- `limit`: number of users from `1` to `100`; defaults to `20`
+- `search`: case-insensitive name or email search
+- `status`: `invited`, `active`, `inactive`, or `suspended`
+
+A successful response contains password-safe user records and pagination:
+
+```json
+{
+  "data": [
+    {
+      "id": "25d8bd53-047b-42d8-9efa-4ecedfe422d3",
+      "email": "owner01@example.com",
+      "name": "Test Owner",
+      "status": "active",
+      "roles": ["OWNER"],
+      "lastLoginAt": "2026-07-29T13:25:03.000Z",
+      "createdAt": "2026-07-29T13:20:11.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 1,
+    "totalPages": 1
+  }
+}
+```
+
+Retrieve one user:
+
+```bash
+curl http://localhost:3000/api/v1/users/25d8bd53-047b-42d8-9efa-4ecedfe422d3 \
+  -H 'Authorization: Bearer <access-token>'
+```
+
+Both endpoints require `user.read`. Organization scope comes exclusively from
+the authenticated identity. Requesting an ID outside that organization returns
+HTTP `404` without revealing whether the user exists.
+
+## User Invitations and Access Management
+
+First list the roles belonging to the authenticated organization:
+
+```bash
+curl http://localhost:3000/api/v1/roles \
+  -H 'Authorization: Bearer <access-token>'
+```
+
+This endpoint requires `role.read` and returns role IDs, names, and
+descriptions. Use those IDs when inviting a user:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/users/invitations \
+  -H 'Authorization: Bearer <access-token>' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "CodeMind Developer",
+    "email": "developer@example.com",
+    "roleIds": ["<developer-role-id>"]
+  }'
+```
+
+Creating an invitation requires both `user.manage` and `role.manage`. The
+operation creates the user with `invited` status, assigns only roles from the
+authenticated organization, and returns a cryptographically random token once:
+
+```json
+{
+  "user": {
+    "id": "69948ad4-c8ef-4f33-a111-68bb6972b4af",
+    "email": "developer@example.com",
+    "name": "CodeMind Developer",
+    "status": "invited",
+    "roles": ["DEVELOPER"],
+    "lastLoginAt": null,
+    "createdAt": "2026-07-29T15:00:00.000Z"
+  },
+  "invitationToken": "<one-time-token>",
+  "expiresAt": "2026-08-01T15:00:00.000Z"
+}
+```
+
+PostgreSQL stores only the token's SHA-256 hash. Until email delivery is
+implemented, the authenticated caller must securely deliver the returned
+one-time token to the invited user. Never log or persist the raw token.
+Invitation lifetime is configured with `INVITATION_TTL_HOURS`, which defaults
+to 72 hours.
+
+Accept the invitation and set the initial password:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/auth/invitations/accept \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "token": "<one-time-token>",
+    "password": "replace-with-a-secure-password"
+  }'
+```
+
+Acceptance is public because the invitation token is the credential. The token
+is checked before Argon2 work, locked and checked again in a transaction, then
+cleared after use. The user becomes active and can log in normally. Expired,
+invalid, or previously used tokens return HTTP `400`.
+
+Suspend or reactivate a user:
+
+```bash
+curl -X PATCH http://localhost:3000/api/v1/users/<user-id>/status \
+  -H 'Authorization: Bearer <access-token>' \
+  -H 'Content-Type: application/json' \
+  -d '{"status":"suspended"}'
+```
+
+Allowed administrative status values are `active`, `inactive`, and
+`suspended`. An invited user must accept the invitation before status can be
+managed. This endpoint requires `user.manage`.
+
+Replace all roles assigned to a user:
+
+```bash
+curl -X PUT http://localhost:3000/api/v1/users/<user-id>/roles \
+  -H 'Authorization: Bearer <access-token>' \
+  -H 'Content-Type: application/json' \
+  -d '{"roleIds":["<developer-role-id>"]}'
+```
+
+Role replacement requires both `user.manage` and `role.manage`. At least one
+organization-owned role is required. Status and role mutations are
+transactional and tenant-scoped. CodeMind serializes these mutations at the
+organization boundary and rejects any operation that would remove or disable
+the last active `OWNER`.
+
 ## Identity and Access Schema
 
 The first migration creates six application entities:
@@ -189,6 +470,11 @@ Organization
 
 Database changes must use migrations. TypeORM schema synchronization is
 disabled.
+
+Global permissions are seeded once. The `OWNER`, `ADMIN`, `DEVELOPER`, and
+`VIEWER` roles are scoped to an organization. The seed runner creates missing
+default roles for existing organizations without deleting additional
+role-permission assignments.
 
 ## Migration Workflow
 
@@ -234,7 +520,8 @@ src/
 │   ├── data-source.ts
 │   ├── database.module.ts
 │   ├── entities/
-│   └── migrations/
+│   ├── migrations/
+│   └── seeds/
 └── modules/
     ├── auth/
     ├── users/
@@ -262,24 +549,25 @@ development workflow.
 
 ## Available Commands
 
-| Command                   | Purpose                                  |
-| ------------------------- | ---------------------------------------- |
-| `yarn start`              | Start the application                    |
-| `yarn start:dev`          | Start in watch mode                      |
-| `yarn start:debug`        | Start in debug/watch mode                |
-| `yarn build`              | Build the production output              |
-| `yarn start:prod`         | Run the compiled application             |
-| `yarn lint`               | Lint and fix TypeScript files            |
-| `yarn format`             | Format TypeScript files                  |
-| `yarn test`               | Run unit tests                           |
-| `yarn test:watch`         | Run unit tests in watch mode             |
-| `yarn test:cov`           | Generate test coverage                   |
-| `yarn test:e2e`           | Run end-to-end tests                     |
-| `yarn migration:create`   | Create an empty migration                |
-| `yarn migration:generate` | Generate a migration from entity changes |
-| `yarn migration:show`     | Show applied and pending migrations      |
-| `yarn migration:run`      | Apply pending migrations                 |
-| `yarn migration:revert`   | Revert the latest migration              |
+| Command                   | Purpose                                   |
+| ------------------------- | ----------------------------------------- |
+| `yarn start`              | Start the application                     |
+| `yarn start:dev`          | Start in watch mode                       |
+| `yarn start:debug`        | Start in debug/watch mode                 |
+| `yarn build`              | Build the production output               |
+| `yarn start:prod`         | Run the compiled application              |
+| `yarn lint`               | Lint and fix TypeScript files             |
+| `yarn format`             | Format TypeScript files                   |
+| `yarn test`               | Run unit tests                            |
+| `yarn test:watch`         | Run unit tests in watch mode              |
+| `yarn test:cov`           | Generate test coverage                    |
+| `yarn test:e2e`           | Run end-to-end tests                      |
+| `yarn migration:create`   | Create an empty migration                 |
+| `yarn migration:generate` | Generate a migration from entity changes  |
+| `yarn migration:show`     | Show applied and pending migrations       |
+| `yarn migration:run`      | Apply pending migrations                  |
+| `yarn migration:revert`   | Revert the latest migration               |
+| `yarn seed`               | Synchronize permissions and default roles |
 
 ## Development Checks
 

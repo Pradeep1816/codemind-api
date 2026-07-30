@@ -4,8 +4,10 @@ import {
   ServiceUnavailableException,
   VERSION_NEUTRAL,
 } from '@nestjs/common';
+import { Public } from '../../common/decorators/public.decorator';
 import { HealthResponse, HealthService } from './health.service';
 
+@Public()
 @Controller({
   path: 'health',
   version: VERSION_NEUTRAL,

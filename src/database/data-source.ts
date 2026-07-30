@@ -37,7 +37,7 @@ const dataSource = new DataSource({
     join(__dirname, '..', 'modules', '**', '*.entity.{ts,js}'),
   ],
   migrations: [join(__dirname, 'migrations', '*.{ts,js}')],
-  migrationsTableName: 'typeorm_migrations',
+  migrationsTableName: 'migrations',
 });
 
 export default dataSource;

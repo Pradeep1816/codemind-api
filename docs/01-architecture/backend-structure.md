@@ -179,7 +179,7 @@ The current feature modules own the following capabilities:
 |---|---|
 | `auth` | Authentication, tokens, sessions, and authorization entry points |
 | `users` | User profiles and user lifecycle |
-| `organizations` | Tenancy, membership, roles, and organization boundaries |
+| `organizations` | Tenancy, role definitions, and organization boundaries |
 | `repositories` | Repository registration, Git metadata, branches, and status |
 | `indexing` | File discovery, change detection, and indexing jobs |
 | `parser` | Language parsing, AST processing, and symbol extraction |
@@ -235,6 +235,18 @@ imports. Prefer events for long-running pipeline transitions.
    duplicate business logic.
 10. AI output must not become trusted domain state without validation and
     evidence.
+11. Services must not call TypeORM entity repositories directly. Entity reads
+    and writes belong in a repository provider owned by the feature module.
+12. Application services may define a transaction boundary for a use case, but
+    every query inside that transaction must still go through a repository.
+13. Repository providers are internal implementation details and must not be
+    exported when the module's service can expose the required capability.
+14. Tenant scope must come from the authenticated identity, never from a
+    client-supplied organization ID.
+15. Invitation tokens must be persisted only as hashes and consumed once
+    inside a transaction.
+16. Role and user-status mutations must preserve at least one active
+    organization `OWNER`.
 
 ### 6.3 Public Module API
 
@@ -348,4 +360,3 @@ yarn build
   consumers.
 - Record significant architecture changes as an ADR.
 - Update this document when module ownership or dependency direction changes.
-

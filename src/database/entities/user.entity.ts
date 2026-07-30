@@ -13,6 +13,7 @@ import { OrganizationEntity } from './organization.entity';
 import { UserRoleEntity } from './user-role.entity';
 
 export enum UserStatus {
+  Invited = 'invited',
   Active = 'active',
   Inactive = 'inactive',
   Suspended = 'suspended',
@@ -21,6 +22,10 @@ export enum UserStatus {
 @Entity({ name: 'users' })
 @Index('uq_users_email', ['email'], { unique: true })
 @Index('idx_users_organization_id', ['organizationId'])
+@Index('uq_users_invitation_token_hash', ['invitationTokenHash'], {
+  unique: true,
+})
+@Index('idx_users_invited_by_user_id', ['invitedByUserId'])
 export class UserEntity {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
@@ -35,9 +40,10 @@ export class UserEntity {
     name: 'password_hash',
     type: 'varchar',
     length: 255,
+    nullable: true,
     select: false,
   })
-  passwordHash!: string;
+  passwordHash!: string | null;
 
   @Column({ type: 'varchar', length: 150 })
   name!: string;
@@ -53,6 +59,32 @@ export class UserEntity {
   @Column({ name: 'last_login_at', type: 'timestamptz', nullable: true })
   lastLoginAt!: Date | null;
 
+  @Column({
+    name: 'invitation_token_hash',
+    type: 'varchar',
+    length: 64,
+    nullable: true,
+    select: false,
+  })
+  invitationTokenHash!: string | null;
+
+  @Column({
+    name: 'invitation_expires_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  invitationExpiresAt!: Date | null;
+
+  @Column({ name: 'invited_by_user_id', type: 'uuid', nullable: true })
+  invitedByUserId!: string | null;
+
+  @Column({
+    name: 'invitation_accepted_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  invitationAcceptedAt!: Date | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
 
@@ -67,4 +99,14 @@ export class UserEntity {
 
   @OneToMany(() => UserRoleEntity, (userRole) => userRole.user)
   userRoles!: UserRoleEntity[];
+
+  @ManyToOne(() => UserEntity, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({
+    name: 'invited_by_user_id',
+    foreignKeyConstraintName: 'FK_users_invited_by_user_id',
+  })
+  invitedBy!: UserEntity | null;
 }

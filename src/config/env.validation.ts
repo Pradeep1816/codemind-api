@@ -90,8 +90,14 @@ class EnvironmentVariables {
   JWT_SECRET!: string;
 
   @IsString()
-  @IsNotEmpty()
+  @Matches(/^[1-9]\d*(?:ms|s|m|h|d|w|y)$/)
   JWT_EXPIRES_IN = '15m';
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(720)
+  INVITATION_TTL_HOURS = 72;
 
   @IsEnum(AiProvider)
   AI_PROVIDER = AiProvider.OpenAi;
