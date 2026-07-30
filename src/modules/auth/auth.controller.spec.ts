@@ -4,6 +4,14 @@ import { AuthService } from './auth.service';
 import { AuthenticatedRequestUser } from './interfaces/authenticated-user.interface';
 
 describe('AuthController', () => {
+  const request = {
+    ip: '127.0.0.1',
+    get: jest.fn().mockReturnValue('Test User Agent'),
+  } as unknown as Request;
+  const requestMetadata = {
+    ipAddress: '127.0.0.1',
+    userAgent: 'Test User Agent',
+  };
   const currentUser: AuthenticatedRequestUser = {
     id: 'user-id',
     email: 'owner@example.com',
@@ -23,20 +31,13 @@ describe('AuthController', () => {
     const controller = new AuthController({
       login,
     } as unknown as AuthService);
-    const request = {
-      ip: '127.0.0.1',
-      get: jest.fn().mockReturnValue('Test User Agent'),
-    } as unknown as Request;
     const input = {
       email: 'owner@example.com',
       password: 'a-secure-password',
     };
 
     await expect(controller.login(input, request)).resolves.toBe(response);
-    expect(login).toHaveBeenCalledWith(input, {
-      ipAddress: '127.0.0.1',
-      userAgent: 'Test User Agent',
-    });
+    expect(login).toHaveBeenCalledWith(input, requestMetadata);
   });
 
   it('does not expose the internal session ID from the current-user endpoint', () => {
@@ -62,15 +63,27 @@ describe('AuthController', () => {
       revokeSession,
     } as unknown as AuthService);
 
-    await controller.logout(currentUser);
-    await controller.logoutAll(currentUser);
-    await controller.revokeSession(currentUser, 'other-session-id');
+    await controller.logout(currentUser, request);
+    await controller.logoutAll(currentUser, request);
+    await controller.revokeSession(currentUser, 'other-session-id', request);
 
-    expect(logout).toHaveBeenCalledWith(currentUser.sessionId, currentUser.id);
-    expect(logoutAll).toHaveBeenCalledWith(currentUser.id);
+    expect(logout).toHaveBeenCalledWith(
+      currentUser.sessionId,
+      currentUser.id,
+      currentUser.organization.id,
+      requestMetadata,
+    );
+    expect(logoutAll).toHaveBeenCalledWith(
+      currentUser.id,
+      currentUser.organization.id,
+      currentUser.sessionId,
+      requestMetadata,
+    );
     expect(revokeSession).toHaveBeenCalledWith(
       'other-session-id',
       currentUser.id,
+      currentUser.organization.id,
+      requestMetadata,
     );
   });
 });

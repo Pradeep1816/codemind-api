@@ -11,6 +11,8 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
 import { PasswordService } from './password.service';
 import { AuthSessionsModule } from './sessions/auth-sessions.module';
+import { AuthAuditModule } from './audit/auth-audit.module';
+import { RateLimitModule } from './rate-limit.module';
 
 @Module({
   imports: [
@@ -32,6 +34,8 @@ import { AuthSessionsModule } from './sessions/auth-sessions.module';
       }),
     }),
     OrganizationsModule,
+    RateLimitModule,
+    AuthAuditModule,
     AuthSessionsModule,
     UsersModule,
   ],

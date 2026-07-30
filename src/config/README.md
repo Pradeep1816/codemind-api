@@ -16,6 +16,7 @@ application startup, and exposes namespaced configuration through NestJS.
 | `database.config.ts`   | PostgreSQL connection settings                                    | `database`   |
 | `jwt.config.ts`        | JWT signing and expiration settings                               | `jwt`        |
 | `invitation.config.ts` | User-invitation expiration settings                               | `invitation` |
+| `rate-limit.config.ts` | Global and authentication endpoint request limits                 | `rateLimit`  |
 | `ai.config.ts`         | AI provider connection settings                                   | `ai`         |
 
 ## Environment Setup
@@ -42,6 +43,7 @@ Do not commit `.env` or real credentials.
 | `API_VERSION`      |       No | `1`           | Default numeric URI version                       |
 | `CORS_ORIGINS`     |       No | —             | Comma-separated allowed browser origins           |
 | `CORS_CREDENTIALS` |       No | `false`       | Allows browser credentials for configured origins |
+| `TRUST_PROXY`      |       No | `false`       | `false` or `loopback` for a trusted local proxy    |
 
 The `app` namespace exposes:
 
@@ -55,11 +57,17 @@ The `app` namespace exposes:
   apiVersion: string;
   corsOrigins: string[];
   corsCredentials: boolean;
+  trustProxy: 'false' | 'loopback';
 }
 ```
 
 CORS remains disabled when `CORS_ORIGINS` is empty. List explicit trusted
 origins in production; do not use a wildcard for authenticated APIs.
+
+`TRUST_PROXY=loopback` accepts forwarded client IP information only from a
+loopback reverse proxy. Keep the default `false` when clients connect directly.
+Correct proxy configuration is required for accurate IP rate limiting and
+security audit metadata.
 
 ### Database
 
@@ -130,6 +138,33 @@ The `invitation` namespace exposes:
 
 Invitation tokens use cryptographically secure random bytes. Only their
 SHA-256 hashes are persisted.
+
+### Rate Limiting
+
+| Variable                            | Required | Default | Description                                      |
+| ----------------------------------- | -------: | ------: | ------------------------------------------------ |
+| `RATE_LIMIT_TTL_MS`                 |       No | `60000` | Global request window in milliseconds            |
+| `RATE_LIMIT_DEFAULT_LIMIT`          |       No |   `120` | Requests per IP during the global window          |
+| `AUTH_RATE_LIMIT_TTL_MS`            |       No | `60000` | Window for security-sensitive endpoints           |
+| `AUTH_REGISTER_RATE_LIMIT`          |       No |     `3` | Registration attempts per IP and auth window      |
+| `AUTH_LOGIN_RATE_LIMIT`             |       No |     `5` | Login attempts per IP and auth window             |
+| `AUTH_REFRESH_RATE_LIMIT`           |       No |    `20` | Refresh attempts per IP and auth window           |
+| `AUTH_INVITATION_ACCEPT_RATE_LIMIT` |       No |     `5` | Invitation acceptance attempts per IP and window  |
+| `AUTH_INVITATION_CREATE_RATE_LIMIT` |       No |    `10` | Invitation creation attempts per IP and window    |
+
+The `rateLimit` namespace exposes the global policy:
+
+```typescript
+{
+  ttlMs: number;
+  defaultLimit: number;
+}
+```
+
+Endpoint-specific limits are applied through `@Throttle`. A rejected request
+returns HTTP `429`. The default throttler storage is local to one Node.js
+process; production deployments with multiple instances require a shared
+storage provider.
 
 ### AI
 
@@ -206,12 +241,14 @@ Startup fails when:
 - `NODE_ENV` or `AI_PROVIDER` contains an unsupported value.
 - `API_PREFIX` or `API_VERSION` uses an unsupported format.
 - `CORS_CREDENTIALS` is not `true` or `false`.
+- `TRUST_PROXY` is neither `false` nor `loopback`.
 - `DATABASE_SSL` is not `true` or `false`.
 - `JWT_SECRET` contains fewer than 32 characters.
 - `JWT_EXPIRES_IN` is not a positive duration with a unit.
 - `JWT_REFRESH_SECRET`, when provided, contains fewer than 32 characters.
 - `JWT_REFRESH_EXPIRES_IN` is not a positive duration with a unit.
 - `INVITATION_TTL_HOURS` is outside the allowed 1–720 hour range.
+- A rate-limit duration or request count is outside its documented range.
 
 This prevents the application from running with incomplete or unsafe
 configuration.

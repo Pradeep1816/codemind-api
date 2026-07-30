@@ -11,6 +11,11 @@ import { UserEntity, UserStatus } from '../../database/entities/user.entity';
 import { DefaultRoleName } from '../../database/seeds/roles.seed';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { UsersService } from '../users/users.service';
+import { AuthAuditService } from './audit/auth-audit.service';
+import {
+  AuthAuditEventType,
+  AuthAuditOutcome,
+} from './audit/entities/auth-audit-event.entity';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { PasswordService } from './password.service';
@@ -22,6 +27,17 @@ import {
 } from './sessions/auth-sessions.service';
 
 describe('AuthService', () => {
+  const requestMetadata = {
+    ipAddress: '127.0.0.1',
+    userAgent: 'Jest',
+  };
+  const recordAuditEvent = jest.fn().mockResolvedValue(undefined);
+  const recordAuditEventBestEffort = jest.fn().mockResolvedValue(undefined);
+  const authAuditService = {
+    hashIdentifier: jest.fn((value: string) => `hash:${value.toLowerCase()}`),
+    record: recordAuditEvent,
+    recordBestEffort: recordAuditEventBestEffort,
+  } as unknown as AuthAuditService;
   const jwtConfiguration = {
     secret: 'a-secure-test-secret-that-is-long-enough',
     expiresIn: '15m',
@@ -35,6 +51,10 @@ describe('AuthService', () => {
     email: 'Pradeep@Example.com',
     password: 'a-secure-password',
   };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
   it('creates an organization and its first OWNER user in one transaction', async () => {
     const organization = {
@@ -95,9 +115,10 @@ describe('AuthService', () => {
       jwtService,
       jwtConfiguration,
       {} as AuthSessionsService,
+      authAuditService,
     );
 
-    const result = await service.register(input);
+    const result = await service.register(input, requestMetadata);
 
     expect(hashPassword).toHaveBeenCalledWith(input.password);
     expect(ensureSlugAvailable).toHaveBeenCalledWith('codemind-labs', manager);
@@ -123,6 +144,17 @@ describe('AuthService', () => {
       manager,
     );
     expect(assignUserRole).toHaveBeenCalledWith(user.id, ownerRole.id, manager);
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      {
+        organizationId: organization.id,
+        actorUserId: user.id,
+        subjectUserId: user.id,
+        eventType: AuthAuditEventType.RegistrationSucceeded,
+        outcome: AuthAuditOutcome.Success,
+        request: requestMetadata,
+      },
+      manager,
+    );
     expect(result).toEqual({
       organization: {
         id: organization.id,
@@ -172,9 +204,19 @@ describe('AuthService', () => {
       jwtService,
       jwtConfiguration,
       {} as AuthSessionsService,
+      authAuditService,
     );
 
-    await expect(service.register(input)).rejects.toBe(conflict);
+    await expect(service.register(input, requestMetadata)).rejects.toBe(
+      conflict,
+    );
+    expect(recordAuditEventBestEffort).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: AuthAuditEventType.RegistrationFailed,
+        outcome: AuthAuditOutcome.Failure,
+        request: requestMetadata,
+      }),
+    );
   });
 
   it('returns an access token for valid active credentials', async () => {
@@ -223,6 +265,7 @@ describe('AuthService', () => {
       jwtService,
       jwtConfiguration,
       { create: createSession } as unknown as AuthSessionsService,
+      authAuditService,
     );
 
     const result = await service.login(
@@ -230,10 +273,7 @@ describe('AuthService', () => {
         email: 'Pradeep@Example.com',
         password: 'a-secure-password',
       },
-      {
-        ipAddress: '127.0.0.1',
-        userAgent: 'Jest',
-      },
+      requestMetadata,
     );
 
     expect(findForAuthentication).toHaveBeenCalledWith('Pradeep@Example.com');
@@ -278,6 +318,15 @@ describe('AuthService', () => {
     });
     expect(createdSession.refreshTokenHash).toMatch(/^[a-f0-9]{64}$/);
     expect(recordSuccessfulLogin).toHaveBeenCalledWith(user.id);
+    expect(recordAuditEventBestEffort).toHaveBeenCalledWith({
+      organizationId: user.organizationId,
+      actorUserId: user.id,
+      subjectUserId: user.id,
+      sessionId: createdSession.id,
+      eventType: AuthAuditEventType.LoginSucceeded,
+      outcome: AuthAuditOutcome.Success,
+      request: requestMetadata,
+    });
     expect(result).toEqual({
       accessToken: 'signed-access-token',
       refreshToken: 'signed-refresh-token',
@@ -322,14 +371,24 @@ describe('AuthService', () => {
       jwtService,
       jwtConfiguration,
       {} as AuthSessionsService,
+      authAuditService,
     );
 
     await expect(
-      service.login({
-        email: 'pradeep@example.com',
-        password: 'wrong-password',
-      }),
+      service.login(
+        {
+          email: 'pradeep@example.com',
+          password: 'wrong-password',
+        },
+        requestMetadata,
+      ),
     ).rejects.toThrow(UnauthorizedException);
+    expect(recordAuditEventBestEffort).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventType: AuthAuditEventType.LoginFailed,
+        outcome: AuthAuditOutcome.Failure,
+      }),
+    );
   });
 
   it('rejects a token when its user is no longer active', async () => {
@@ -354,6 +413,7 @@ describe('AuthService', () => {
       {
         isActive: jest.fn().mockResolvedValue(true),
       } as unknown as AuthSessionsService,
+      authAuditService,
     );
 
     await expect(
@@ -393,13 +453,17 @@ describe('AuthService', () => {
       {} as JwtService,
       jwtConfiguration,
       {} as AuthSessionsService,
+      authAuditService,
     );
 
     await expect(
-      service.acceptInvitation({
-        token: 'one-time-invitation-token',
-        password: 'a-secure-password',
-      }),
+      service.acceptInvitation(
+        {
+          token: 'one-time-invitation-token',
+          password: 'a-secure-password',
+        },
+        requestMetadata,
+      ),
     ).resolves.toBe(response);
     expect(ensureInvitationCanBeAccepted).toHaveBeenCalledWith(
       'one-time-invitation-token',
@@ -408,6 +472,7 @@ describe('AuthService', () => {
     expect(acceptInvitation).toHaveBeenCalledWith(
       'one-time-invitation-token',
       'stored-password-hash',
+      requestMetadata,
     );
   });
 
@@ -430,13 +495,17 @@ describe('AuthService', () => {
       {} as JwtService,
       jwtConfiguration,
       {} as AuthSessionsService,
+      authAuditService,
     );
 
     await expect(
-      service.login({
-        email: 'invited@example.com',
-        password: 'a-secure-password',
-      }),
+      service.login(
+        {
+          email: 'invited@example.com',
+          password: 'a-secure-password',
+        },
+        requestMetadata,
+      ),
     ).rejects.toThrow(UnauthorizedException);
     expect(verify).not.toHaveBeenCalled();
   });
@@ -475,9 +544,13 @@ describe('AuthService', () => {
       { verifyAsync, signAsync } as unknown as JwtService,
       jwtConfiguration,
       { rotate } as unknown as AuthSessionsService,
+      authAuditService,
     );
 
-    const result = await service.refresh('current-refresh-token');
+    const result = await service.refresh(
+      'current-refresh-token',
+      requestMetadata,
+    );
 
     expect(verifyAsync).toHaveBeenCalledWith('current-refresh-token', {
       secret: jwtConfiguration.refreshSecret,
@@ -503,5 +576,65 @@ describe('AuthService', () => {
       expiresIn: '15m',
       refreshExpiresIn: '30d',
     });
+  });
+
+  it('records refresh-token reuse without exposing the raw token', async () => {
+    const payload = {
+      sub: 'user-id',
+      organizationId: 'organization-id',
+      sessionId: 'session-id',
+      version: 1,
+      type: 'refresh' as const,
+    };
+    const user = {
+      id: payload.sub,
+      organizationId: payload.organizationId,
+      status: UserStatus.Active,
+      organization: {
+        status: OrganizationStatus.Active,
+      },
+    } as UserEntity;
+    const service = new AuthService(
+      {} as DataSource,
+      {} as OrganizationsService,
+      {
+        findAuthenticatedIdentity: jest.fn().mockResolvedValue(user),
+      } as unknown as UsersService,
+      {} as PasswordService,
+      {
+        verifyAsync: jest.fn().mockResolvedValue(payload),
+        signAsync: jest
+          .fn()
+          .mockResolvedValueOnce('next-access-token')
+          .mockResolvedValueOnce('next-refresh-token'),
+      } as unknown as JwtService,
+      jwtConfiguration,
+      {
+        rotate: jest.fn().mockResolvedValue(AuthSessionRotationResult.Reused),
+      } as unknown as AuthSessionsService,
+      authAuditService,
+    );
+    const consoleError = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+
+    await expect(
+      service.refresh('reused-refresh-token', requestMetadata),
+    ).rejects.toThrow(UnauthorizedException);
+    expect(recordAuditEventBestEffort).toHaveBeenCalledWith({
+      organizationId: payload.organizationId,
+      actorUserId: payload.sub,
+      subjectUserId: payload.sub,
+      sessionId: payload.sessionId,
+      eventType: AuthAuditEventType.RefreshReuseDetected,
+      outcome: AuthAuditOutcome.Failure,
+      request: requestMetadata,
+      metadata: { reason: 'token_reuse' },
+    });
+    expect(JSON.stringify(recordAuditEventBestEffort.mock.calls)).not.toContain(
+      'reused-refresh-token',
+    );
+
+    consoleError.mockRestore();
   });
 });

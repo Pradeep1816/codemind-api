@@ -177,7 +177,7 @@ The current feature modules own the following capabilities:
 
 | Module | Ownership |
 |---|---|
-| `auth` | Authentication, tokens, sessions, and authorization entry points |
+| `auth` | Authentication, tokens, sessions, rate limits, security audit, and authorization entry points |
 | `users` | User profiles and user lifecycle |
 | `organizations` | Tenancy, role definitions, and organization boundaries |
 | `repositories` | Repository registration, Git metadata, branches, and status |
@@ -252,6 +252,17 @@ imports. Prefer events for long-running pipeline transitions.
     administrative revocation take effect immediately.
 19. User suspension and deactivation must revoke active sessions in the same
     transaction as the status change.
+20. Security-sensitive endpoints must define an explicit throttling policy in
+    addition to the application-wide default.
+21. Trusted proxy handling must remain disabled unless the deployment has a
+    known reverse proxy; client IP addresses must never be accepted from an
+    arbitrary forwarded header.
+22. Authentication audit records must not contain raw passwords, JWTs, refresh
+    tokens, invitation tokens, or other reusable credentials.
+23. Tenant-visible audit queries must derive organization scope from the
+    authenticated identity and require `audit.read`.
+24. Audit records describing a successful transactional mutation must be
+    written in the same transaction as the mutation.
 
 ### 6.3 Public Module API
 

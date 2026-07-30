@@ -8,11 +8,17 @@ import {
 import type { ConfigType } from '@nestjs/config';
 import { createHash, randomBytes } from 'node:crypto';
 import { DataSource, EntityManager, QueryFailedError } from 'typeorm';
+import { RequestMetadata } from '../../common/utils/request-metadata.util';
 import invitationConfig from '../../config/invitation.config';
 import { UserEntity, UserStatus } from '../../database/entities/user.entity';
 import { DefaultRoleName } from '../../database/seeds/roles.seed';
-import { OrganizationsService } from '../organizations/organizations.service';
+import { AuthAuditService } from '../auth/audit/auth-audit.service';
+import {
+  AuthAuditEventType,
+  AuthAuditOutcome,
+} from '../auth/audit/entities/auth-audit-event.entity';
 import { AuthSessionsService } from '../auth/sessions/auth-sessions.service';
+import { OrganizationsService } from '../organizations/organizations.service';
 import { AssignUserRolesDto } from './dto/assign-user-roles.dto';
 import { InviteUserDto } from './dto/invite-user.dto';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
@@ -47,6 +53,7 @@ export class UsersService {
       typeof invitationConfig
     >,
     private readonly authSessionsService: AuthSessionsService,
+    private readonly authAuditService: AuthAuditService,
   ) {}
 
   normalizeEmail(email: string): string {
@@ -142,6 +149,7 @@ export class UsersService {
     organizationId: string,
     invitedByUserId: string,
     input: InviteUserDto,
+    request: RequestMetadata,
   ): Promise<UserInvitationResponseDto> {
     const email = this.normalizeEmail(input.email);
     const invitationToken = randomBytes(32).toString('base64url');
@@ -186,6 +194,21 @@ export class UsersService {
           manager,
         );
 
+        await this.authAuditService.record(
+          {
+            organizationId,
+            actorUserId: invitedByUserId,
+            subjectUserId: invitedUser.id,
+            eventType: AuthAuditEventType.InvitationCreated,
+            outcome: AuthAuditOutcome.Success,
+            request,
+            metadata: {
+              roles: roles.map((role) => role.name).sort(),
+            },
+          },
+          manager,
+        );
+
         return this.getRequiredOrganizationUser(
           invitedUser.id,
           organizationId,
@@ -217,6 +240,7 @@ export class UsersService {
   async acceptInvitation(
     invitationToken: string,
     passwordHash: string,
+    request: RequestMetadata,
   ): Promise<UserResponseDto> {
     const tokenHash = this.hashInvitationToken(invitationToken);
 
@@ -250,6 +274,17 @@ export class UsersService {
         manager,
       );
 
+      await this.authAuditService.record(
+        {
+          organizationId: user.organizationId,
+          subjectUserId: user.id,
+          eventType: AuthAuditEventType.InvitationAccepted,
+          outcome: AuthAuditOutcome.Success,
+          request,
+        },
+        manager,
+      );
+
       return this.toResponse(acceptedUser);
     });
   }
@@ -270,8 +305,10 @@ export class UsersService {
 
   async updateOrganizationUserStatus(
     organizationId: string,
+    actorUserId: string,
     userId: string,
     input: UpdateUserStatusDto,
+    request: RequestMetadata,
   ): Promise<UserResponseDto> {
     return this.dataSource.transaction(async (manager) => {
       await this.lockRequiredOrganization(organizationId, manager);
@@ -310,6 +347,8 @@ export class UsersService {
         manager,
       );
 
+      const previousStatus = user.status;
+
       lockedUser.status = input.status;
       await this.userRepository.save(lockedUser, manager);
 
@@ -321,16 +360,38 @@ export class UsersService {
         );
       }
 
-      return this.toResponse(
-        await this.getRequiredOrganizationUser(userId, organizationId, manager),
+      const updatedUser = await this.getRequiredOrganizationUser(
+        userId,
+        organizationId,
+        manager,
       );
+
+      await this.authAuditService.record(
+        {
+          organizationId,
+          actorUserId,
+          subjectUserId: userId,
+          eventType: AuthAuditEventType.UserStatusChanged,
+          outcome: AuthAuditOutcome.Success,
+          request,
+          metadata: {
+            previousStatus,
+            newStatus: input.status,
+          },
+        },
+        manager,
+      );
+
+      return this.toResponse(updatedUser);
     });
   }
 
   async replaceOrganizationUserRoles(
     organizationId: string,
+    actorUserId: string,
     userId: string,
     input: AssignUserRolesDto,
+    request: RequestMetadata,
   ): Promise<UserResponseDto> {
     return this.dataSource.transaction(async (manager) => {
       await this.lockRequiredOrganization(organizationId, manager);
@@ -363,6 +424,7 @@ export class UsersService {
         organizationId,
         manager,
       );
+      const previousRoles = this.getRoleNames(user);
       const nextRoleNames = new Set(roles.map((role) => role.name));
 
       await this.ensureActiveOwnerRemains(
@@ -377,9 +439,29 @@ export class UsersService {
         manager,
       );
 
-      return this.toResponse(
-        await this.getRequiredOrganizationUser(userId, organizationId, manager),
+      const updatedUser = await this.getRequiredOrganizationUser(
+        userId,
+        organizationId,
+        manager,
       );
+
+      await this.authAuditService.record(
+        {
+          organizationId,
+          actorUserId,
+          subjectUserId: userId,
+          eventType: AuthAuditEventType.UserRolesChanged,
+          outcome: AuthAuditOutcome.Success,
+          request,
+          metadata: {
+            previousRoles,
+            newRoles: roles.map((role) => role.name).sort(),
+          },
+        },
+        manager,
+      );
+
+      return this.toResponse(updatedUser);
     });
   }
 
@@ -468,22 +550,24 @@ export class UsersService {
   }
 
   private toResponse(user: UserEntity): UserResponseDto {
-    const roles = [
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      status: user.status,
+      roles: this.getRoleNames(user),
+      lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+      createdAt: user.createdAt.toISOString(),
+    };
+  }
+
+  private getRoleNames(user: UserEntity): string[] {
+    return [
       ...new Set(
         (user.userRoles ?? [])
           .map((userRole) => userRole.role?.name)
           .filter((role): role is string => typeof role === 'string'),
       ),
     ].sort();
-
-    return {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      status: user.status,
-      roles,
-      lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
-      createdAt: user.createdAt.toISOString(),
-    };
   }
 }

@@ -39,6 +39,12 @@ export const PERMISSION_DEFINITIONS = [
     description: 'Create roles and manage role assignments.',
   },
   {
+    name: 'audit.read',
+    resource: 'audit',
+    action: 'read',
+    description: 'View organization authentication and security audit events.',
+  },
+  {
     name: 'repository.read',
     resource: 'repository',
     action: 'read',

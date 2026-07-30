@@ -6,6 +6,7 @@ import databaseConfig from './database.config';
 import { validateEnvironment } from './env.validation';
 import invitationConfig from './invitation.config';
 import jwtConfig from './jwt.config';
+import rateLimitConfig from './rate-limit.config';
 
 @Module({
   imports: [
@@ -13,7 +14,14 @@ import jwtConfig from './jwt.config';
       isGlobal: true,
       cache: true,
       expandVariables: true,
-      load: [appConfig, databaseConfig, jwtConfig, invitationConfig, aiConfig],
+      load: [
+        appConfig,
+        databaseConfig,
+        jwtConfig,
+        invitationConfig,
+        rateLimitConfig,
+        aiConfig,
+      ],
       validate: validateEnvironment,
     }),
   ],

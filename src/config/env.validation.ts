@@ -59,6 +59,9 @@ class EnvironmentVariables {
   @IsIn(['true', 'false'])
   CORS_CREDENTIALS = 'false';
 
+  @IsIn(['false', 'loopback'])
+  TRUST_PROXY = 'false';
+
   @IsString()
   @IsNotEmpty()
   DATABASE_HOST!: string;
@@ -107,6 +110,54 @@ class EnvironmentVariables {
   @Min(1)
   @Max(720)
   INVITATION_TTL_HOURS = 72;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1_000)
+  @Max(3_600_000)
+  RATE_LIMIT_TTL_MS = 60_000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100_000)
+  RATE_LIMIT_DEFAULT_LIMIT = 120;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1_000)
+  @Max(3_600_000)
+  AUTH_RATE_LIMIT_TTL_MS = 60_000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10_000)
+  AUTH_REGISTER_RATE_LIMIT = 3;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10_000)
+  AUTH_LOGIN_RATE_LIMIT = 5;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10_000)
+  AUTH_REFRESH_RATE_LIMIT = 20;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10_000)
+  AUTH_INVITATION_ACCEPT_RATE_LIMIT = 5;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10_000)
+  AUTH_INVITATION_CREATE_RATE_LIMIT = 10;
 
   @IsEnum(AiProvider)
   AI_PROVIDER = AiProvider.OpenAi;

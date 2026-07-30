@@ -9,12 +9,18 @@ import { JwtService } from '@nestjs/jwt';
 import type { JwtSignOptions } from '@nestjs/jwt';
 import { createHash, randomUUID } from 'node:crypto';
 import { DataSource, QueryFailedError } from 'typeorm';
+import { RequestMetadata } from '../../common/utils/request-metadata.util';
+import jwtConfig from '../../config/jwt.config';
 import { OrganizationStatus } from '../../database/entities/organization.entity';
 import { UserEntity, UserStatus } from '../../database/entities/user.entity';
-import jwtConfig from '../../config/jwt.config';
 import { DefaultRoleName } from '../../database/seeds/roles.seed';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { UsersService } from '../users/users.service';
+import { AuthAuditService } from './audit/auth-audit.service';
+import {
+  AuthAuditEventType,
+  AuthAuditOutcome,
+} from './audit/entities/auth-audit-event.entity';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { AcceptInvitationDto } from '../users/dto/accept-invitation.dto';
@@ -80,16 +86,6 @@ export interface LoginResponse extends TokenPairResponse {
 }
 
 /**
- * Bounded request metadata recorded with a session to help users identify
- * their active logins. These values are informational, not trusted identity
- * attributes.
- */
-export interface SessionMetadata {
-  ipAddress: string | null;
-  userAgent: string | null;
-}
-
-/**
  * Coordinates CodeMind authentication use cases without performing direct
  * entity-repository access.
  *
@@ -112,6 +108,7 @@ export class AuthService {
    * @param jwtService Signs and verifies access and refresh JWTs.
    * @param jwtConfiguration Provides validated token secrets and lifetimes.
    * @param authSessionsService Owns persisted session and rotation state.
+   * @param authAuditService Persists security-relevant authentication events.
    */
   constructor(
     private readonly dataSource: DataSource,
@@ -122,6 +119,7 @@ export class AuthService {
     @Inject(jwtConfig.KEY)
     private readonly jwtConfiguration: ConfigType<typeof jwtConfig>,
     private readonly authSessionsService: AuthSessionsService,
+    private readonly authAuditService: AuthAuditService,
   ) {}
 
   /**
@@ -135,19 +133,27 @@ export class AuthService {
    * HTTP conflict responses.
    *
    * @param input Validated registration data from the public HTTP endpoint.
+   * @param request Bounded client metadata stored with the audit event.
    * @returns The new organization and password-safe first-owner identity.
    * @throws ConflictException When the email or organization slug is in use.
    */
-  async register(input: RegisterDto): Promise<RegisterResponse> {
+  async register(
+    input: RegisterDto,
+    request: RequestMetadata,
+  ): Promise<RegisterResponse> {
     const organizationName = input.organizationName.trim();
     const organizationSlug = this.organizationsService.normalizeSlug(
       input.organizationSlug,
     );
     const name = input.name.trim();
     const email = this.usersService.normalizeEmail(input.email);
-    const passwordHash = await this.passwordService.hash(input.password);
+    const emailHash = this.authAuditService.hashIdentifier(email);
+    const organizationSlugHash =
+      this.authAuditService.hashIdentifier(organizationSlug);
 
     try {
+      const passwordHash = await this.passwordService.hash(input.password);
+
       return await this.dataSource.transaction(async (manager) => {
         await this.organizationsService.ensureSlugAvailable(
           organizationSlug,
@@ -190,6 +196,18 @@ export class AuthService {
           manager,
         );
 
+        await this.authAuditService.record(
+          {
+            organizationId: organization.id,
+            actorUserId: user.id,
+            subjectUserId: user.id,
+            eventType: AuthAuditEventType.RegistrationSucceeded,
+            outcome: AuthAuditOutcome.Success,
+            request,
+          },
+          manager,
+        );
+
         return {
           organization: {
             id: organization.id,
@@ -206,11 +224,26 @@ export class AuthService {
         };
       });
     } catch (error: unknown) {
+      const constraint = this.getUniqueConstraint(error);
+
+      await this.authAuditService.recordBestEffort({
+        eventType: AuthAuditEventType.RegistrationFailed,
+        outcome: AuthAuditOutcome.Failure,
+        request,
+        metadata: {
+          emailHash,
+          organizationSlugHash,
+          reason:
+            constraint ??
+            (error instanceof ConflictException
+              ? 'conflict'
+              : 'unexpected_error'),
+        },
+      });
+
       if (error instanceof ConflictException) {
         throw error;
       }
-
-      const constraint = this.getUniqueConstraint(error);
 
       if (constraint === 'uq_users_email') {
         throw new ConflictException('Email address is already registered');
@@ -242,17 +275,28 @@ export class AuthService {
    * observability write cannot invalidate an otherwise successful login.
    *
    * @param input Validated email and plaintext password.
-   * @param metadata Informational IP address and user-agent for the session.
+   * @param request Informational IP address and user-agent for the session and
+   * authentication audit event.
    * @returns The initial token pair and password-safe authenticated identity.
    * @throws UnauthorizedException When the credentials or account are invalid.
    */
   async login(
     input: LoginDto,
-    metadata: SessionMetadata,
+    request: RequestMetadata,
   ): Promise<LoginResponse> {
     const user = await this.usersService.findForAuthentication(input.email);
+    const emailHash = this.authAuditService.hashIdentifier(input.email);
 
     if (!user) {
+      await this.authAuditService.recordBestEffort({
+        eventType: AuthAuditEventType.LoginFailed,
+        outcome: AuthAuditOutcome.Failure,
+        request,
+        metadata: {
+          emailHash,
+          reason: 'invalid_credentials',
+        },
+      });
       throw this.invalidCredentials();
     }
 
@@ -262,6 +306,17 @@ export class AuthService {
       (await this.passwordService.verify(user.passwordHash, input.password));
 
     if (!isPasswordValid) {
+      await this.authAuditService.recordBestEffort({
+        organizationId: user.organizationId,
+        subjectUserId: user.id,
+        eventType: AuthAuditEventType.LoginFailed,
+        outcome: AuthAuditOutcome.Failure,
+        request,
+        metadata: {
+          emailHash,
+          reason: 'invalid_credentials',
+        },
+      });
       throw this.invalidCredentials();
     }
 
@@ -282,8 +337,18 @@ export class AuthService {
       refreshTokenHash: this.hashToken(tokens.refreshToken),
       tokenVersion,
       expiresAt: this.getRefreshExpiration(),
-      ipAddress: metadata.ipAddress,
-      userAgent: metadata.userAgent,
+      ipAddress: request.ipAddress,
+      userAgent: request.userAgent,
+    });
+
+    await this.authAuditService.recordBestEffort({
+      organizationId: user.organizationId,
+      actorUserId: user.id,
+      subjectUserId: user.id,
+      sessionId,
+      eventType: AuthAuditEventType.LoginSucceeded,
+      outcome: AuthAuditOutcome.Success,
+      request,
     });
 
     try {
@@ -310,12 +375,29 @@ export class AuthService {
    * session family and is reported without logging the credential itself.
    *
    * @param refreshToken Raw refresh token supplied only to the refresh route.
+   * @param request Bounded client metadata stored with the audit event.
    * @returns A replacement access token and replacement refresh token.
    * @throws UnauthorizedException When the token, identity, or session is no
    * longer valid, or when token reuse is detected.
    */
-  async refresh(refreshToken: string): Promise<TokenPairResponse> {
-    const payload = await this.verifyRefreshToken(refreshToken);
+  async refresh(
+    refreshToken: string,
+    request: RequestMetadata,
+  ): Promise<TokenPairResponse> {
+    let payload: RefreshTokenPayload;
+
+    try {
+      payload = await this.verifyRefreshToken(refreshToken);
+    } catch (error: unknown) {
+      await this.authAuditService.recordBestEffort({
+        eventType: AuthAuditEventType.RefreshFailed,
+        outcome: AuthAuditOutcome.Failure,
+        request,
+        metadata: { reason: 'invalid_token' },
+      });
+      throw error;
+    }
+
     const user = await this.usersService.findAuthenticatedIdentity(
       payload.sub,
       payload.organizationId,
@@ -326,6 +408,16 @@ export class AuthService {
         payload.sub,
         'user_unavailable',
       );
+      await this.authAuditService.recordBestEffort({
+        organizationId: payload.organizationId,
+        actorUserId: payload.sub,
+        subjectUserId: payload.sub,
+        sessionId: payload.sessionId,
+        eventType: AuthAuditEventType.RefreshFailed,
+        outcome: AuthAuditOutcome.Failure,
+        request,
+        metadata: { reason: 'user_unavailable' },
+      });
       throw this.invalidRefreshToken();
     }
 
@@ -351,11 +443,43 @@ export class AuthService {
         'Refresh token reuse detected; session revoked',
         payload.sessionId,
       );
+      await this.authAuditService.recordBestEffort({
+        organizationId: payload.organizationId,
+        actorUserId: payload.sub,
+        subjectUserId: payload.sub,
+        sessionId: payload.sessionId,
+        eventType: AuthAuditEventType.RefreshReuseDetected,
+        outcome: AuthAuditOutcome.Failure,
+        request,
+        metadata: { reason: 'token_reuse' },
+      });
     }
 
     if (rotationResult !== AuthSessionRotationResult.Rotated) {
+      if (rotationResult !== AuthSessionRotationResult.Reused) {
+        await this.authAuditService.recordBestEffort({
+          organizationId: payload.organizationId,
+          actorUserId: payload.sub,
+          subjectUserId: payload.sub,
+          sessionId: payload.sessionId,
+          eventType: AuthAuditEventType.RefreshFailed,
+          outcome: AuthAuditOutcome.Failure,
+          request,
+          metadata: { reason: 'session_invalid' },
+        });
+      }
       throw this.invalidRefreshToken();
     }
+
+    await this.authAuditService.recordBestEffort({
+      organizationId: payload.organizationId,
+      actorUserId: payload.sub,
+      subjectUserId: payload.sub,
+      sessionId: payload.sessionId,
+      eventType: AuthAuditEventType.RefreshSucceeded,
+      outcome: AuthAuditOutcome.Success,
+      request,
+    });
 
     return tokens;
   }
@@ -369,16 +493,24 @@ export class AuthService {
    * activating the user, preventing concurrent or repeated acceptance.
    *
    * @param input One-time invitation token and validated initial password.
+   * @param request Bounded client metadata stored with the audit event.
    * @returns The activated, password-safe organization user.
    * @throws BadRequestException indirectly when the invitation is invalid,
    * expired, or already used.
    */
-  async acceptInvitation(input: AcceptInvitationDto): Promise<UserResponseDto> {
+  async acceptInvitation(
+    input: AcceptInvitationDto,
+    request: RequestMetadata,
+  ): Promise<UserResponseDto> {
     await this.usersService.ensureInvitationCanBeAccepted(input.token);
 
     const passwordHash = await this.passwordService.hash(input.password);
 
-    return this.usersService.acceptInvitation(input.token, passwordHash);
+    return this.usersService.acceptInvitation(
+      input.token,
+      passwordHash,
+      request,
+    );
   }
 
   /**
@@ -427,10 +559,33 @@ export class AuthService {
    *
    * @param sessionId Session ID obtained from the authenticated request.
    * @param userId Authenticated owner of the session.
+   * @param organizationId Organization that owns the session.
+   * @param request Bounded client metadata stored with the audit event.
    * @returns `true` when an active session was revoked, otherwise `false`.
    */
-  logout(sessionId: string, userId: string): Promise<boolean> {
-    return this.authSessionsService.revokeCurrent(sessionId, userId);
+  async logout(
+    sessionId: string,
+    userId: string,
+    organizationId: string,
+    request: RequestMetadata,
+  ): Promise<boolean> {
+    const revoked = await this.authSessionsService.revokeCurrent(
+      sessionId,
+      userId,
+    );
+
+    await this.authAuditService.recordBestEffort({
+      organizationId,
+      actorUserId: userId,
+      subjectUserId: userId,
+      sessionId,
+      eventType: AuthAuditEventType.Logout,
+      outcome: AuthAuditOutcome.Success,
+      request,
+      metadata: { revoked },
+    });
+
+    return revoked;
   }
 
   /**
@@ -441,13 +596,32 @@ export class AuthService {
    * stop working immediately.
    *
    * @param userId Authenticated user whose sessions must be revoked.
+   * @param organizationId Organization that owns the sessions.
+   * @param currentSessionId Session used to request account-wide logout.
+   * @param request Bounded client metadata stored with the audit event.
    * @returns The number of sessions changed to revoked state.
    */
-  async logoutAll(userId: string): Promise<{ revokedSessions: number }> {
+  async logoutAll(
+    userId: string,
+    organizationId: string,
+    currentSessionId: string,
+    request: RequestMetadata,
+  ): Promise<{ revokedSessions: number }> {
     const revokedSessions = await this.authSessionsService.revokeAllForUser(
       userId,
       'logout_all',
     );
+
+    await this.authAuditService.recordBestEffort({
+      organizationId,
+      actorUserId: userId,
+      subjectUserId: userId,
+      sessionId: currentSessionId,
+      eventType: AuthAuditEventType.LogoutAll,
+      outcome: AuthAuditOutcome.Success,
+      request,
+      metadata: { revokedSessions },
+    });
 
     return { revokedSessions };
   }
@@ -477,10 +651,27 @@ export class AuthService {
    *
    * @param sessionId UUID of the session selected for remote logout.
    * @param userId Authenticated owner used as the mandatory query scope.
+   * @param organizationId Organization that owns the selected session.
+   * @param request Bounded client metadata stored with the audit event.
    * @throws NotFoundException indirectly when no owned active session exists.
    */
-  revokeSession(sessionId: string, userId: string): Promise<void> {
-    return this.authSessionsService.revokeSession(sessionId, userId);
+  async revokeSession(
+    sessionId: string,
+    userId: string,
+    organizationId: string,
+    request: RequestMetadata,
+  ): Promise<void> {
+    await this.authSessionsService.revokeSession(sessionId, userId);
+
+    await this.authAuditService.recordBestEffort({
+      organizationId,
+      actorUserId: userId,
+      subjectUserId: userId,
+      sessionId,
+      eventType: AuthAuditEventType.SessionRevoked,
+      outcome: AuthAuditOutcome.Success,
+      request,
+    });
   }
 
   /**

@@ -1,3 +1,4 @@
+import type { Request } from 'express';
 import { UserStatus } from '../../database/entities/user.entity';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
@@ -12,6 +13,14 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 
 describe('UsersController', () => {
+  const request = {
+    ip: '127.0.0.1',
+    get: jest.fn().mockReturnValue('Test User Agent'),
+  } as unknown as Request;
+  const requestMetadata = {
+    ipAddress: '127.0.0.1',
+    userAgent: 'Test User Agent',
+  };
   const currentUser: AuthenticatedUser = {
     id: 'current-user-id',
     email: 'owner@example.com',
@@ -84,12 +93,13 @@ describe('UsersController', () => {
       inviteOrganizationUser,
     } as unknown as UsersService);
 
-    await controller.invite(currentUser, input);
+    await controller.invite(currentUser, input, request);
 
     expect(inviteOrganizationUser).toHaveBeenCalledWith(
       currentUser.organization.id,
       currentUser.id,
       input,
+      requestMetadata,
     );
   });
 
@@ -107,18 +117,32 @@ describe('UsersController', () => {
       replaceOrganizationUserRoles,
     } as unknown as UsersService);
 
-    await controller.updateStatus(currentUser, 'target-user-id', statusInput);
-    await controller.replaceRoles(currentUser, 'target-user-id', rolesInput);
+    await controller.updateStatus(
+      currentUser,
+      'target-user-id',
+      statusInput,
+      request,
+    );
+    await controller.replaceRoles(
+      currentUser,
+      'target-user-id',
+      rolesInput,
+      request,
+    );
 
     expect(updateOrganizationUserStatus).toHaveBeenCalledWith(
       currentUser.organization.id,
+      currentUser.id,
       'target-user-id',
       statusInput,
+      requestMetadata,
     );
     expect(replaceOrganizationUserRoles).toHaveBeenCalledWith(
       currentUser.organization.id,
+      currentUser.id,
       'target-user-id',
       rolesInput,
+      requestMetadata,
     );
   });
 });

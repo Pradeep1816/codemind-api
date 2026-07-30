@@ -48,6 +48,8 @@ Implemented:
 - Rotating refresh tokens and database-backed session management
 - Current-session, remote-session, and all-session logout
 - Refresh-token reuse detection and session-family revocation
+- Global and authentication endpoint rate limiting
+- Persistent organization-scoped authentication security audit events
 - Authenticated current-user endpoint
 - Organization-scoped permission authorization guard
 - Tenant-scoped organization user list and detail APIs
@@ -64,7 +66,7 @@ Implemented:
 Not implemented yet:
 
 - Invitation email delivery and invitation resend/revoke APIs
-- Password reset, verified email, MFA, and authentication rate limiting
+- Password reset, verified email, and MFA
 - Organization settings APIs
 - Repository connection and Git integration
 - Indexing, parsing, and static analysis
@@ -84,6 +86,7 @@ Not implemented yet:
 | Password hashing | Argon2id                              |
 | Authentication   | Session-backed JWT access/refresh tokens |
 | Authorization    | Organization-scoped RBAC permissions  |
+| Rate limiting    | NestJS Throttler                       |
 | Security headers | Helmet                                |
 | Testing          | Jest                                  |
 
@@ -277,12 +280,12 @@ endpoint. Never send a refresh token as the bearer credential for normal API
 requests.
 
 Authentication is secure by default. Only `GET /health`,
-`POST /api/v1/auth/register`, `POST /api/v1/auth/login`, and
-`POST /api/v1/auth/invitations/accept`, and `POST /api/v1/auth/refresh` are
-public. The guard verifies the HS256 access token, verifies its active session,
-and reloads the user, organization, and roles from PostgreSQL. Revoked
-sessions and invited, suspended, or inactive users and organizations are
-rejected immediately.
+`POST /api/v1/auth/register`, `POST /api/v1/auth/login`,
+`POST /api/v1/auth/invitations/accept`, and
+`POST /api/v1/auth/refresh` are public. The guard verifies the HS256 access
+token, verifies its active session, and reloads the user, organization, and
+roles from PostgreSQL. Revoked sessions and invited, suspended, or inactive
+users and organizations are rejected immediately.
 
 Permission-protected endpoints declare every permission they require:
 
@@ -377,6 +380,47 @@ Logout and remote revocation immediately invalidate access tokens because the
 global authentication guard checks session state on every protected request.
 Suspending or deactivating a user revokes all their active sessions in the same
 database transaction as the status change.
+
+## Rate Limiting and Security Audit
+
+Every HTTP endpoint has a default IP-based limit of 120 requests per 60
+seconds. Security-sensitive endpoints use stricter defaults:
+
+| Endpoint | Default limit per 60 seconds |
+|---|---:|
+| `POST /api/v1/auth/register` | 3 |
+| `POST /api/v1/auth/login` | 5 |
+| `POST /api/v1/auth/refresh` | 20 |
+| `POST /api/v1/auth/invitations/accept` | 5 |
+| `POST /api/v1/users/invitations` | 10 |
+
+Exceeding a limit returns HTTP `429 Too Many Requests`. The limits and time
+window are configurable through environment variables. The current in-memory
+storage is suitable for one application instance. A horizontally scaled
+deployment must configure shared throttler storage so every instance uses the
+same counters.
+
+When CodeMind runs behind a trusted reverse proxy, configure
+`TRUST_PROXY=loopback` so the limiter and audit records use the real forwarded
+client IP. Leave it as `false` when requests connect directly to the API.
+
+CodeMind persists successful and failed registration, login, refresh,
+refresh-token replay, logout, invitation, user-status, and user-role events.
+Raw passwords, JWTs, invitation tokens, and refresh tokens are never written
+to audit metadata. Unknown email addresses and organization slugs are stored
+only as SHA-256 identifiers for failure correlation.
+
+Owners and administrators can list audit events because their seeded roles
+include `audit.read`:
+
+```bash
+curl 'http://localhost:3000/api/v1/auth/audit-events?page=1&limit=20&eventType=login.failed&outcome=failure' \
+  -H 'Authorization: Bearer <access-token>'
+```
+
+The endpoint is always scoped to the authenticated organization. Optional
+filters are `eventType` and `outcome`; pagination accepts `page` and `limit`
+with a maximum limit of 100.
 
 ## Organization Users
 
@@ -524,25 +568,14 @@ the last active `OWNER`.
 
 ## Identity and Access Schema
 
-The identity migrations create the six RBAC entities plus database-backed
-authentication sessions:
+The identity migrations create the six RBAC entities, database-backed
+authentication sessions, and persistent authentication audit events:
 
 ```text
-Organization
-   |       |
-   v       v
- User    Role
-   |
-   v
-AuthSession
-   |       |
-   +-> UserRole
-           |
-           v
-    RolePermission
-           |
-           v
-      Permission
+Organization -> User -> UserRole <- Role <- Organization
+                     Role -> RolePermission <- Permission
+                     User -> AuthSession
+Organization/User/AuthSession -> AuthAuditEvent
 ```
 
 | Entity           | Responsibility                                      |
@@ -553,7 +586,8 @@ AuthSession
 | `Permission`     | Global resource/action capability                   |
 | `UserRole`       | Explicit user-to-role assignment                    |
 | `RolePermission` | Explicit role-to-permission assignment              |
-| `AuthSession`    | Rotating refresh-token and login-session state        |
+| `AuthSession`     | Rotating refresh-token and login-session state       |
+| `AuthAuditEvent`  | Security event actor, subject, session, and metadata  |
 
 Database changes must use migrations. TypeORM schema synchronization is
 disabled.
@@ -693,6 +727,8 @@ Never enable automatic schema synchronization in production.
 - Use a secret manager in production.
 - Enable PostgreSQL SSL for remote production databases.
 - Restrict CORS to trusted origins.
+- Configure trusted proxy handling only for known deployment proxies.
+- Use shared rate-limit storage when running multiple API instances.
 - Apply and review migrations before deploying application code.
 - Validate organization ownership when assigning a role to a user.
 

@@ -12,4 +12,5 @@ export default registerAs('app', () => ({
     .map((origin) => origin.trim())
     .filter(Boolean),
   corsCredentials: process.env.CORS_CREDENTIALS === 'true',
+  trustProxy: process.env.TRUST_PROXY ?? 'false',
 }));

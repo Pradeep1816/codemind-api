@@ -8,9 +8,14 @@ import {
   Post,
   Put,
   Query,
+  Req,
 } from '@nestjs/common';
+import type { Request } from 'express';
+import { Throttle } from '@nestjs/throttler';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
+import { getRequestMetadata } from '../../common/utils/request-metadata.util';
+import { AUTH_RATE_LIMIT_POLICIES } from '../../config/rate-limit.config';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface';
 import { AssignUserRolesDto } from './dto/assign-user-roles.dto';
 import { InviteUserDto } from './dto/invite-user.dto';
@@ -43,15 +48,18 @@ export class UsersController {
   }
 
   @RequirePermissions('user.manage', 'role.manage')
+  @Throttle({ default: AUTH_RATE_LIMIT_POLICIES.invitationCreate })
   @Post('invitations')
   invite(
     @CurrentUser() currentUser: AuthenticatedUser,
     @Body() input: InviteUserDto,
+    @Req() request: Request,
   ): Promise<UserInvitationResponseDto> {
     return this.usersService.inviteOrganizationUser(
       currentUser.organization.id,
       currentUser.id,
       input,
+      getRequestMetadata(request),
     );
   }
 
@@ -61,11 +69,14 @@ export class UsersController {
     @CurrentUser() currentUser: AuthenticatedUser,
     @Param('userId', ParseUUIDPipe) userId: string,
     @Body() input: UpdateUserStatusDto,
+    @Req() request: Request,
   ): Promise<UserResponseDto> {
     return this.usersService.updateOrganizationUserStatus(
       currentUser.organization.id,
+      currentUser.id,
       userId,
       input,
+      getRequestMetadata(request),
     );
   }
 
@@ -75,11 +86,14 @@ export class UsersController {
     @CurrentUser() currentUser: AuthenticatedUser,
     @Param('userId', ParseUUIDPipe) userId: string,
     @Body() input: AssignUserRolesDto,
+    @Req() request: Request,
   ): Promise<UserResponseDto> {
     return this.usersService.replaceOrganizationUserRoles(
       currentUser.organization.id,
+      currentUser.id,
       userId,
       input,
+      getRequestMetadata(request),
     );
   }
 

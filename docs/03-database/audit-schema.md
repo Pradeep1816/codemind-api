@@ -1,832 +1,127 @@
-This document defines the trust and observability layer of CodeMind.
+# Authentication Audit Schema
 
-Since CodeMind uses AI to analyse business logic, generate documentation, and provide recommendations, every important action must be traceable.
+## Document information
 
-The core question:
-
-"Why did CodeMind give this answer, and who changed this knowledge?"
-
-Create:
-
-docs/03-database/audit-schema.md
-
-Content:
-
-# Audit Schema Design
-
-
-## Document Information
-
-Module: Audit & Observability
-
-Document: Audit Schema
-
-Status: Draft
-
+Module: Authentication
+Status: Implemented foundation
 Version: 1.0
-
 Owner: CodeMind Engineering Team
 
-
-
-# 1. Overview
-
-
-The Audit System records all important activities performed by:
-
-- Users
-- AI Agents
-- MCP Clients
-- Background Workers
-- System Processes
-
-
-The purpose is to provide:
-
-
-- Transparency
-- Security
-- Debugging capability
-- Compliance tracking
-- AI trust
-
-
-
-# 2. Why Audit Is Required
-
-
-
-AI generated knowledge can affect developer decisions.
-
-
-Example:
-
-
-CodeMind generates:
-
-
-
-Business Rule:
-
-Paid invoices cannot be deleted.
-
-
-
-
-A developer should know:
-
-
-
-Where did this come from?
-
-Which files support this?
-
-Who approved it?
-
-When was it created?
-
-
-
-
-Audit provides this history.
-
-
-
-# 3. Audit Architecture
-
-
-
-
-User Action
-
-  |
-
-  v
-
-Application Event
-
-  |
-
-  v
-
-Audit Service
-
-  |
-
-  v
-
-Audit Database
-
-  |
-
-  v
-
-Audit Dashboard
-
-
-
-
-# 4. Audit Data Types
-
-
-
-CodeMind tracks:
-
-
-
-## User Actions
-
-
-Examples:
-
-
-
-Created repository
-
-Approved knowledge
-
-Rejected AI suggestion
-
-Updated documentation
-
-
-
-
----
-
-
-
-## AI Actions
-
-
-Examples:
-
-
-
-Generated explanation
-
-Created business rule
-
-Updated documentation
-
-
-
-
----
-
-
-
-## System Actions
-
-
-Examples:
-
-
-
-Repository indexed
-
-Embedding generated
-
-Worker executed
-
-
-
-
----
-
-
-
-## MCP Actions
-
-
-Examples:
-
-
-
-AI client requested search
-
-Tool executed
-
-Context returned
-
-
-
-
-# 5. Audit Log Table
-
-
-
-Table:
-
-
-
-audit_logs
-
-
-
-
-Purpose:
-
-
-Stores all system activities.
-
-
-
-Schema:
-
-
-
-```sql
-audit_logs
-
-
-id
-
-organization_id
-
-user_id
-
-actor_type
-
-action
-
-entity_type
-
-entity_id
-
-description
-
-metadata
-
-created_at
-
-
-Example:
-
-{
- "action":
- "KNOWLEDGE_APPROVED",
-
- "entity":
- "business_rule",
-
- "entityId":
- "123"
-}
-
-6. Actor Types
-
-Supported:
-
-USER
-
-AI_AGENT
-
-SYSTEM
-
-WORKER
-
-MCP_CLIENT
-
-
-Example:
-
-Actor:
-
-AI_AGENT
-
-
-Action:
-
-Generated Documentation
-
-7. Audit Action Types
-Repository Actions
-REPOSITORY_CREATED
-
-REPOSITORY_INDEXED
-
-REPOSITORY_DELETED
-
-Knowledge Actions
-KNOWLEDGE_CREATED
-
-KNOWLEDGE_UPDATED
-
-KNOWLEDGE_APPROVED
-
-KNOWLEDGE_REJECTED
-
-AI Actions
-AI_QUERY_EXECUTED
-
-AI_RESPONSE_GENERATED
-
-AI_MEMORY_CREATED
-
-Documentation Actions
-DOCUMENT_CREATED
-
-DOCUMENT_UPDATED
-
-DOCUMENT_APPROVED
-
-8. Knowledge Audit
-
-Important for AI trust.
-
-Table:
-
-knowledge_audit
-
-
-Purpose:
-
-Tracks knowledge lifecycle.
-
-Schema:
-
-knowledge_audit
-
-
-id
-
-knowledge_id
-
-previous_value
-
-new_value
-
-changed_by
-
-change_reason
-
-created_at
-
-
-Example:
-
-Before:
-
-Refund creates customer credit.
-
-
-After:
-
-Refund creates account adjustment.
-
-
-Reason:
-
-Developer correction
-
-9. AI Decision Tracking
-
-Table:
-
-ai_decisions
-
-
-Purpose:
-
-Stores AI reasoning context.
-
-Schema:
-
-ai_decisions
-
-
-id
-
-request_id
-
-decision_type
-
-input_context
-
-output
-
-confidence
-
-created_at
-
-
-Example:
-
-Decision:
-
-Identify Payment Module
-
-
-Confidence:
-
-0.92
-
-
-Evidence:
-
-PaymentService.ts
-
-10. Evidence Tracking
-
-Every AI answer should have evidence.
-
-Table:
-
-audit_evidence
-
-
-Schema:
-
-audit_evidence
-
-
-id
-
-audit_id
-
-source_type
-
-source_id
-
-relevance_score
-
-created_at
-
-
-Example:
-
-AI Answer:
-
-Invoice generated after payment.
-
-
-Evidence:
-
-PaymentService.createInvoice()
-
-InvoiceService.generate()
-
-11. MCP Audit
-
-Table:
-
-mcp_audit_logs
-
-
-Purpose:
-
-Tracks external AI access.
-
-Schema:
-
-mcp_audit_logs
-
-
-id
-
-client_id
-
-user_id
-
-tool_name
-
-repository_id
-
-request
-
-response
-
-tokens_used
-
-created_at
-
-
-Example:
-
-Client:
-
-Cursor
-
-
-Tool:
-
-explain_module
-
-
-Module:
-
-Payment
-
-12. Security Audit
-
-Tracks security-sensitive actions.
-
-Examples:
-
-Permission granted
-
-Repository accessed
-
-API key created
-
-User removed
-
-
-Table:
-
-security_audit_logs
-
-
-Schema:
-
-security_audit_logs
-
-
-id
-
-actor_id
-
-action
-
-resource
-
-ip_address
-
-created_at
-
-13. Change History
-
-For important entities:
-
-Maintain history.
-
-Example:
-
-Business Rule:
-
-Version 1:
-
-Discount applies to all users.
-
-
-Version 2:
-
-Discount applies only premium users.
-
-
-Table:
-
-entity_history
-
-
-Schema:
-
-entity_history
-
-
-id
-
-entity_type
-
-entity_id
-
-version
-
-data
-
-created_at
-
-14. Audit Query Examples
-Why does AI say this?
-
-Query:
-
-Find evidence for response ID 123
-
-
-Returns:
-
-Files:
-
-payment.service.ts
-
-
-Rules:
-
-Payment validation rule
-
-
-Knowledge:
-
-Payment workflow
-
-Who changed this rule?
-
-Query:
-
-Business Rule History
-
-
-Returns:
-
-Changed By:
-
-Pradeep
-
-
-Reason:
-
-Corrected AI assumption
-
-
-Date:
-
-2026-07-29
-
-15. Audit Retention
-
-Different data has different retention.
-
-Short term:
-
-AI Conversations
-
-Temporary Logs
-
-
-Long term:
-
-Business Rules
-
-Architecture Decisions
-
-Security Events
-
-16. Audit Event Flow
-
-Example:
-
-Developer approves AI knowledge:
-
-Developer
-
-
-   |
-
-   v
-
-
-Knowledge Approved
-
-
-   |
-
-   v
-
-
-Audit Event Created
-
-
-   |
-
-   v
-
-
-Audit Database
-
-17. TypeORM Example
-@Entity()
-export class AuditLog {
-
-
-@PrimaryGeneratedColumn("uuid")
-id:string;
-
-
-@Column()
-actorType:string;
-
-
-@Column()
-action:string;
-
-
-@Column("json")
-metadata:any;
-
-
-@CreateDateColumn()
-createdAt:Date;
-
-
-}
-
-18. Index Strategy
-
-audit_logs:
-
-organization_id
-
-user_id
-
-action
-
-entity_type
-
-created_at
-
-
-mcp_audit_logs:
-
-client_id
-
-tool_name
-
-created_at
-
-19. Monitoring Metrics
-
-Track:
-
-AI Decisions Count
-
-Knowledge Approval Rate
-
-Rejected Suggestions
-
-MCP Usage
-
-Security Events
-
-
-Metrics:
-
-ai_accuracy_score
-
-knowledge_confidence
-
-audit_events_per_day
-
-20. Future Enhancements
-AI Explainability Dashboard
-
-Show:
-
-Question
-
-      |
-
-Search Results
-
-      |
-
-Evidence
-
-      |
-
-AI Answer
-
-Compliance Mode
-
-For enterprise:
-
-Full audit history
-
-Immutable logs
-
-Export reports
-
-AI Trust Score
-
-Calculate:
-
-Evidence Quality
-
-+
-
-Developer Feedback
-
-+
-
-Historical Accuracy
-
-Summary
-
-The Audit System makes CodeMind trustworthy.
-
-It answers:
-
-"Can we trust this AI explanation?"
-
-Because every answer can be traced back to:
-
-Source code
-Business rules
-Knowledge
-Developer approval
-AI decisions
-
-Core principle:
-
-"AI should be explainable, not just intelligent."
+## Purpose
+
+The authentication audit foundation records security-sensitive identity and
+access events in PostgreSQL. It supports incident investigation, organization
+administration, and future monitoring without retaining reusable credentials.
+
+This table covers authentication and organization-user lifecycle events. A
+future product-wide audit module may extend the model for repository,
+knowledge, AI, worker, and MCP activity.
+
+## Data flow
+
+```text
+Authentication or user-management operation
+    |
+    v
+Application service
+    |
+    v
+AuthAuditService
+    |
+    v
+AuthAuditRepository
+    |
+    v
+auth_audit_events
+```
+
+Successful registration, invitation, status, and role mutations write their
+audit event through the same TypeORM transaction as the business change.
+Login, refresh, replay detection, and logout use best-effort audit writes so an
+observability outage does not block credential verification or revocation.
+
+## Table: `auth_audit_events`
+
+| Column | Type | Nullable | Purpose |
+|---|---|---:|---|
+| `id` | `uuid` | No | Event identifier |
+| `organization_id` | `uuid` | Yes | Tenant associated with the event |
+| `actor_user_id` | `uuid` | Yes | User that performed the operation |
+| `subject_user_id` | `uuid` | Yes | User affected by the operation |
+| `session_id` | `uuid` | Yes | Session associated with the event |
+| `event_type` | `varchar(80)` | No | Stable machine-readable event name |
+| `outcome` | `varchar(20)` | No | `success` or `failure` |
+| `ip_address` | `varchar(45)` | Yes | Bounded request IP |
+| `user_agent` | `varchar(512)` | Yes | Bounded client user agent |
+| `metadata` | `jsonb` | Yes | Event-specific non-secret context |
+| `created_at` | `timestamptz` | No | Database creation time |
+
+Organization, actor, subject, and session foreign keys use `ON DELETE SET
+NULL`. This preserves an event when a referenced identity is later removed.
+
+## Event types
+
+```text
+registration.succeeded
+registration.failed
+login.succeeded
+login.failed
+refresh.succeeded
+refresh.failed
+refresh.reuse_detected
+logout
+logout.all
+session.revoked
+invitation.created
+invitation.accepted
+user.status_changed
+user.roles_changed
+```
+
+## Metadata rules
+
+Audit metadata may include status transitions, role names, revoked-session
+counts, and a stable failure reason. It must never include:
+
+- Plaintext passwords or password hashes
+- Raw access or refresh tokens
+- Raw invitation tokens
+- JWT signing secrets
+- Database credentials
+
+For an unknown registration or login identity, CodeMind stores only a
+normalized SHA-256 identifier. This allows repeated-failure correlation
+without retaining the submitted email or organization slug in audit metadata.
+
+## Indexes
+
+| Index | Purpose |
+|---|---|
+| `(organization_id, created_at)` | Tenant-scoped event timeline |
+| `(actor_user_id)` | Actor investigation |
+| `(subject_user_id)` | Affected-user investigation |
+| `(event_type, created_at)` | Event-category monitoring |
+
+## Organization API
+
+`GET /api/v1/auth/audit-events` requires `audit.read`. The organization ID is
+always taken from the authenticated identity.
+
+Supported query parameters:
+
+- `page`, default `1`
+- `limit`, default `20`, maximum `100`
+- `eventType`, one of the defined event names
+- `outcome`, `success` or `failure`
+
+The default `OWNER` and `ADMIN` roles include `audit.read`. `DEVELOPER` and
+`VIEWER` do not.
+
+## Relevant implementation
+
+```text
+src/modules/auth/audit/
+src/database/migrations/1785425000000-AddAuthAuditEvents.ts
+src/database/seeds/permissions.seed.ts
+src/database/seeds/roles.seed.ts
+```

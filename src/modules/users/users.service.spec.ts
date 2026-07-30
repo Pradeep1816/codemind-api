@@ -8,6 +8,11 @@ import { RoleEntity } from '../../database/entities/role.entity';
 import { UserRoleEntity } from '../../database/entities/user-role.entity';
 import { UserEntity, UserStatus } from '../../database/entities/user.entity';
 import { DefaultRoleName } from '../../database/seeds/roles.seed';
+import { AuthAuditService } from '../auth/audit/auth-audit.service';
+import {
+  AuthAuditEventType,
+  AuthAuditOutcome,
+} from '../auth/audit/entities/auth-audit-event.entity';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { AuthSessionsService } from '../auth/sessions/auth-sessions.service';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
@@ -19,6 +24,18 @@ import { UsersService } from './users.service';
 
 describe('UsersService', () => {
   const manager = {} as EntityManager;
+  const requestMetadata = {
+    ipAddress: '127.0.0.1',
+    userAgent: 'Jest',
+  };
+  const recordAuditEvent = jest.fn().mockResolvedValue(undefined);
+  const authAuditService = {
+    record: recordAuditEvent,
+  } as unknown as AuthAuditService;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
 
   it('normalizes user data and delegates persistence', async () => {
     const user = {
@@ -215,6 +232,8 @@ describe('UsersService', () => {
         organizationsService,
         { transaction } as unknown as DataSource,
         { ttlHours: 72 },
+        {} as AuthSessionsService,
+        authAuditService,
       );
 
       const result = await service.inviteOrganizationUser(
@@ -225,6 +244,7 @@ describe('UsersService', () => {
           email: ' Developer@Example.com ',
           roleIds: [role.id],
         },
+        requestMetadata,
       );
 
       expect(createUser).toHaveBeenCalledTimes(1);
@@ -245,6 +265,20 @@ describe('UsersService', () => {
       expect(replaceUserRoles).toHaveBeenCalledWith(
         invitedUser.id,
         [role.id],
+        manager,
+      );
+      expect(recordAuditEvent).toHaveBeenCalledWith(
+        {
+          organizationId: 'organization-id',
+          actorUserId: 'owner-user-id',
+          subjectUserId: invitedUser.id,
+          eventType: AuthAuditEventType.InvitationCreated,
+          outcome: AuthAuditOutcome.Success,
+          request: requestMetadata,
+          metadata: {
+            roles: [DefaultRoleName.Developer],
+          },
+        },
         manager,
       );
       expect(result.user).toMatchObject({
@@ -293,11 +327,14 @@ describe('UsersService', () => {
       {} as OrganizationsService,
       { transaction } as unknown as DataSource,
       { ttlHours: 72 },
+      {} as AuthSessionsService,
+      authAuditService,
     );
 
     const result = await service.acceptInvitation(
       'one-time-invitation-token',
       'stored-password-hash',
+      requestMetadata,
     );
 
     expect(save).toHaveBeenCalledTimes(1);
@@ -315,6 +352,16 @@ describe('UsersService', () => {
     expect(savedUser.invitationAcceptedAt).toBeInstanceOf(Date);
     expect(saveManager).toBe(manager);
     expect(result.status).toBe(UserStatus.Active);
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      {
+        organizationId: user.organizationId,
+        subjectUserId: user.id,
+        eventType: AuthAuditEventType.InvitationAccepted,
+        outcome: AuthAuditOutcome.Success,
+        request: requestMetadata,
+      },
+      manager,
+    );
   });
 
   it('rejects an unavailable invitation before password hashing begins', async () => {
@@ -371,12 +418,20 @@ describe('UsersService', () => {
       organizationsService,
       { transaction } as unknown as DataSource,
       { ttlHours: 72 },
+      {} as AuthSessionsService,
+      authAuditService,
     );
 
     await expect(
-      service.updateOrganizationUserStatus('organization-id', user.id, {
-        status: UserStatus.Suspended,
-      }),
+      service.updateOrganizationUserStatus(
+        'organization-id',
+        'actor-user-id',
+        user.id,
+        {
+          status: UserStatus.Suspended,
+        },
+        requestMetadata,
+      ),
     ).rejects.toThrow(ConflictException);
     expect(save).not.toHaveBeenCalled();
   });
@@ -419,12 +474,15 @@ describe('UsersService', () => {
       { transaction } as unknown as DataSource,
       { ttlHours: 72 },
       { revokeAllForUser } as unknown as AuthSessionsService,
+      authAuditService,
     );
 
     const result = await service.updateOrganizationUserStatus(
       'organization-id',
+      'owner-user-id',
       user.id,
       { status: UserStatus.Suspended },
+      requestMetadata,
     );
 
     expect(save).toHaveBeenCalledWith(user, manager);
@@ -434,6 +492,21 @@ describe('UsersService', () => {
       manager,
     );
     expect(result.status).toBe(UserStatus.Suspended);
+    expect(recordAuditEvent).toHaveBeenCalledWith(
+      {
+        organizationId: 'organization-id',
+        actorUserId: 'owner-user-id',
+        subjectUserId: user.id,
+        eventType: AuthAuditEventType.UserStatusChanged,
+        outcome: AuthAuditOutcome.Success,
+        request: requestMetadata,
+        metadata: {
+          previousStatus: UserStatus.Active,
+          newStatus: UserStatus.Suspended,
+        },
+      },
+      manager,
+    );
   });
 
   it('rejects role assignments from another organization', async () => {
@@ -463,12 +536,20 @@ describe('UsersService', () => {
       organizationsService,
       { transaction } as unknown as DataSource,
       { ttlHours: 72 },
+      {} as AuthSessionsService,
+      authAuditService,
     );
 
     await expect(
-      service.replaceOrganizationUserRoles('organization-id', user.id, {
-        roleIds: ['outside-role-id'],
-      }),
+      service.replaceOrganizationUserRoles(
+        'organization-id',
+        'actor-user-id',
+        user.id,
+        {
+          roleIds: ['outside-role-id'],
+        },
+        requestMetadata,
+      ),
     ).rejects.toThrow(BadRequestException);
     expect(replaceUserRoles).not.toHaveBeenCalled();
   });

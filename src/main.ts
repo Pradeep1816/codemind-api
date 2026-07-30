@@ -19,9 +19,14 @@ async function bootstrap(): Promise<void> {
   const corsCredentials = configService.getOrThrow<boolean>(
     'app.corsCredentials',
   );
+  const trustProxy = configService.getOrThrow<string>('app.trustProxy');
 
   app.use(helmet());
   app.disable('x-powered-by');
+
+  if (trustProxy !== 'false') {
+    app.set('trust proxy', trustProxy);
+  }
   app.useLogger(
     environment === 'production'
       ? ['log', 'warn', 'error']
