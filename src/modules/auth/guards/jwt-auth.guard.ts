@@ -11,11 +11,11 @@ import { IS_PUBLIC_KEY } from '../../../common/decorators/public.decorator';
 import { AuthService } from '../auth.service';
 import {
   AccessTokenPayload,
-  AuthenticatedUser,
+  AuthenticatedRequestUser,
 } from '../interfaces/authenticated-user.interface';
 
 interface AuthenticatedRequest extends Request {
-  user?: AuthenticatedUser;
+  user?: AuthenticatedRequestUser;
 }
 
 @Injectable()
@@ -54,7 +54,8 @@ export class JwtAuthGuard implements CanActivate {
     if (
       payload.type !== 'access' ||
       typeof payload.sub !== 'string' ||
-      typeof payload.organizationId !== 'string'
+      typeof payload.organizationId !== 'string' ||
+      typeof payload.sessionId !== 'string'
     ) {
       throw new UnauthorizedException('Invalid access token payload');
     }

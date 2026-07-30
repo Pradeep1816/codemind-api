@@ -45,6 +45,9 @@ Implemented:
 - Transactional organization and first-owner registration
 - Argon2id password hashing
 - JWT login and bearer-token authentication
+- Rotating refresh tokens and database-backed session management
+- Current-session, remote-session, and all-session logout
+- Refresh-token reuse detection and session-family revocation
 - Authenticated current-user endpoint
 - Organization-scoped permission authorization guard
 - Tenant-scoped organization user list and detail APIs
@@ -60,8 +63,8 @@ Implemented:
 
 Not implemented yet:
 
-- Refresh tokens, logout, and session management
 - Invitation email delivery and invitation resend/revoke APIs
+- Password reset, verified email, MFA, and authentication rate limiting
 - Organization settings APIs
 - Repository connection and Git integration
 - Indexing, parsing, and static analysis
@@ -79,7 +82,7 @@ Not implemented yet:
 | ORM              | TypeORM                               |
 | Validation       | class-validator and class-transformer |
 | Password hashing | Argon2id                              |
-| Authentication   | JWT bearer tokens                     |
+| Authentication   | Session-backed JWT access/refresh tokens |
 | Authorization    | Organization-scoped RBAC permissions  |
 | Security headers | Helmet                                |
 | Testing          | Jest                                  |
@@ -110,8 +113,9 @@ PostgreSQL client.
 cp .env.example .env
 ```
 
-Update `.env` with your local PostgreSQL credentials and replace
-`JWT_SECRET` with a secure value containing at least 32 characters.
+Update `.env` with your local PostgreSQL credentials and replace `JWT_SECRET`
+and `JWT_REFRESH_SECRET` with different secure values containing at least 32
+characters.
 
 Minimum database configuration:
 
@@ -242,8 +246,10 @@ A successful request returns HTTP `200`:
 ```json
 {
   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "tokenType": "Bearer",
   "expiresIn": "15m",
+  "refreshExpiresIn": "30d",
   "user": {
     "id": "c3d244c3-a37b-46cc-8832-64665fc9ef27",
     "email": "pradeep@example.com",
@@ -265,12 +271,18 @@ curl http://localhost:3000/api/v1/auth/me \
   -H 'Authorization: Bearer <access-token>'
 ```
 
+Access tokens identify a database-backed session and expire after 15 minutes.
+Refresh tokens expire after 30 days and must be used only with the refresh
+endpoint. Never send a refresh token as the bearer credential for normal API
+requests.
+
 Authentication is secure by default. Only `GET /health`,
 `POST /api/v1/auth/register`, `POST /api/v1/auth/login`, and
-`POST /api/v1/auth/invitations/accept` are public. The guard verifies the
-HS256 token and reloads the user, organization, and roles from PostgreSQL.
-Invited, suspended, or inactive users and organizations are rejected
-immediately.
+`POST /api/v1/auth/invitations/accept`, and `POST /api/v1/auth/refresh` are
+public. The guard verifies the HS256 access token, verifies its active session,
+and reloads the user, organization, and roles from PostgreSQL. Revoked
+sessions and invited, suspended, or inactive users and organizations are
+rejected immediately.
 
 Permission-protected endpoints declare every permission they require:
 
@@ -295,6 +307,76 @@ curl http://localhost:3000/api/v1/auth/me/permissions \
 This endpoint requires `organization.read`. Every seeded default role includes
 that permission. A successful request returns the complete permission-name
 list resolved from the user's organization roles.
+
+## Refresh Tokens and Sessions
+
+Exchange the current refresh token for a new access/refresh pair:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/auth/refresh \
+  -H 'Content-Type: application/json' \
+  -d '{"refreshToken":"<current-refresh-token>"}'
+```
+
+Every successful refresh rotates the refresh token and increments its
+database-backed version. Replace the stored token with the newly returned
+refresh token immediately. Reusing an older signed refresh token revokes that
+session family and returns HTTP `401`.
+
+The API stores only SHA-256 refresh-token hashes. Access and refresh tokens use
+separately configurable signing secrets. `JWT_REFRESH_SECRET` falls back to
+`JWT_SECRET` for local backward compatibility, but production must configure a
+different refresh secret.
+
+List the current user's active sessions:
+
+```bash
+curl http://localhost:3000/api/v1/auth/sessions \
+  -H 'Authorization: Bearer <access-token>'
+```
+
+The response identifies the current session and includes bounded login
+metadata:
+
+```json
+[
+  {
+    "id": "71b26c76-6520-45a0-8a27-bd8f8fe40c3b",
+    "current": true,
+    "ipAddress": "127.0.0.1",
+    "userAgent": "curl/8.7.1",
+    "createdAt": "2026-07-30T15:00:00.000Z",
+    "lastUsedAt": null,
+    "expiresAt": "2026-08-29T15:00:00.000Z"
+  }
+]
+```
+
+Logout the current session:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/auth/logout \
+  -H 'Authorization: Bearer <access-token>'
+```
+
+Logout every session for the current user:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/auth/logout-all \
+  -H 'Authorization: Bearer <access-token>'
+```
+
+Revoke another session owned by the current user:
+
+```bash
+curl -X DELETE http://localhost:3000/api/v1/auth/sessions/<session-id> \
+  -H 'Authorization: Bearer <access-token>'
+```
+
+Logout and remote revocation immediately invalidate access tokens because the
+global authentication guard checks session state on every protected request.
+Suspending or deactivating a user revokes all their active sessions in the same
+database transaction as the status change.
 
 ## Organization Users
 
@@ -442,13 +524,17 @@ the last active `OWNER`.
 
 ## Identity and Access Schema
 
-The first migration creates six application entities:
+The identity migrations create the six RBAC entities plus database-backed
+authentication sessions:
 
 ```text
 Organization
    |       |
    v       v
  User    Role
+   |
+   v
+AuthSession
    |       |
    +-> UserRole
            |
@@ -467,6 +553,7 @@ Organization
 | `Permission`     | Global resource/action capability                   |
 | `UserRole`       | Explicit user-to-role assignment                    |
 | `RolePermission` | Explicit role-to-permission assignment              |
+| `AuthSession`    | Rotating refresh-token and login-session state        |
 
 Database changes must use migrations. TypeORM schema synchronization is
 disabled.

@@ -9,6 +9,7 @@ import { UserRoleEntity } from '../../database/entities/user-role.entity';
 import { UserEntity, UserStatus } from '../../database/entities/user.entity';
 import { DefaultRoleName } from '../../database/seeds/roles.seed';
 import { OrganizationsService } from '../organizations/organizations.service';
+import { AuthSessionsService } from '../auth/sessions/auth-sessions.service';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import {
   CreateUserRecord,
@@ -378,6 +379,61 @@ describe('UsersService', () => {
       }),
     ).rejects.toThrow(ConflictException);
     expect(save).not.toHaveBeenCalled();
+  });
+
+  it('revokes active sessions when a user is suspended', async () => {
+    const user = {
+      id: 'developer-user-id',
+      organizationId: 'organization-id',
+      email: 'developer@example.com',
+      name: 'Developer',
+      status: UserStatus.Active,
+      lastLoginAt: null,
+      createdAt: new Date('2026-07-30T10:00:00.000Z'),
+      userRoles: [
+        {
+          role: { name: DefaultRoleName.Developer } as RoleEntity,
+        } as UserRoleEntity,
+      ],
+    } as UserEntity;
+    const save = jest.fn().mockResolvedValue(user);
+    const userRepository = {
+      findByIdAndOrganizationForUpdate: jest.fn().mockResolvedValue(user),
+      findByIdAndOrganization: jest.fn().mockResolvedValue(user),
+      save,
+    } as unknown as UserRepository;
+    const organizationsService = {
+      lockOrganization: jest.fn().mockResolvedValue(true),
+    } as unknown as OrganizationsService;
+    const revokeAllForUser = jest.fn().mockResolvedValue(2);
+    const transaction = jest
+      .fn()
+      .mockImplementation(
+        async (
+          operation: (transactionManager: EntityManager) => Promise<unknown>,
+        ) => operation(manager),
+      );
+    const service = new UsersService(
+      userRepository,
+      organizationsService,
+      { transaction } as unknown as DataSource,
+      { ttlHours: 72 },
+      { revokeAllForUser } as unknown as AuthSessionsService,
+    );
+
+    const result = await service.updateOrganizationUserStatus(
+      'organization-id',
+      user.id,
+      { status: UserStatus.Suspended },
+    );
+
+    expect(save).toHaveBeenCalledWith(user, manager);
+    expect(revokeAllForUser).toHaveBeenCalledWith(
+      user.id,
+      'user_status_suspended',
+      manager,
+    );
+    expect(result.status).toBe(UserStatus.Suspended);
   });
 
   it('rejects role assignments from another organization', async () => {

@@ -92,10 +92,12 @@ through migrations.
 
 ### JWT
 
-| Variable         | Required | Default | Description                                  |
-| ---------------- | -------: | ------- | -------------------------------------------- |
-| `JWT_SECRET`     |      Yes | —       | Signing secret with at least 32 characters   |
-| `JWT_EXPIRES_IN` |       No | `15m`   | Access-token lifetime, such as `15m` or `1h` |
+| Variable                 | Required | Default        | Description                                      |
+| ------------------------ | -------: | -------------- | ------------------------------------------------ |
+| `JWT_SECRET`             |      Yes | —              | Access-token secret with at least 32 characters  |
+| `JWT_EXPIRES_IN`         |       No | `15m`          | Access-token lifetime                            |
+| `JWT_REFRESH_SECRET`     |       No | `JWT_SECRET`   | Refresh-token secret with at least 32 characters |
+| `JWT_REFRESH_EXPIRES_IN` |       No | `30d`          | Rotating refresh-token/session lifetime          |
 
 The `jwt` namespace exposes:
 
@@ -103,11 +105,14 @@ The `jwt` namespace exposes:
 {
   secret: string | undefined;
   expiresIn: string;
+  refreshSecret: string | undefined;
+  refreshExpiresIn: string;
 }
 ```
 
-Use a secret manager or deployment platform secret in production. Never place
-a real JWT secret in source control.
+Use a secret manager or deployment platform secret in production. Configure
+different access and refresh secrets in production, and never place either
+secret in source control.
 
 ### Invitations
 
@@ -204,6 +209,8 @@ Startup fails when:
 - `DATABASE_SSL` is not `true` or `false`.
 - `JWT_SECRET` contains fewer than 32 characters.
 - `JWT_EXPIRES_IN` is not a positive duration with a unit.
+- `JWT_REFRESH_SECRET`, when provided, contains fewer than 32 characters.
+- `JWT_REFRESH_EXPIRES_IN` is not a positive duration with a unit.
 - `INVITATION_TTL_HOURS` is outside the allowed 1–720 hour range.
 
 This prevents the application from running with incomplete or unsafe

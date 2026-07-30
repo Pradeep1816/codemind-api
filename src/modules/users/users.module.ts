@@ -4,6 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import invitationConfig from '../../config/invitation.config';
 import { UserEntity } from '../../database/entities/user.entity';
 import { OrganizationsModule } from '../organizations/organizations.module';
+import { AuthSessionsModule } from '../auth/sessions/auth-sessions.module';
 import { UserRepository } from './repositories/user.repository';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
@@ -13,6 +14,7 @@ import { UsersService } from './users.service';
     ConfigModule.forFeature(invitationConfig),
     TypeOrmModule.forFeature([UserEntity]),
     OrganizationsModule,
+    AuthSessionsModule,
   ],
   controllers: [UsersController],
   providers: [UsersService, UserRepository],

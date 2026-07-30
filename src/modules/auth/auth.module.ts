@@ -10,6 +10,7 @@ import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { PermissionsGuard } from './guards/permissions.guard';
 import { PasswordService } from './password.service';
+import { AuthSessionsModule } from './sessions/auth-sessions.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { PasswordService } from './password.service';
       }),
     }),
     OrganizationsModule,
+    AuthSessionsModule,
     UsersModule,
   ],
   controllers: [AuthController],

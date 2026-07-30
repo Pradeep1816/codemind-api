@@ -14,11 +14,19 @@ import { UsersService } from '../users/users.service';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { PasswordService } from './password.service';
+import {
+  AuthSessionRotationResult,
+  AuthSessionsService,
+  CreateAuthSessionInput,
+  RotateAuthSessionInput,
+} from './sessions/auth-sessions.service';
 
 describe('AuthService', () => {
   const jwtConfiguration = {
     secret: 'a-secure-test-secret-that-is-long-enough',
     expiresIn: '15m',
+    refreshSecret: 'a-different-refresh-secret-that-is-long-enough',
+    refreshExpiresIn: '30d',
   };
   const input: RegisterDto = {
     organizationName: ' CodeMind Labs ',
@@ -86,6 +94,7 @@ describe('AuthService', () => {
       passwordService,
       jwtService,
       jwtConfiguration,
+      {} as AuthSessionsService,
     );
 
     const result = await service.register(input);
@@ -162,6 +171,7 @@ describe('AuthService', () => {
       passwordService,
       jwtService,
       jwtConfiguration,
+      {} as AuthSessionsService,
     );
 
     await expect(service.register(input)).rejects.toBe(conflict);
@@ -197,10 +207,14 @@ describe('AuthService', () => {
     const passwordService = {
       verify: verifyPassword,
     } as unknown as PasswordService;
-    const signToken = jest.fn().mockResolvedValue('signed-access-token');
+    const signToken = jest
+      .fn()
+      .mockResolvedValueOnce('signed-access-token')
+      .mockResolvedValueOnce('signed-refresh-token');
     const jwtService = {
       signAsync: signToken,
     } as unknown as JwtService;
+    const createSession = jest.fn().mockResolvedValue(undefined);
     const service = new AuthService(
       {} as DataSource,
       {} as OrganizationsService,
@@ -208,28 +222,68 @@ describe('AuthService', () => {
       passwordService,
       jwtService,
       jwtConfiguration,
+      { create: createSession } as unknown as AuthSessionsService,
     );
 
-    const result = await service.login({
-      email: 'Pradeep@Example.com',
-      password: 'a-secure-password',
-    });
+    const result = await service.login(
+      {
+        email: 'Pradeep@Example.com',
+        password: 'a-secure-password',
+      },
+      {
+        ipAddress: '127.0.0.1',
+        userAgent: 'Jest',
+      },
+    );
 
     expect(findForAuthentication).toHaveBeenCalledWith('Pradeep@Example.com');
     expect(verifyPassword).toHaveBeenCalledWith(
       'stored-password-hash',
       'a-secure-password',
     );
-    expect(signToken).toHaveBeenCalledWith({
-      sub: user.id,
+    expect(signToken).toHaveBeenCalledTimes(2);
+    expect(signToken).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        sub: user.id,
+        organizationId: user.organizationId,
+        type: 'access',
+      }),
+    );
+    expect(signToken).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        sub: user.id,
+        organizationId: user.organizationId,
+        version: 1,
+        type: 'refresh',
+      }),
+      {
+        secret: jwtConfiguration.refreshSecret,
+        algorithm: 'HS256',
+        expiresIn: jwtConfiguration.refreshExpiresIn,
+      },
+    );
+    expect(createSession).toHaveBeenCalledTimes(1);
+    const [createdSession] = createSession.mock.calls[0] as unknown as [
+      CreateAuthSessionInput,
+    ];
+
+    expect(createdSession).toMatchObject({
+      userId: user.id,
       organizationId: user.organizationId,
-      type: 'access',
+      tokenVersion: 1,
+      ipAddress: '127.0.0.1',
+      userAgent: 'Jest',
     });
+    expect(createdSession.refreshTokenHash).toMatch(/^[a-f0-9]{64}$/);
     expect(recordSuccessfulLogin).toHaveBeenCalledWith(user.id);
     expect(result).toEqual({
       accessToken: 'signed-access-token',
+      refreshToken: 'signed-refresh-token',
       tokenType: 'Bearer',
       expiresIn: '15m',
+      refreshExpiresIn: '30d',
       user: {
         id: user.id,
         email: user.email,
@@ -267,6 +321,7 @@ describe('AuthService', () => {
       passwordService,
       jwtService,
       jwtConfiguration,
+      {} as AuthSessionsService,
     );
 
     await expect(
@@ -296,12 +351,16 @@ describe('AuthService', () => {
       {} as PasswordService,
       {} as JwtService,
       jwtConfiguration,
+      {
+        isActive: jest.fn().mockResolvedValue(true),
+      } as unknown as AuthSessionsService,
     );
 
     await expect(
       service.resolveAuthenticatedUser({
         sub: user.id,
         organizationId: user.organizationId,
+        sessionId: 'session-id',
         type: 'access',
       }),
     ).rejects.toThrow(UnauthorizedException);
@@ -333,6 +392,7 @@ describe('AuthService', () => {
       { hash } as unknown as PasswordService,
       {} as JwtService,
       jwtConfiguration,
+      {} as AuthSessionsService,
     );
 
     await expect(
@@ -369,6 +429,7 @@ describe('AuthService', () => {
       { verify } as unknown as PasswordService,
       {} as JwtService,
       jwtConfiguration,
+      {} as AuthSessionsService,
     );
 
     await expect(
@@ -378,5 +439,69 @@ describe('AuthService', () => {
       }),
     ).rejects.toThrow(UnauthorizedException);
     expect(verify).not.toHaveBeenCalled();
+  });
+
+  it('rotates a valid refresh token and returns a new token pair', async () => {
+    const payload = {
+      sub: 'user-id',
+      organizationId: 'organization-id',
+      sessionId: 'session-id',
+      version: 1,
+      type: 'refresh' as const,
+    };
+    const user = {
+      id: payload.sub,
+      organizationId: payload.organizationId,
+      status: UserStatus.Active,
+      organization: {
+        status: OrganizationStatus.Active,
+      },
+    } as UserEntity;
+    const verifyAsync = jest.fn().mockResolvedValue(payload);
+    const signAsync = jest
+      .fn()
+      .mockResolvedValueOnce('next-access-token')
+      .mockResolvedValueOnce('next-refresh-token');
+    const rotate = jest
+      .fn()
+      .mockResolvedValue(AuthSessionRotationResult.Rotated);
+    const service = new AuthService(
+      {} as DataSource,
+      {} as OrganizationsService,
+      {
+        findAuthenticatedIdentity: jest.fn().mockResolvedValue(user),
+      } as unknown as UsersService,
+      {} as PasswordService,
+      { verifyAsync, signAsync } as unknown as JwtService,
+      jwtConfiguration,
+      { rotate } as unknown as AuthSessionsService,
+    );
+
+    const result = await service.refresh('current-refresh-token');
+
+    expect(verifyAsync).toHaveBeenCalledWith('current-refresh-token', {
+      secret: jwtConfiguration.refreshSecret,
+      algorithms: ['HS256'],
+    });
+    expect(rotate).toHaveBeenCalledTimes(1);
+    const [rotation] = rotate.mock.calls[0] as unknown as [
+      RotateAuthSessionInput,
+    ];
+
+    expect(rotation).toMatchObject({
+      sessionId: payload.sessionId,
+      userId: payload.sub,
+      organizationId: payload.organizationId,
+      tokenVersion: 1,
+    });
+    expect(rotation.presentedTokenHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(rotation.nextTokenHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(result).toEqual({
+      accessToken: 'next-access-token',
+      refreshToken: 'next-refresh-token',
+      tokenType: 'Bearer',
+      expiresIn: '15m',
+      refreshExpiresIn: '30d',
+    });
   });
 });

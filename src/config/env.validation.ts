@@ -93,6 +93,15 @@ class EnvironmentVariables {
   @Matches(/^[1-9]\d*(?:ms|s|m|h|d|w|y)$/)
   JWT_EXPIRES_IN = '15m';
 
+  @IsOptional()
+  @IsString()
+  @MinLength(32)
+  JWT_REFRESH_SECRET?: string;
+
+  @IsString()
+  @Matches(/^[1-9]\d*(?:ms|s|m|h|d|w|y)$/)
+  JWT_REFRESH_EXPIRES_IN = '30d';
+
   @Type(() => Number)
   @IsInt()
   @Min(1)

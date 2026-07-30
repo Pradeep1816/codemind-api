@@ -247,6 +247,11 @@ imports. Prefer events for long-running pipeline transitions.
     inside a transaction.
 16. Role and user-status mutations must preserve at least one active
     organization `OWNER`.
+17. Refresh tokens must be rotated after use and persisted only as hashes.
+18. Access-token validation must also verify the backing session so logout and
+    administrative revocation take effect immediately.
+19. User suspension and deactivation must revoke active sessions in the same
+    transaction as the status change.
 
 ### 6.3 Public Module API
 

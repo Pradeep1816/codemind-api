@@ -45,6 +45,7 @@ describe('JwtAuthGuard', () => {
     const payload = {
       sub: 'user-id',
       organizationId: 'organization-id',
+      sessionId: 'session-id',
       type: 'access' as const,
     };
     const user: AuthenticatedUser = {

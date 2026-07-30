@@ -1,7 +1,16 @@
 export interface AccessTokenPayload {
   sub: string;
   organizationId: string;
+  sessionId: string;
   type: 'access';
+}
+
+export interface RefreshTokenPayload {
+  sub: string;
+  organizationId: string;
+  sessionId: string;
+  version: number;
+  type: 'refresh';
 }
 
 export interface AuthenticatedUser {
@@ -15,4 +24,8 @@ export interface AuthenticatedUser {
   };
   roles: string[];
   permissions?: string[];
+}
+
+export interface AuthenticatedRequestUser extends AuthenticatedUser {
+  sessionId: string;
 }

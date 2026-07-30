@@ -12,6 +12,7 @@ import invitationConfig from '../../config/invitation.config';
 import { UserEntity, UserStatus } from '../../database/entities/user.entity';
 import { DefaultRoleName } from '../../database/seeds/roles.seed';
 import { OrganizationsService } from '../organizations/organizations.service';
+import { AuthSessionsService } from '../auth/sessions/auth-sessions.service';
 import { AssignUserRolesDto } from './dto/assign-user-roles.dto';
 import { InviteUserDto } from './dto/invite-user.dto';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
@@ -45,6 +46,7 @@ export class UsersService {
     private readonly invitationConfiguration: ConfigType<
       typeof invitationConfig
     >,
+    private readonly authSessionsService: AuthSessionsService,
   ) {}
 
   normalizeEmail(email: string): string {
@@ -310,6 +312,14 @@ export class UsersService {
 
       lockedUser.status = input.status;
       await this.userRepository.save(lockedUser, manager);
+
+      if (input.status !== UserStatus.Active) {
+        await this.authSessionsService.revokeAllForUser(
+          userId,
+          `user_status_${input.status}`,
+          manager,
+        );
+      }
 
       return this.toResponse(
         await this.getRequiredOrganizationUser(userId, organizationId, manager),
