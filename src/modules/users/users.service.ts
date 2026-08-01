@@ -10,7 +10,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { DataSource, EntityManager, QueryFailedError } from 'typeorm';
 import { RequestMetadata } from '../../common/utils/request-metadata.util';
 import invitationConfig from '../../config/invitation.config';
-import { UserEntity, UserStatus } from '../../database/entities/user.entity';
+import { UserEntity, UserStatus } from './entities/user.entity';
 import { DefaultRoleName } from '../../database/seeds/roles.seed';
 import { AuthAuditService } from '../auth/audit/auth-audit.service';
 import {

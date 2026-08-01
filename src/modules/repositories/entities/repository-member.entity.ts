@@ -7,7 +7,7 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { UserEntity } from '../../../database/entities/user.entity';
+import { UserEntity } from '../../users/entities/user.entity';
 import { RepositoryEntity } from './repository.entity';
 
 @Entity({ name: 'repository_members' })

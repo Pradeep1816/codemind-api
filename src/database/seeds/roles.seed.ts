@@ -1,8 +1,8 @@
 import { EntityManager, In } from 'typeorm';
-import { OrganizationEntity } from '../entities/organization.entity';
-import { PermissionEntity } from '../entities/permission.entity';
-import { RolePermissionEntity } from '../entities/role-permission.entity';
-import { RoleEntity } from '../entities/role.entity';
+import { OrganizationEntity } from '../../modules/organizations/entities/organization.entity';
+import { PermissionEntity } from '../../modules/organizations/entities/permission.entity';
+import { RolePermissionEntity } from '../../modules/organizations/entities/role-permission.entity';
+import { RoleEntity } from '../../modules/organizations/entities/role.entity';
 import { PermissionName } from './permissions.seed';
 
 export enum DefaultRoleName {

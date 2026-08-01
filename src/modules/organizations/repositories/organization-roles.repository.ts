@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
-import { RoleEntity } from '../../../database/entities/role.entity';
-import { UserRoleEntity } from '../../../database/entities/user-role.entity';
-import { UserStatus } from '../../../database/entities/user.entity';
+import { UserStatus } from '../../users/entities/user.entity';
+import { RoleEntity } from '../entities/role.entity';
+import { UserRoleEntity } from '../entities/user-role.entity';
 import { seedPermissions } from '../../../database/seeds/permissions.seed';
 import { seedOrganizationRoles } from '../../../database/seeds/roles.seed';
 

@@ -1,6 +1,6 @@
 import { ConflictException } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
-import { OrganizationEntity } from '../../database/entities/organization.entity';
+import { OrganizationEntity } from './entities/organization.entity';
 import { OrganizationRolesRepository } from './repositories/organization-roles.repository';
 import { OrganizationRepository } from './repositories/organization.repository';
 import { OrganizationsService } from './organizations.service';

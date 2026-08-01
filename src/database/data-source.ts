@@ -32,10 +32,7 @@ const dataSource = new DataSource({
   database: getRequiredEnvironmentVariable('DATABASE_NAME'),
   ssl: process.env.DATABASE_SSL === 'true',
   synchronize: false,
-  entities: [
-    join(__dirname, 'entities', '**', '*.entity.{ts,js}'),
-    join(__dirname, '..', 'modules', '**', '*.entity.{ts,js}'),
-  ],
+  entities: [join(__dirname, '..', 'modules', '**', '*.entity.{ts,js}')],
   migrations: [join(__dirname, 'migrations', '*.{ts,js}')],
   migrationsTableName: 'migrations',
 });

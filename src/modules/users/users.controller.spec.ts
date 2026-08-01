@@ -1,5 +1,5 @@
 import type { Request } from 'express';
-import { UserStatus } from '../../database/entities/user.entity';
+import { UserStatus } from './entities/user.entity';
 import type { AuthenticatedUser } from '../auth/interfaces/authenticated-user.interface';
 import { ListUsersQueryDto } from './dto/list-users-query.dto';
 import { InviteUserDto } from './dto/invite-user.dto';

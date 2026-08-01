@@ -1,5 +1,5 @@
 import { IsIn } from 'class-validator';
-import { UserStatus } from '../../../database/entities/user.entity';
+import { UserStatus } from '../entities/user.entity';
 
 const MANAGEABLE_USER_STATUSES = [
   UserStatus.Active,

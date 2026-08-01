@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
-import { OrganizationEntity } from '../../../database/entities/organization.entity';
+import { OrganizationEntity } from '../entities/organization.entity';
 
 export interface CreateOrganizationRecord {
   name: string;

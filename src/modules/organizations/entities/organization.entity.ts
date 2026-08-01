@@ -7,8 +7,8 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { UserEntity } from '../../users/entities/user.entity';
 import { RoleEntity } from './role.entity';
-import { UserEntity } from './user.entity';
 
 export enum OrganizationPlan {
   Free = 'free',

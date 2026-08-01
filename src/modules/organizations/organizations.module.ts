@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { OrganizationEntity } from '../../database/entities/organization.entity';
-import { PermissionEntity } from '../../database/entities/permission.entity';
-import { RolePermissionEntity } from '../../database/entities/role-permission.entity';
-import { RoleEntity } from '../../database/entities/role.entity';
-import { UserRoleEntity } from '../../database/entities/user-role.entity';
+import { OrganizationEntity } from './entities/organization.entity';
+import { PermissionEntity } from './entities/permission.entity';
+import { RolePermissionEntity } from './entities/role-permission.entity';
+import { RoleEntity } from './entities/role.entity';
+import { UserRoleEntity } from './entities/user-role.entity';
 import { OrganizationRolesController } from './organization-roles.controller';
 import { OrganizationsService } from './organizations.service';
 import { OrganizationRolesRepository } from './repositories/organization-roles.repository';

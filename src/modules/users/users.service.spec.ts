@@ -4,9 +4,9 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
-import { RoleEntity } from '../../database/entities/role.entity';
-import { UserRoleEntity } from '../../database/entities/user-role.entity';
-import { UserEntity, UserStatus } from '../../database/entities/user.entity';
+import { RoleEntity } from '../organizations/entities/role.entity';
+import { UserRoleEntity } from '../organizations/entities/user-role.entity';
+import { UserEntity, UserStatus } from './entities/user.entity';
 import { DefaultRoleName } from '../../database/seeds/roles.seed';
 import { AuthAuditService } from '../auth/audit/auth-audit.service';
 import {

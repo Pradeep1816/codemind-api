@@ -731,13 +731,14 @@ src/
 ├── database/
 │   ├── data-source.ts
 │   ├── database.module.ts
-│   ├── entities/
 │   ├── migrations/
 │   └── seeds/
 └── modules/
     ├── auth/
     ├── users/
+    │   └── entities/
     ├── organizations/
+    │   └── entities/
     ├── repositories/
     ├── indexing/
     ├── parser/

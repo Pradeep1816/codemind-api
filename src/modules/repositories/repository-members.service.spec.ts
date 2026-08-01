@@ -1,5 +1,5 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { UserStatus } from '../../database/entities/user.entity';
+import { UserStatus } from '../users/entities/user.entity';
 import type { UserResponseDto } from '../users/dto/user-response.dto';
 import { UsersService } from '../users/users.service';
 import { RepositoryMemberEntity } from './entities/repository-member.entity';

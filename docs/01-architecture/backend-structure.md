@@ -121,11 +121,15 @@ it is required during application bootstrap.
 
 - Database connection setup.
 - Migration configuration.
+- Seed orchestration.
 - Transaction support.
 - Base persistence helpers.
 
 Feature entities, repository interfaces, and queries remain inside their
 owning feature modules.
+
+Database bootstrap tooling may import feature entity metadata when running
+seeds. It must not own those entities or contain feature business rules.
 
 ### 3.4 `modules/`
 
@@ -178,8 +182,8 @@ The current feature modules own the following capabilities:
 | Module | Ownership |
 |---|---|
 | `auth` | Authentication, tokens, sessions, rate limits, security audit, and authorization entry points |
-| `users` | User profiles and user lifecycle |
-| `organizations` | Tenancy, role definitions, and organization boundaries |
+| `users` | User entity, profiles, invitations, and user lifecycle |
+| `organizations` | Organization and RBAC entities, tenancy, role definitions, permissions, and assignments |
 | `repositories` | Repository registration, Git metadata, branches, and status |
 | `indexing` | File discovery, change detection, and indexing jobs |
 | `parser` | Language parsing, AST processing, and symbol extraction |
@@ -219,7 +223,8 @@ imports. Prefer events for long-running pipeline transitions.
 
 ### 6.2 Mandatory Rules
 
-1. `common/`, `config/`, and `database/` must never import feature modules.
+1. `common/` and `config/` must never import feature modules. Database bootstrap
+   tooling may import entity metadata only for migrations and seeds.
 2. A feature module may import another module only through its exported public
    providers.
 3. Controllers must not access database clients or repositories directly.
@@ -228,6 +233,10 @@ imports. Prefer events for long-running pipeline transitions.
    consume its event.
 6. Circular module dependencies are not allowed. `forwardRef()` is not an
    architectural solution and requires an explicit architecture review.
+
+TypeORM relationship metadata may reference an entity owned by another module.
+This exception does not permit cross-module business queries or direct access
+to another module's repository provider.
 7. Long-running indexing and analysis operations must use jobs or events
    instead of blocking HTTP requests.
 8. External SDKs must be wrapped by an adapter owned by the relevant module.

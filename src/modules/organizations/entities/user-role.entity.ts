@@ -8,7 +8,7 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { RoleEntity } from './role.entity';
-import { UserEntity } from './user.entity';
+import { UserEntity } from '../../users/entities/user.entity';
 
 @Entity({ name: 'user_roles' })
 @Index('uq_user_roles_user_role', ['userId', 'roleId'], { unique: true })

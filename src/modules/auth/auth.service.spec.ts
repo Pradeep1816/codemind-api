@@ -4,10 +4,10 @@ import { DataSource, EntityManager } from 'typeorm';
 import {
   OrganizationEntity,
   OrganizationStatus,
-} from '../../database/entities/organization.entity';
-import { RoleEntity } from '../../database/entities/role.entity';
-import { UserRoleEntity } from '../../database/entities/user-role.entity';
-import { UserEntity, UserStatus } from '../../database/entities/user.entity';
+} from '../organizations/entities/organization.entity';
+import { RoleEntity } from '../organizations/entities/role.entity';
+import { UserRoleEntity } from '../organizations/entities/user-role.entity';
+import { UserEntity, UserStatus } from '../users/entities/user.entity';
 import { DefaultRoleName } from '../../database/seeds/roles.seed';
 import { OrganizationsService } from '../organizations/organizations.service';
 import { UsersService } from '../users/users.service';

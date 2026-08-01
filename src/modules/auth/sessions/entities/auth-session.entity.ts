@@ -8,8 +8,8 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { OrganizationEntity } from '../../../../database/entities/organization.entity';
-import { UserEntity } from '../../../../database/entities/user.entity';
+import { OrganizationEntity } from '../../../organizations/entities/organization.entity';
+import { UserEntity } from '../../../users/entities/user.entity';
 
 @Entity({ name: 'auth_sessions' })
 @Index('idx_auth_sessions_user_id', ['userId'])

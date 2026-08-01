@@ -1,6 +1,6 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { UserStatus } from '../../../database/entities/user.entity';
+import { UserStatus } from '../entities/user.entity';
 import { ListUsersQueryDto } from './list-users-query.dto';
 
 describe('ListUsersQueryDto', () => {

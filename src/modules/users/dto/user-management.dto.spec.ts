@@ -1,6 +1,6 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
-import { UserStatus } from '../../../database/entities/user.entity';
+import { UserStatus } from '../entities/user.entity';
 import { AcceptInvitationDto } from './accept-invitation.dto';
 import { AssignUserRolesDto } from './assign-user-roles.dto';
 import { InviteUserDto } from './invite-user.dto';

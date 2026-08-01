@@ -1,5 +1,5 @@
 import { EntityManager, In } from 'typeorm';
-import { PermissionEntity } from '../entities/permission.entity';
+import { PermissionEntity } from '../../modules/organizations/entities/permission.entity';
 
 export const PERMISSION_DEFINITIONS = [
   {

@@ -1,4 +1,4 @@
-import { UserStatus } from '../../../database/entities/user.entity';
+import { UserStatus } from '../entities/user.entity';
 
 export interface UserResponseDto {
   id: string;

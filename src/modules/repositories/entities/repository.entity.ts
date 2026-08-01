@@ -11,8 +11,8 @@ import {
   UpdateDateColumn,
   ValueTransformer,
 } from 'typeorm';
-import { OrganizationEntity } from '../../../database/entities/organization.entity';
-import { UserEntity } from '../../../database/entities/user.entity';
+import { OrganizationEntity } from '../../organizations/entities/organization.entity';
+import { UserEntity } from '../../users/entities/user.entity';
 import { RepositoryBranchEntity } from './repository-branch.entity';
 import { RepositoryMemberEntity } from './repository-member.entity';
 

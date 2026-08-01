@@ -9,8 +9,8 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
-import { OrganizationEntity } from './organization.entity';
-import { UserRoleEntity } from './user-role.entity';
+import { OrganizationEntity } from '../../organizations/entities/organization.entity';
+import { UserRoleEntity } from '../../organizations/entities/user-role.entity';
 
 export enum UserStatus {
   Invited = 'invited',

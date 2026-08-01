@@ -1,7 +1,7 @@
 import { ConflictException, Injectable } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
-import { OrganizationEntity } from '../../database/entities/organization.entity';
-import { RoleEntity } from '../../database/entities/role.entity';
+import { OrganizationEntity } from './entities/organization.entity';
+import { RoleEntity } from './entities/role.entity';
 import { RoleResponseDto } from './dto/role-response.dto';
 import { OrganizationRolesRepository } from './repositories/organization-roles.repository';
 import { OrganizationRepository } from './repositories/organization.repository';
