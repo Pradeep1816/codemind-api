@@ -197,6 +197,40 @@ class EnvironmentVariables {
   @Max(10_000)
   GIT_CLONE_DEPTH = 1;
 
+  @IsString()
+  @IsNotEmpty()
+  INDEXING_WORKSPACE_ROOT = '.codemind/indexing';
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(1_000_000)
+  INDEXING_MAX_FILES = 100_000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1_024)
+  @Max(1_073_741_824)
+  INDEXING_MAX_FILE_SIZE_BYTES = 2_097_152;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1_024)
+  @Max(10_737_418_240)
+  INDEXING_MAX_TOTAL_BYTES = 536_870_912;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(32)
+  @Max(4_096)
+  INDEXING_MAX_PATH_LENGTH = 1_024;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(512)
+  INDEXING_MAX_PATH_DEPTH = 64;
+
   @IsEnum(AiProvider)
   AI_PROVIDER = AiProvider.OpenAi;
 

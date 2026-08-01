@@ -28,6 +28,18 @@ export interface GitRepositoryState {
   branches: GitBranchState[];
 }
 
+export interface GitCommitSnapshot {
+  workspacePath: string;
+  commitSha: string;
+}
+
+export interface GitTreeFileEntry {
+  mode: string;
+  objectId: string;
+  sizeBytes: number;
+  path: string;
+}
+
 export interface GitCommandResult {
   stdout: string;
   stderr: string;

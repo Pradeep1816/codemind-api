@@ -1,580 +1,220 @@
-CodeMind Product Roadmap
+# CodeMind Product Roadmap
 
-
-## Document Information
-
-Product: CodeMind
-
-Document: Product Roadmap
+## Document information
 
 Status: Active
+Version: 2.0
+Updated: 2026-08-01
+Owner: CodeMind Engineering
 
-Version: 1.1
+## Vision
 
-Owner: CodeMind Team
+CodeMind is a software-intelligence platform that helps developers understand,
+search, maintain, and evolve complex codebases.
 
+The product goal is:
 
+> Understand any codebase like a senior engineer, then make that understanding
+> safely available to people and tools.
 
-# 1. Vision
+## Delivery principles
 
+- Build durable repository understanding before adding AI generation.
+- Keep organization scope explicit in every persisted and API resource.
+- Process repositories as untrusted input and never execute repository code.
+- Make long-running work resumable, observable, and idempotent.
+- Preserve exact Git commit and content-version provenance.
+- Add each downstream phase through stable module contracts.
+- Ship migrations, tests, and documentation with each milestone.
 
-CodeMind aims to become an AI-powered software intelligence platform
-that helps developers understand, maintain, and evolve complex
-legacy systems.
+## Phase overview
 
-
-The long-term goal:
-
-
-"Understand any codebase like a senior engineer."
-
-
-
-# 2. Product Evolution Strategy
-
-
-
-CodeMind development follows these stages:
-
-
-
-
-Phase 1
-
-Code Understanding
-
-    |
-
-    v
-
-Phase 2
-
-Knowledge Generation
-
-    |
-
-    v
-
-Phase 3
-
-AI Development Assistant
-
-    |
-
-    v
-
-Phase 4
-
-Autonomous Engineering Intelligence
-
-
-
-
-# 3. Phase Overview
-
-
-
-| Phase | Goal | Focus |
-|---|---|---|
-| Phase 1 | Repository Intelligence | Index and understand code |
-| Phase 2 | Business Understanding | Generate rules and workflows |
-| Phase 3 | AI Assistant | Provide developer assistance |
-| Phase 4 | Autonomous Engineering | AI agents and automation |
-
+| Phase | Name | Outcome | Status |
+|---:|---|---|---|
+| 1 | Platform & Identity | Secure multi-tenant backend foundation | Complete |
+| 2 | Repository Management | Register, share, synchronize, and inspect repositories | Complete |
+| 3 | Indexing & Code Intelligence | Convert Git source into structured code metadata | In progress |
+| 4 | Knowledge Graph & Business Logic | Convert code structure into navigable system knowledge | Planned |
+| 5 | Search Engine | Retrieve precise lexical, symbol, graph, and semantic context | Planned |
+| 6 | AI Assistant (RAG) | Answer and reason from retrieved CodeMind knowledge | Planned |
+| 7 | MCP Server | Expose CodeMind safely to external AI tools | Planned |
+| 8 | Enterprise & Observability | Operate securely at organizational scale | Future |
 
 ## Current checkpoint
 
+Phases 1 and 2 are complete. Phase 3.1 defines the durable indexing job,
+file inventory, content-version, and indexing-error foundation. The job API
+creates an immutable branch/commit request and exposes status/history.
+
+Phase 3.2 prepares isolated job workspaces and verifies the immutable commit in
+the hardened Git object cache. Phase 3.3 scans that Git tree with centralized
+ignore and resource policies and transactionally reconciles file inventory.
+Jobs currently remain `queued`; hashing, parsers, graph construction, and the
+background worker are delivered in the remaining milestones.
+
+Architecture decisions:
+
+- [ADR-011: Secure Git Integration](../06-adrs/011-secure-git-integration.md)
+- [ADR-012: Indexing Engine Architecture](../06-adrs/012-indexing-engine.md)
+
+## Phase 1 — Platform & Identity
+
+Goal: establish a secure modular NestJS and PostgreSQL platform.
+
+Delivered:
+
+- Validated environment configuration
+- TypeORM migrations and database health checks
+- Organization, user, role, and permission schema
+- Transactional registration and Argon2id password hashing
+- JWT access tokens and rotating refresh-token sessions
+- Logout, refresh-reuse detection, and session-family revocation
+- Permission guards and organization-scoped user administration
+- Invitation acceptance and OWNER continuity rules
+- Authentication audit records and rate limiting
+- Unit and PostgreSQL E2E coverage
+
+## Phase 2 — Repository Management
+
+Goal: allow an organization to register, share, synchronize, and inspect Git
+repositories.
+
+Delivered:
+
+- Repository, repository-member, and branch entities
+- Tenant-scoped repository CRUD and membership APIs
+- Repository permissions and cross-organization protection
+- Hardened GitHub HTTPS and allow-listed local Git service
+- Branch synchronization with persisted commit SHAs and deleted state
+- Synchronization status, repository size, and health API
+- Unit, authorization, and PostgreSQL E2E tests
+- API, module, schema, and security documentation
+
+Deferred provider work includes private credentials, GitLab/Bitbucket Git
+execution, webhooks, and multi-host Git workspace distribution.
+
+## Phase 3 — Indexing & Code Intelligence
+
+Goal: transform a synchronized Git repository into a structured, searchable
+metadata layer.
+
+```mermaid
+flowchart TD
+    Repo[Registered repository] --> Sync[Clone or pull Git objects]
+    Sync --> Snapshot[Select immutable branch commit]
+    Snapshot --> Discover[Discover supported files]
+    Discover --> Hash[Detect content changes]
+    Hash --> Parse[Parse source code]
+    Parse --> Symbols[Extract symbols]
+    Symbols --> Relations[Build relationships]
+    Relations --> Store[(Store versioned metadata)]
+    Store --> Ready[Ready for search and AI]
+```
 
-The backend execution plan uses smaller numbered phases inside this product
-roadmap. Backend Phase 2 (Repository Management milestones 2.1–2.8) is
-complete. It delivers repository metadata, membership, secure Git branch
-synchronization, repository health, tests, and documentation.
+### Milestone status
 
-The product remains in Phase 1 (Repository Intelligence) because indexing,
-parsing, and searchable code understanding are not complete. The next backend
-phase builds the indexing pipeline: jobs, file inventory, content hashes,
-language detection, and incremental updates.
+| Milestone | Scope | Status |
+|---:|---|---|
+| 3.1 | Indexing foundation | Implemented; E2E regression deferred |
+| 3.2 | Git workspace manager | Implemented; tests deferred |
+| 3.3 | File discovery | Implemented; tests deferred |
+| 3.4 | Incremental indexing | Next |
+| 3.5 | Language detection | Planned |
+| 3.6 | Parser engine | Planned |
+| 3.7 | Symbol extraction | Planned |
+| 3.8 | Dependency graph | Planned |
+| 3.9 | Index job system | API foundation delivered early; lifecycle expansion planned |
+| 3.10 | Background processing | Planned |
+| 3.11 | Tests | Continuous; phase-level suite planned |
+| 3.12 | Documentation | Continuous; completion review planned |
+
+Phase 3 is complete when CodeMind can:
+
+- Materialize an exact repository commit safely
+- Scan supported source files with bounded resource use
+- Detect unchanged, changed, new, and deleted files
+- Parse TypeScript and JavaScript without executing source code
+- Extract classes, functions, interfaces, enums, imports, and exports
+- Build file/symbol dependency relationships
+- Persist versioned metadata in PostgreSQL
+- Track progress and terminal state through durable jobs
+
+## Phase 4 — Knowledge Graph & Business Logic
+
+Goal: turn structural code metadata into navigable system knowledge.
+
+Planned capabilities:
 
+- Resolved cross-file and cross-module graph
+- Domain concepts and service/repository/controller relationships
+- Business-rule and workflow extraction
+- Architecture and module summaries with source provenance
+- Change-impact paths and ownership context
+- Generated documentation tied to code versions
 
+## Phase 5 — Search Engine
 
-# 4. Phase 1 — Code Intelligence Foundation
+Goal: retrieve the smallest, most relevant source-grounded context.
 
+Planned capabilities:
 
-Timeline:
+- File, path, and text search
+- Symbol and reference search
+- Dependency and graph traversal
+- PostgreSQL full-text retrieval
+- Embeddings and vector retrieval when justified
+- Hybrid ranking, filters, access control, and result provenance
 
-MVP
+## Phase 6 — AI Assistant (RAG)
 
+Goal: provide grounded developer assistance from CodeMind retrieval.
 
-Goal:
+Planned capabilities:
 
+- Repository question answering
+- Code and architecture explanation
+- Impact analysis and migration assistance
+- Source-cited answers
+- Provider abstraction, context budgeting, and cost controls
+- Conversation memory with organization/repository boundaries
 
-Build the foundation required to understand repositories.
+AI output must not become the source of truth for code metadata. Retrieval is
+built on versioned Phase 3–5 data.
 
+## Phase 7 — MCP Server
 
+Goal: expose CodeMind context to IDEs and external AI agents through controlled
+tools and resources.
 
-Features:
+Planned capabilities:
 
+- Repository, file, symbol, relationship, search, and documentation resources
+- Permission-aware MCP tools
+- Scoped authentication and audit records
+- Rate, payload, and context limits
+- Stable versioned contracts
 
+## Phase 8 — Enterprise Features & Observability
 
-## Repository Management
+Goal: operate CodeMind securely and reliably across large organizations.
 
+Planned capabilities:
 
-- Connect Git repositories
-- Clone repositories
-- Track branches
-- Detect changes
+- SSO/SAML/OIDC, SCIM, and advanced policy controls
+- Multi-organization administration and billing
+- Job dashboards, traces, metrics, alerts, and SLOs
+- Data retention, export, deletion, and legal-hold controls
+- Queue and worker autoscaling
+- Storage quotas and lifecycle management
+- Backup, recovery, regional deployment, and compliance controls
 
+## Definition of done for every milestone
 
+A milestone is complete only when:
 
-## Code Indexing
-
-
-- File scanning
-- Language detection
-- AST parsing
-- Symbol extraction
-
-
-
-## Code Search
-
-
-- Keyword search
-- Semantic search
-- Symbol search
-
-
-
-## Basic Dashboard
-
-
-Show:
-
-
-- Repository information
-- File statistics
-- Language distribution
-- Index status
-
-
-
-Deliverable:
-
-
-A system that can answer:
-
-
-"Where is this code?"
-
-
-
----
-
-# 5. Phase 2 — Software Knowledge Engine
-
-
-
-Goal:
-
-
-Convert code into knowledge.
-
-
-
-Features:
-
-
-
-## Code Relationships
-
-
-Understand:
-
-
-- Function calls
-- Dependencies
-- Modules
-- Data flow
-
-
-
-## Business Rule Extraction
-
-
-Generate:
-
-
-- Business rules
-- Workflows
-- Domain concepts
-
-
-
-## Documentation Generation
-
-
-Create:
-
-
-- Module documentation
-- Architecture documentation
-- API documentation
-
-
-
-Deliverable:
-
-
-A system that can answer:
-
-
-"How does this software work?"
-
-
-
----
-
-# 6. Phase 3 — AI Developer Assistant
-
-
-
-Goal:
-
-
-Provide AI-powered development support.
-
-
-
-Features:
-
-
-
-## AI Chat
-
-
-Developers ask:
-
-
-
-Explain payment workflow
-
-
-
-
-## Impact Analysis
-
-
-Example:
-
-
-
-If I change PaymentService,
-what will break?
-
-
-
-
-## Code Review Assistant
-
-
-Analyze:
-
-
-- Bugs
-- Risks
-- Architecture issues
-
-
-
-## Migration Assistant
-
-
-Help:
-
-
-- Legacy migration
-- Framework upgrades
-- Refactoring
-
-
-
-Deliverable:
-
-
-A senior engineer assistant.
-
-
-
----
-
-# 7. Phase 4 — Autonomous Engineering Platform
-
-
-
-Goal:
-
-
-Enable AI agents.
-
-
-
-Features:
-
-
-
-## AI Agents
-
-
-Agents:
-
-
-- Analysis Agent
-- Documentation Agent
-- Testing Agent
-- Migration Agent
-
-
-
-## Automated Improvements
-
-
-Example:
-
-
-
-Detect duplicate business logic
-
-Suggest refactoring
-
-Generate migration plan
-
-
-
-
-## Continuous Intelligence
-
-
-Every commit updates:
-
-
-- Knowledge
-- Documentation
-- Architecture map
-
-
-
-Deliverable:
-
-
-AI software engineering platform.
-
-
-
----
-
-# 8. Technical Roadmap
-
-
-
-## Backend
-
-
-Current:
-
-
-NestJS
-PostgreSQL
-TypeORM
-
-
-
-
-Future:
-
-
-
-Event-driven architecture
-
-Kafka
-
-Distributed workers
-
-
-
-
-## AI Layer
-
-
-Current:
-
-
-
-LLM API
-
-Embeddings
-
-Vector Search
-
-
-
-
-Future:
-
-
-
-Agent Framework
-
-Self-learning Knowledge Graph
-
-
-
-
-## Infrastructure
-
-
-Current:
-
-
-
-Docker
-
-Single deployment
-
-
-
-
-Future:
-
-
-
-Kubernetes
-
-Multi-tenant SaaS
-
-Cloud deployment
-
-
-
-
-# 9. Success Metrics
-
-
-
-Measure:
-
-
-
-## Technical Metrics
-
-
-- Indexing speed
-- Search latency
-- Accuracy
-- System reliability
-
-
-
-## AI Metrics
-
-
-- Answer correctness
-- Confidence score
-- Developer feedback
-
-
-
-## Product Metrics
-
-
-- Time saved
-- Token reduction
-- Documentation coverage
-
-
-
-# 10. Guiding Principles
-
-
-
-## Build Understanding Before Automation
-
-
-First:
-
-Understand code.
-
-
-Then:
-
-Automate.
-
-
-
-## Reduce AI Context Cost
-
-
-Do not send:
-
-
-
-Entire repository
-
-
-
-
-Send:
-
-
-
-Relevant knowledge
-
-
-
-
-## Trust Through Evidence
-
-
-Every AI answer should have:
-
-
-- Source code evidence
-- Business rule evidence
-- Relationship evidence
-
-
-
-# Summary
-
-
-
-CodeMind evolves from:
-
-
-
-Code Search
-
-  |
-
-  v
-
-Code Understanding
-
-  |
-
-  v
-
-Business Intelligence
-
-  |
-
-  v
-
-AI Engineering Platform
-
-
-
-
-Core principle:
-
-
-"Build the brain before building the assistant."
+- Database changes are migration-backed with no schema drift.
+- API and worker boundaries enforce tenant scope and permissions.
+- Failure behavior is explicit and does not leak sensitive internals.
+- Unit and integration/E2E coverage is proportional to risk.
+- Module, API, database, and ADR documentation reflect implementation.
+- Lint, build, tests, and migration checks pass.

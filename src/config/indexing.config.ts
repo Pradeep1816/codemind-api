@@ -1,0 +1,17 @@
+import { resolve } from 'node:path';
+import { registerAs } from '@nestjs/config';
+
+function readInteger(name: string, fallback: number): number {
+  return Number.parseInt(process.env[name] ?? String(fallback), 10);
+}
+
+export default registerAs('indexing', () => ({
+  workspaceRoot: resolve(
+    process.env.INDEXING_WORKSPACE_ROOT ?? '.codemind/indexing',
+  ),
+  maxFiles: readInteger('INDEXING_MAX_FILES', 100_000),
+  maxFileSizeBytes: readInteger('INDEXING_MAX_FILE_SIZE_BYTES', 2_097_152),
+  maxTotalBytes: readInteger('INDEXING_MAX_TOTAL_BYTES', 536_870_912),
+  maxPathLength: readInteger('INDEXING_MAX_PATH_LENGTH', 1_024),
+  maxPathDepth: readInteger('INDEXING_MAX_PATH_DEPTH', 64),
+}));

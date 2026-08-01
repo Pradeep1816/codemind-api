@@ -1,897 +1,280 @@
-Indexing Module Design
-
-
-## Document Information
-
-Module: Indexing Engine
-
-Status: Draft
-
-Version: 1.0
-
-Owner: CodeMind Engineering Team
-
-
-
-# 1. Overview
-
-
-The Indexing Module is responsible for scanning software repositories and converting raw source files into structured information that can be consumed by downstream systems.
-
-
-The Indexing Module is the first processing stage after repository registration.
-
-
-Pipeline:
-
-
-
-Repository
-
- |
-
- v
-
-Indexing Engine
-
- |
-
- v
-
-Parser
-
- |
-
- v
-
-Analysis Engine
-
- |
-
- v
-
-Knowledge Engine
-
-
-
-
-# 2. Goals
-
-
-The Indexing Module should:
-
-
-- Scan repositories efficiently
-- Handle very large codebases
-- Detect file changes
-- Avoid unnecessary processing
-- Create background processing jobs
-- Provide indexing progress
-- Support multiple programming languages
-
-
-
-# 3. Non Goals
-
-
-The Indexing Module should NOT:
-
-
-- Understand programming language syntax
-- Extract business rules
-- Generate AI summaries
-- Create embeddings
-
-
-Those responsibilities belong to:
-
-
-
-Parser Module
-
-Analysis Module
-
-Business Engine
-
-AI Module
-
-
-
-
-# 4. High Level Architecture
-
-
-             Repository Module
-
-                     |
-
-                     v
-
-
-             Indexing Service
-
-
-                     |
-
-          ----------------------
-
-          |                    |
-
-          v                    v
-
-
-    File Scanner          Job Queue
-
-
-                               |
-
-                               v
-
-
-                          Workers
-
-
-                               |
-
-                               v
-
-
-                          Parser Module
-
-
-
-# 5. Indexing Workflow
-
-
-## Step 1: Create Index Request
-
-
-User triggers indexing:
-
-
-
-POST /repositories/:id/index
-
-
-
-
-System creates:
-
-
-
-IndexJob
-
-status: CREATED
-
-
-
-
----
-
-## Step 2: Repository Scanner
-
-
-Scanner reads repository:
-
-
-Example:
-
-
-
-src/
-
-├── user.service.ts
-
-├── invoice.service.ts
-
-├── payment.service.ts
-
-└── database.sql
-
-
-
-
-Scanner extracts:
-
-
-- File paths
-- Extensions
-- File size
-- Hash
-- Last modified date
-
-
-
----
-
-## Step 3: File Metadata Storage
-
-
-Each file creates a record:
-
-
-
-File
-
-id
-
-repository_id
-
-path
-
-language
-
-hash
-
-size
-
-status
-
-created_at
-
-updated_at
-
-
-
-
----
-
-## Step 4: Processing Queue
-
-
-Files are pushed into processing jobs.
-
-
-Example:
-
-
-
-ParseFileJob
-
-{
-
-fileId:"123"
-
-}
-
-
-
-
-Workers process jobs asynchronously.
-
-
-
----
-
-# 6. File Discovery System
-
-
-## Responsibilities
-
-
-The scanner identifies:
-
-
-Source code:
-
-
-.ts
-
-.js
-
-.java
-
-.py
-
-
-
-Configuration:
-
-
-
-package.json
-
-docker-compose.yml
-
-.env.example
-
-
-
-Documentation:
-
-
-
-README.md
-
-docs/
-
-
-
-
-# Ignore Rules
-
-
-The scanner must support:
-
-
-
-.gitignore
-
-.codemindignore
-
-
-
-
-Example:
-
-
-
-node_modules/
-
-dist/
-
-build/
-
-coverage/
-
-
-
-
-# 7. Incremental Indexing
-
-
-## Problem
-
-
-Large repositories cannot be fully processed every time.
-
-
-Example:
-
-
-Initial indexing:
-
-
-
-500,000 files
-
-
-
-Developer changes:
-
-
-
-invoice.service.ts
-
-payment.service.ts
-
-
-
-Only these files should be processed.
-
-
-
----
-
-# Solution
-
-
-Use file fingerprinting.
-
-
-Each file stores:
-
-
-
-path
-
-size
-
-hash
-
-last_modified
-
-
-
-
-Comparison:
-
-
-
-Old Hash
-
- |
-
- v
-
-New Hash
-
-Same
-
-|
-
-Skip Processing
-
-Different
-
-|
-
-Re-index File
-
-
-
-
----
-
-# 8. Indexing Job Architecture
-
-
-## Job Types
-
-
-
-RepositoryIndexJob
-
- |
-
- +-- ScanFilesJob
-
-
- |
-
- +-- DetectChangesJob
-
-
- |
-
- +-- ProcessFilesJob
-
-
- |
-
- +-- CompleteIndexJob
-
-
-
----
-
-# 9. Worker Architecture
-
-
-Workers handle heavy operations.
-
-
-
-Example:
-
-
-
-API Server
-
-|
-
-v
-
-Redis Queue
-
-|
-
-v
-
-Index Worker
-
-|
-
-v
-
-Process Files
-
-
-
-
-Benefits:
-
-
-- API remains fast
-- Horizontal scaling
-- Retry failed jobs
-- Better resource management
-
-
-
----
-
-# 10. Large Repository Strategy
-
-
-CodeMind should support:
-
-
-
-10,000 files
-
-100,000 files
-
-1,000,000+ files
-
-
-
-
-## Techniques
-
-
-### Batch Processing
-
-
-Do not load everything into memory.
-
-
-Bad:
-
-
-
-Read entire repository
-
+# Indexing Module
+
+## Document information
+
+Status: Phase 3.1 indexing foundation implemented
+Version: 2.1
+Owner: CodeMind Engineering
+
+## Purpose
+
+The indexing module coordinates the durable work required to convert a
+synchronized repository branch into searchable code intelligence. It sits
+between repository ingestion and the parser/analysis pipeline.
+
+Phase 3.1 establishes the persistence model and the first job API boundary. An
+authorized caller can queue a job for an active, synchronized branch and
+inspect persisted job state. The schema also defines stable file inventory,
+immutable content versions, and sanitized indexing errors for later scanner
+and worker milestones.
+
+A worker does not consume queued jobs yet, so new jobs remain `queued` until
+background processing is implemented.
+
+## Current responsibilities
+
+Implemented:
+
+- Create a durable indexing job for one repository branch and commit SHA
+- Derive organization and requesting-user scope from the access token
+- Require both `repository.read` and `repository.index` to create a job
+- Require `repository.read` to list or inspect jobs
+- Reject disabled repositories, deleted branches, and unsynchronized branches
+- Prevent concurrent queued/running jobs for the same branch
+- Preserve a target commit snapshot even if the branch later advances
+- Persist progress counters, attempts, failure details, and lifecycle times
+- Capture `incremental` or `full` mode on each job
+- Define stable `IndexedFile` inventory keyed by branch and normalized path
+- Define immutable SHA-256/Git-blob `FileHash` versions
+- Define job/file-scoped `IndexingError` records
+- Prepare isolated per-job `source`, `metadata`, and `cache` directories
+- Verify immutable target commits in the hardened Git object cache
+- Reject workspace overlap, traversal, symlinks, and invalid identities
+- Clean or reset only a validated job workspace
+- Discover files directly from an immutable Git tree without checkout
+- Apply centralized ignored-directory and supported-extension policies
+- Enforce path, depth, file-count, file-size, and total-byte limits
+- Reconcile active/deleted `IndexedFile` rows in a short transaction
+- Paginate and filter repository job history by status
+- Return `404` for cross-organization repository or job identifiers
+
+Deferred to the next slices:
+
+- Language detection
+- Safe Git blob reads, content hashing, and optional source materialization
+- Hash calculation and incremental change planning
+- Parser and analysis dispatch
+- Queue transport and worker consumption
+- Job claiming, leases, retries, cancellation, and recovery
+- Updating branch `lastIndexedAt` after successful processing
+- Repository-health integration for current job state
+
+Not owned by this module:
+
+- Repository registration and Git synchronization
+- AST and symbol parsing
+- Static analysis and relationship inference
+- Embedding generation
+- Search ranking
+- AI response generation
+
+## Position in the pipeline
+
+```mermaid
+flowchart LR
+    Repo[Repository module] -->|branch and commit SHA| Job[Indexing job]
+    Job -->|future worker claim| Scanner[File inventory]
+    Scanner --> Parser[Parser module]
+    Parser --> Analysis[Analysis module]
+    Analysis --> Knowledge[Knowledge module]
+    Knowledge --> Search[Search module]
+```
+
+The job records intent and progress. It does not contain source content and it
+does not run Git or parser work inside an HTTP request.
+
+## Request flow
+
+```text
+Authenticated request
     |
-
     v
-
-Store all files
-
-
-
-Good:
-
-
-
-Process 100 files
-
+Global JWT and permission guards
     |
-
     v
-
-Save
-
+IndexingController
     |
-
     v
-
-Continue
-
-
-
-
----
-
-## Parallel Processing
-
-
-Example:
-
-
-
-Worker 1
-
-Parse files 1-100
-
-Worker 2
-
-Parse files 101-200
-
-Worker 3
-
-Parse files 201-300
-
-
-
-
----
-
-## Priority Processing
-
-
-Important files first:
-
-
-Priority 1:
-
-
-package.json
-
-tsconfig.json
-
-README.md
-
-
-
-Priority 2:
-
-
-
-src/
-
-
-
-Priority 3:
-
-
-
-tests/
-
-examples/
-
-
-
-
----
-
-# 11. Index Status Tracking
-
-
-Index Job:
-
-
-
-CREATED
-
-|
-
-v
-
-RUNNING
-
-|
-
-v
-
-PROCESSING
-
-|
-
-v
-
-COMPLETED
-
-or
-
-FAILED
-
-
-
-
-Stored:
-
-
-
-index_jobs
-
-id
-
-repository_id
-
-status
-
-total_files
-
-processed_files
-
-failed_files
-
-started_at
-
-completed_at
-
-
-
-
----
-
-# 12. Events
-
-
-The Indexing Module publishes events.
-
-
-
-## IndexStartedEvent
-
-
-Payload:
-
-
-```json
-{
- "repositoryId":"123",
- "jobId":"456"
-}
-
-FileIndexedEvent
-
-Payload:
-
-{
- "fileId":"789"
-}
-
-IndexCompletedEvent
-
-Payload:
-
-{
- "repositoryId":"123",
- "totalFiles":50000
-}
-
-
-Consumers:
-
-Parser Module
-
-Analysis Module
-
-Knowledge Module
-
-13. Error Handling
-
-Possible failures:
-
-File Permission Error
-
-Action:
-
-Skip file
-
-Log error
-
-Continue indexing
-
-Parser Failure
-
-Action:
-
-Mark file failed
-
-Continue processing
-
-Repository Removed
-
-Action:
-
-Cancel jobs
-
-Cleanup data
-
-14. Module Structure
-
-NestJS:
-
+IndexingService
+    |-- RepositoriesService: tenant ownership and lifecycle
+    |-- RepositoryBranchesService: persisted branch state
+    `-- IndexingRepository: job persistence
+            |
+            v
+        PostgreSQL
+```
+
+Clients never submit `organizationId`, `requestedByUserId`, job status, or a
+commit SHA. Those values come from the authenticated identity and trusted
+persisted state.
+
+## Module boundaries
+
+| Component | Responsibility | Allowed dependencies |
+|---|---|---|
+| `IndexingController` | HTTP parameters, DTOs, authenticated context | `IndexingService`, shared decorators |
+| `IndexingService` | Tenant checks, branch eligibility, lifecycle rules, error mapping | Repository application services, `IndexingRepository` |
+| `IndexingRepository` | TypeORM job queries and persistence | TypeORM and indexing entities |
+| `IndexingWorkspaceService` | Validate identity, verify commit, prepare and clean isolated paths | Typed indexing configuration, `GitService`, Node filesystem APIs |
+| Future worker service | Claiming and executing durable jobs | Indexing application services and scanner ports |
+
+The indexing module uses exported repository application services instead of
+querying repository tables directly. Its TypeORM persistence adapter is not
+exported.
+
+## Job lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> queued: API creates job
+    queued --> running: worker claims job
+    queued --> cancelled: cancellation accepted
+    running --> succeeded: all work committed
+    running --> failed: terminal processing error
+    running --> queued: retry scheduled
+    running --> cancelled: cooperative cancellation
+    succeeded --> [*]
+    failed --> [*]
+    cancelled --> [*]
+```
+
+Phase 3.1 creates and reads `queued` jobs. The remaining transitions are
+reserved for the worker implementation and must be committed through explicit
+service methods, not arbitrary entity updates.
+
+## Creation rules
+
+A job can be queued only when all rules pass:
+
+1. The repository exists in the authenticated organization.
+2. The repository status is `active`.
+3. The supplied branch belongs to that repository.
+4. The branch status is `active`.
+5. The branch has a persisted commit SHA from synchronization.
+6. No job for the same repository branch is currently `queued` or `running`.
+
+The service performs an early active-job check for a useful error. A partial
+unique database index enforces the same rule under concurrent requests.
+
+## Commit snapshot semantics
+
+`targetCommitSha` is copied from the synchronized branch when the job is
+created:
+
+```text
+branch.commitSha = A
+        |
+        `-- create job(targetCommitSha = A)
+
+branch later moves to B
+        |
+        `-- existing job still processes A
+```
+
+This makes a job reproducible. The worker must use `targetCommitSha`, not the
+branch's current SHA. A later request may queue a new job for commit B after
+the first job reaches a terminal state.
+
+## Authorization and tenant isolation
+
+| Operation | Permissions |
+|---|---|
+| Queue a job | `repository.read`, `repository.index` |
+| List repository jobs | `repository.read` |
+| Get one repository job | `repository.read` |
+
+Permissions come from organization roles. Tenant isolation is also enforced
+at the data-access boundary:
+
+- Repository validation includes `organizationId`.
+- Job lists include `organizationId` and `repositoryId`.
+- Job detail lookup includes `organizationId`, `repositoryId`, and `jobId`.
+- Cross-organization identifiers return the same `404` as missing records.
+
+## Progress model
+
+Each job stores:
+
+- `totalFiles`: files selected for this run
+- `processedFiles`: files processed successfully
+- `skippedFiles`: files intentionally omitted or unchanged
+- `failedFiles`: files that failed processing
+- `attemptCount`: worker attempts
+
+Database checks require non-negative values and ensure processed, skipped, and
+failed files never exceed the total. Counters remain zero until a worker owns
+the job.
+
+## Error behavior
+
+| Condition | HTTP result |
+|---|---:|
+| Missing or foreign repository | `404` |
+| Missing branch in repository | `404` |
+| Missing or foreign job | `404` |
+| Disabled repository | `409` |
+| Deleted branch | `409` |
+| Branch has no synchronized commit | `409` |
+| Active job already exists | `409` |
+| Missing authentication | `401` |
+| Missing permission | `403` |
+
+Database and worker internals are not included in API error responses.
+
+## Module structure
+
+```text
 src/modules/indexing/
-
-
-├── controllers/
-
-│
-
-├── services/
-
-│
-
-├── workers/
-
-│
-
-├── queues/
-
-│
-
-├── processors/
-
-│
-
-├── jobs/
-
-│
-
+├── discovery/
+│   ├── file-discovery.constants.ts
+│   ├── file-discovery.errors.ts
+│   ├── file-discovery.service.ts
+│   └── file-discovery.types.ts
+├── dto/
+│   ├── index-status.dto.ts
+│   ├── list-index-jobs-query.dto.ts
+│   └── start-index.dto.ts
 ├── entities/
+│   ├── file-hash.entity.ts
+│   ├── index-job.entity.ts
+│   ├── indexed-file.entity.ts
+│   └── indexing-error.entity.ts
+├── enums/
+│   ├── file-hash-algorithm.enum.ts
+│   ├── index-job-status.enum.ts
+│   ├── index-job-trigger.enum.ts
+│   ├── indexed-file-status.enum.ts
+│   ├── indexing-error-phase.enum.ts
+│   └── indexing-mode.enum.ts
+├── indexing.controller.ts
+├── file-inventory.service.ts
+├── indexing.module.ts
+├── indexing.repository.ts
+├── indexing.service.spec.ts
+├── indexing.service.ts
+└── workspace/
+    ├── indexing-workspace.errors.ts
+    ├── indexing-workspace.service.ts
+    └── indexing-workspace.types.ts
+```
 
-│
+## Verification
 
-├── events/
+The service unit suite covers successful job creation, disabled repositories,
+unknown/deleted/unsynchronized branches, active-job conflicts, concurrent
+database uniqueness races, tenant-scoped lists, and hidden cross-tenant job
+identifiers.
 
-│
+The migration and entity metadata must also pass TypeORM schema-drift checks.
+Worker and scanner integration tests will be added with those slices.
 
-└── indexing.module.ts
+## Next implementation slice
 
-15. Dependencies
+Phase 3.4 implements incremental content processing. It reads selected Git
+blobs within the discovery limits, compares Git object IDs, computes SHA-256
+for changed content, and persists immutable `FileHash` rows.
 
-Indexing Module depends on:
-
-Repository Module
-
-Storage Module
-
-Queue Module
-
-
-Should NOT depend on:
-
-AI Module
-
-Business Engine
-
-Search Module
-
-16. Future Enhancements
-Real Time Indexing
-
-Using:
-
-Git Webhooks
-
-
-Flow:
-
-Developer Push
-
-
-      |
-
-      v
-
-
-Webhook
-
-
-      |
-
-      v
-
-
-Changed Files Indexed
-
-Multi Language Detection
-
-Example:
-
-Java Repository
-
-
-    |
-
-    +-- Java Parser
-
-
-    +-- SQL Parser
-
-
-    +-- XML Parser
-
-Distributed Workers
-
-Future:
-
-Multiple Worker Nodes
-
-
-Worker 1
-
-Worker 2
-
-Worker 3
-
-Summary
-
-The Indexing Module is the ingestion foundation of CodeMind.
-
-Its responsibility:
-
-"Convert a repository into a structured collection of files ready for understanding."
-
-It focuses on:
-
-Performance
-Scalability
-Reliability
-Incremental processing
-
-It does not understand code.
+Durable worker claiming remains Milestone 3.10. The job API, workspace, and
+discovery boundaries were delivered early because every later indexing
+operation needs a stable job, commit, isolated filesystem boundary, and
+trusted inventory.

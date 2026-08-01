@@ -18,6 +18,7 @@ application startup, and exposes namespaced configuration through NestJS.
 | `invitation.config.ts` | User-invitation expiration settings                               | `invitation` |
 | `rate-limit.config.ts` | Global and authentication endpoint request limits                 | `rateLimit`  |
 | `git.config.ts`        | Git workspace, local-source, timeout, and clone settings           | `git`        |
+| `indexing.config.ts`   | Disposable indexing-job workspace root                            | `indexing`   |
 | `ai.config.ts`         | AI provider connection settings                                   | `ai`         |
 
 ## Environment Setup
@@ -196,6 +197,35 @@ When enabled, both the configured root and requested repository are resolved
 through the filesystem before the containment check, preventing symlink
 escapes. Production environments should normally leave local sources
 disabled.
+
+### Indexing Workspace
+
+| Variable                       | Required | Default              | Description                                       |
+| ------------------------------ | -------: | -------------------- | ------------------------------------------------- |
+| `INDEXING_WORKSPACE_ROOT`      |       No | `.codemind/indexing` | Root for disposable per-job processing workspaces |
+| `INDEXING_MAX_FILES`           |       No | `100000`             | Maximum supported files selected in one scan      |
+| `INDEXING_MAX_FILE_SIZE_BYTES` |       No | `2097152`            | Maximum bytes selected for one file               |
+| `INDEXING_MAX_TOTAL_BYTES`     |       No | `536870912`          | Maximum selected source bytes in one scan          |
+| `INDEXING_MAX_PATH_LENGTH`     |       No | `1024`               | Maximum repository-relative path length            |
+| `INDEXING_MAX_PATH_DEPTH`      |       No | `64`                 | Maximum path segment depth                         |
+
+The `indexing` namespace exposes:
+
+```typescript
+{
+  workspaceRoot: string;
+  maxFiles: number;
+  maxFileSizeBytes: number;
+  maxTotalBytes: number;
+  maxPathLength: number;
+  maxPathDepth: number;
+}
+```
+
+The indexing root must be separate from `GIT_WORKSPACE_ROOT`. Persistent Git
+objects live under the Git root; disposable job `source`, `metadata`, and
+`cache` directories live under the indexing root. Workspace paths are derived
+only from validated organization, repository, and job IDs.
 
 ### AI
 

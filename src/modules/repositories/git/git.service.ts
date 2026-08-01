@@ -27,10 +27,12 @@ import {
 } from './git.errors';
 import {
   GitBranchState,
+  GitCommitSnapshot,
   GitRemoteInspection,
   GitRepositorySource,
   GitRepositoryState,
   GitSourceKind,
+  GitTreeFileEntry,
 } from './git.types';
 
 @Injectable()
@@ -248,6 +250,84 @@ export class GitService {
       .branches;
   }
 
+  /**
+   * Resolves an immutable commit inside CodeMind's managed Git object cache.
+   * The caller receives a trusted internal path but no working-tree checkout
+   * is performed and no repository-controlled code is executed.
+   */
+  async requireCommit(
+    organizationId: string,
+    repositoryId: number,
+    commitSha: string,
+  ): Promise<GitCommitSnapshot> {
+    if (!GIT_OBJECT_ID_PATTERN.test(commitSha)) {
+      throw new GitIntegrationError(
+        'Git commit identity is invalid',
+        GitIntegrationErrorCode.InvalidWorkspaceIdentity,
+      );
+    }
+
+    const workspacePath = await this.getRequiredWorkspacePath(
+      organizationId,
+      repositoryId,
+    );
+
+    try {
+      await this.gitCommandService.run(
+        ['-C', workspacePath, 'cat-file', '-e', `${commitSha}^{commit}`],
+        { operation: 'resolve repository commit' },
+      );
+    } catch (error: unknown) {
+      throw new GitIntegrationError(
+        'Git commit is unavailable in the managed repository workspace',
+        GitIntegrationErrorCode.InvalidWorkspaceState,
+        { cause: error },
+      );
+    }
+
+    return {
+      workspacePath,
+      commitSha: commitSha.toLowerCase(),
+    };
+  }
+
+  /**
+   * Lists blob metadata directly from an immutable Git tree. Null-delimited
+   * output preserves whitespace and newlines in repository-controlled names;
+   * path safety is enforced by the indexing discovery policy.
+   */
+  async listCommitFiles(
+    organizationId: string,
+    repositoryId: number,
+    commitSha: string,
+  ): Promise<GitTreeFileEntry[]> {
+    const snapshot = await this.requireCommit(
+      organizationId,
+      repositoryId,
+      commitSha,
+    );
+    const result = await this.gitCommandService.run(
+      [
+        '-C',
+        snapshot.workspacePath,
+        'ls-tree',
+        '-r',
+        '-z',
+        '--long',
+        '--full-tree',
+        snapshot.commitSha,
+        '--',
+      ],
+      { operation: 'list repository commit tree' },
+    );
+
+    return result.stdout
+      .split('\0')
+      .filter((record) => record.length > 0)
+      .map((record) => this.parseTreeFileEntry(record))
+      .filter((entry): entry is GitTreeFileEntry => entry !== null);
+  }
+
   async getWorkspacePath(
     organizationId: string,
     repositoryId: number,
@@ -284,6 +364,48 @@ export class GitService {
     this.assertPathInside(workspaceRoot, workspacePath);
 
     return workspacePath;
+  }
+
+  private parseTreeFileEntry(record: string): GitTreeFileEntry | null {
+    const match = record.match(
+      /^([0-7]{6}) (blob|commit) ([0-9a-f]{40,64})\s+(-|\d+)\t([\s\S]+)$/iu,
+    );
+
+    if (!match) {
+      throw new GitIntegrationError(
+        'Git tree contains an unsupported entry',
+        GitIntegrationErrorCode.InvalidWorkspaceState,
+      );
+    }
+
+    const [, mode, type, objectId, rawSize, path] = match;
+
+    if (type !== 'blob') {
+      return null;
+    }
+
+    const sizeBytes = Number(rawSize);
+
+    if (
+      !mode ||
+      !objectId ||
+      !path ||
+      !GIT_OBJECT_ID_PATTERN.test(objectId) ||
+      !Number.isSafeInteger(sizeBytes) ||
+      sizeBytes < 0
+    ) {
+      throw new GitIntegrationError(
+        'Git tree file metadata is invalid',
+        GitIntegrationErrorCode.InvalidWorkspaceState,
+      );
+    }
+
+    return {
+      mode,
+      objectId: objectId.toLowerCase(),
+      sizeBytes,
+      path,
+    };
   }
 
   private async resolveLocalSource(

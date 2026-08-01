@@ -1,1052 +1,283 @@
-This is one of the most critical documents in CodeMind architecture.
-
-The main difference between CodeMind and a normal AI coding assistant is:
-
-Normal AI Agent:
-
-User Question
-
-     |
-
-     v
-
-Read Code Files
-
-     |
-
-     v
-
-Send Context To LLM
-
-     |
-
-     v
-
-Answer
-
-Problem:
-
-High token usage
-Slow analysis
-Repeated work
-Poor understanding of large legacy systems
-
-CodeMind approach:
-
-Repository
-
-     |
-
-     v
-
-Index Once
-
-     |
-
-     v
-
-Build Understanding Layer
-
-     |
-
-     v
-
-Fast Retrieval
-
-     |
-
-     v
-
-Small AI Context
-
-     |
-
-     v
-
-Answer
-
-Create:
-
-docs/03-database/indexing-strategy.md
-
-Content:
-
-# Indexing Strategy Design
-
-
-## Document Information
-
-Module: Indexing Engine
-
-Document: Indexing Strategy
-
-Status: Draft
-
-Version: 1.0
-
-Owner: CodeMind Engineering Team
-
-
-
-# 1. Overview
-
-
-The Indexing Engine is responsible for converting a complete
-software repository into a searchable intelligence system.
-
-
-It performs:
-
-
-- Repository scanning
-- File discovery
-- Code parsing
-- Symbol extraction
-- Relationship detection
-- Knowledge generation
-- Embedding creation
-
-
-
-The goal:
-
-
-"Understand the repository once and reuse the understanding."
-
-
-# 2. Indexing Architecture
-
-
-
-
-Repository
-
-|
-
-v
-
-Repository Scanner
-
-|
-
-v
-
-File Discovery
-
-|
-
-v
-
-Parser Engine
-
-|
-
-v
-
-Code Intelligence
-
-|
-
-v
-
-Knowledge Engine
-
-|
-
-v
-
-Embedding Generator
-
-|
-
-v
-
-Search Index
-
-
-
-
-# 3. Indexing Pipeline
-
-
-
-## Stage 1: Repository Clone
-
-
-
-Input:
-
-
-
-Git Repository
-
-
-
-
-Example:
-
-
-
-github.com/company/smw-api2
-
-
-
-
-Output:
-
-
-
-Local Repository Snapshot
-
-
-
-
-Responsibilities:
-
-
-- Clone repository
-- Checkout branch
-- Store commit hash
-
-
-
----
-
-
-
-## Stage 2: File Discovery
-
-
-
-Purpose:
-
-
-Find all source files.
-
-
-
-Example:
-
-
-
-
-src/
-
-├── payment/
-
-│ ├── payment.service.ts
-
-│ └── payment.controller.ts
-
-└── invoice/
-
-   └── invoice.service.ts
-
-
-
-Store:
-
-
-
-
-repository_files
-
-
-
-
----
-
-
-
-## Stage 3: File Filtering
-
-
-
-Not every file requires indexing.
-
-
-
-Ignore:
-
-
-
-
-node_modules
-
-dist
-
-build
-
-coverage
-
-.git
-
-logs
-
-
-
-
-Configuration:
-
-
-
-.codemindignore
-
-
-
-
-Example:
-
-
-
-
-node_modules/
-
-*.log
-
-.env
-
-
-
-
----
-
-
-
-## Stage 4: Language Detection
-
-
-
-Detect programming language.
-
-
-
-Example:
-
-
-
-
-payment.service.ts
-
-Language:
-
-TypeScript
-
-
-
-
-Supported:
-
-
-
-
-TypeScript
-
-JavaScript
-
-Python
-
-Java
-
-PHP
-
-Go
-
-
-
-
----
-
-
-
-## Stage 5: AST Parsing
-
-
-
-Convert source code into structured format.
-
-
-
-Example:
-
-
-
-Source:
-
-
-```typescript
-class PaymentService {
-
- processPayment(){
-
- }
-
-}
-
-
-AST:
-
-ClassDeclaration
-
-   |
-
-   +-- MethodDeclaration
-
-
-Store:
-
-code_entities
-
-4. Incremental Indexing
-
-Important principle:
-
-Do not re-index the entire repository.
-
-Example:
-
-Repository:
-
-5000 files
-
-
-New commit:
-
-5 files changed
-
-
-Only process:
-
-5 files
-
-
-Flow:
-
-Git Commit
-
-
-     |
-
-     v
-
-
-Compare File Hash
-
-
-     |
-
-     v
-
-
-Changed Files
-
-
-     |
-
-     v
-
-
-Re-index
-
-5. File Hash Strategy
-
-Each file stores:
-
-SHA-256 Hash
-
-
-Example:
-
-payment.service.ts
-
-
-hash:
-
-abc123xyz
-
-
-After change:
-
-hash:
-
-xyz789abc
-
-
-Difference:
-
-File Modified
-
-6. Indexing Queue Architecture
-
-Large repositories cannot be indexed synchronously.
-
-Architecture:
-
-API Server
-
-
-     |
-
-     v
-
-
-Job Queue
-
-
-     |
-
-     +----------------+
-
-     |                |
-
-
- Parser Worker    Embedding Worker
-
-
-
-Recommended technology:
-
-Redis Queue
-
-BullMQ
-
-7. Indexing Jobs
-
-Table:
-
-index_jobs
-
-
-Schema:
-
-index_jobs
-
-
-id
-
-repository_id
-
-job_type
-
-status
-
-priority
-
-progress
-
-started_at
-
-completed_at
-
-error_message
-
-created_at
-
-
-Job Types:
-
-CLONE_REPOSITORY
-
-SCAN_FILES
-
-PARSE_FILES
-
-ANALYZE_CODE
-
-CREATE_EMBEDDINGS
-
-GENERATE_KNOWLEDGE
-
-8. Worker Processing
-
-Example:
-
-Index Job
-
-
-    |
-
-    v
-
-
-Parser Worker
-
-
-    |
-
-    +---- File 1
-
-    |
-
-    +---- File 2
-
-    |
-
-    +---- File 3
-
-
-    |
-
-    v
-
-
-Store Results
-
-9. Parallel Processing
-
-Large repository:
-
-5000 files
-
-
-Instead of:
-
-File 1
-
-File 2
-
-File 3
-
-...
-
-
-Use:
-
-Worker 1
-
-Payment Module
-
-
-Worker 2
-
-Invoice Module
-
-
-Worker 3
-
-User Module
-
-
-Benefits:
-
-Faster indexing
-Better scalability
-10. Index Priority System
-
-Not all files are equally important.
-
-Priority:
-
-High:
-
-src/
-
-controllers
-
-services
-
-entities
-
-modules
-
-
-Medium:
-
-utils
-
-helpers
-
-config
-
-
-Low:
-
-tests
-
-examples
-
-docs
-
-11. Dependency Graph Indexing
-
-CodeMind builds relationships:
-
-Example:
-
-PaymentController
-
-
-        |
-
-        v
-
-
-PaymentService
-
-
-        |
-
-        v
-
-
-PaymentRepository
-
-
-        |
-
-        v
-
-
-Database
-
-
-Stored:
-
-code_relationships
-
-12. Embedding Indexing
-
-After code analysis:
-
-Code Chunk
-
-
-      |
-
-      v
-
-
-Embedding Model
-
-
-      |
-
-      v
-
-
-Vector Database
-
-
-Example:
-
-calculatePayment()
-
-
-Vector:
-
-[0.123,0.523,...]
-
-13. Indexing States
-
-Repository status:
-
-CREATED
-
-
- |
-
- v
-
-
-CLONING
-
-
- |
-
- v
-
-
-SCANNING
-
-
- |
-
- v
-
-
-PARSING
-
-
- |
-
- v
-
-
-ANALYZING
-
-
- |
-
- v
-
-
-EMBEDDING
-
-
- |
-
- v
-
-
-READY
-
-14. Failure Handling
-
-Possible failures:
-
-Parser Error
-
-Large File
-
-Unsupported Language
-
-Network Failure
-
-AI Timeout
-
-
-Handling:
-
-Retry Job
-
-
-     |
-
-     v
-
-
-Log Error
-
-
-     |
-
-     v
-
-
-Continue Other Files
-
-
-One failed file should not stop the complete indexing.
-
-15. Large Repository Strategy
-
-Target:
-
-10,000+
-
-files
-
-
-Approach:
-
-Batch Processing
-
-Example:
-
-Batch 1:
-
-100 files
-
-
-Batch 2:
-
-100 files
-
-Lazy Indexing
-
-Do not analyse everything immediately.
-
-Example:
-
-User asks:
-
-Explain payment module
-
-
-Then:
-
-Analyse payment module first
-
-Priority Indexing
-
-Important modules first:
-
-Application Entry
-
-Controllers
-
-Services
-
-Database
-
-Business Logic
-
-16. Index Storage
-
-Stores:
-
-Repository Metadata
-
-
-+
-
-File Information
-
-
-+
-
-Code Entities
-
-
-+
-
-Relationships
-
-
-+
-
-Knowledge
-
-
-+
-
-Embeddings
-
-17. API Flow
-
-Start indexing:
-
-POST
-
-/api/repositories/{id}/index
-
-
-Response:
-
-{
- "jobId":"123",
- "status":"STARTED"
-}
-
-
-Check status:
-
-GET
-
-/api/index/jobs/123
-
-
-Response:
-
-{
- "progress":85,
- "status":"PARSING"
-}
-
-18. Monitoring
-
-Track:
-
-Files Processed
-
-Parsing Speed
-
-Embedding Count
-
-Failures
-
-Token Usage
-
-
-Metrics:
-
-index_duration
-
-files_per_second
-
-embedding_cost
-
-19. Security
-
-Requirements:
-
-Private repository isolation
-Credential encryption
-Access validation
-Secure temporary storage
-20. Future Improvements
-Continuous Indexing
-
-Git webhook:
-
-Push
-
-
- |
-
- v
-
-
-Detect Changes
-
-
- |
-
- v
-
-
-Update Index
-
-Multi Repository Intelligence
-
-Example:
-
-Company
-
-
- |
-
- +-- Backend
-
- |
-
- +-- Frontend
-
- |
-
- +-- Mobile App
-
-
-Understand entire ecosystem.
-
-AI Optimized Index
-
-Store:
-
-Most Important Files
-
-Most Used Modules
-
-Business Critical Areas
-
-Summary
-
-The Indexing Engine is the foundation of CodeMind.
-
-It transforms:
-
-Raw Repository
-
-        |
-
-        v
-
-
-Structured Intelligence
-
-
-The key principle:
-
-"Index once, understand forever."
-
-This allows CodeMind to analyse large legacy systems while consuming far fewer AI tokens.
+# Indexing Schema and Persistence Strategy
+
+## Document information
+
+Status: Phase 3.1 schema implemented
+Version: 2.1
+Owner: CodeMind Engineering
+Architecture decision: [ADR-012](../06-adrs/012-indexing-engine.md)
+
+## Goal
+
+Indexing must survive process restarts and preserve the exact Git snapshot that
+produced code metadata. PostgreSQL is the source of truth for jobs, file
+inventory, content versions, progress, and sanitized failures. A future queue
+may notify workers, but it is not the durable record of work.
+
+The Phase 3.1 schema contains:
+
+- `index_jobs` for durable orchestration
+- `indexed_files` for stable branch/path inventory
+- `file_hashes` for immutable content observations
+- `indexing_errors` for operational failure records
+
+All high-volume indexing records use auto-increment integer IDs. Organization
+and user references retain UUIDs.
+
+## Entity relationship diagram
+
+```mermaid
+erDiagram
+    ORGANIZATIONS ||--o{ INDEX_JOBS : owns
+    USERS o|--o{ INDEX_JOBS : requests
+    REPOSITORIES ||--o{ INDEX_JOBS : contains
+    REPOSITORY_BRANCHES ||--o{ INDEX_JOBS : targets
+
+    ORGANIZATIONS ||--o{ INDEXED_FILES : owns
+    REPOSITORIES ||--o{ INDEXED_FILES : contains
+    REPOSITORY_BRANCHES ||--o{ INDEXED_FILES : inventories
+    INDEX_JOBS o|--o{ INDEXED_FILES : last_seen_by
+
+    ORGANIZATIONS ||--o{ FILE_HASHES : owns
+    INDEXED_FILES ||--o{ FILE_HASHES : versions
+    INDEX_JOBS o|--o{ FILE_HASHES : observes
+
+    ORGANIZATIONS ||--o{ INDEXING_ERRORS : owns
+    INDEX_JOBS ||--o{ INDEXING_ERRORS : records
+    INDEXED_FILES o|--o{ INDEXING_ERRORS : affects
+```
+
+Organization IDs are intentionally repeated on high-volume tables. They make
+tenant-scoped queries and indexes explicit. Application services must derive
+the value from authenticated/job context and keep it consistent with the
+referenced repository, branch, job, and file.
+
+## `index_jobs`
+
+| Column | Type | Null | Purpose |
+|---|---|:---:|---|
+| `id` | serial integer | No | Internal job identity |
+| `organization_id` | UUID | No | Tenant boundary |
+| `repository_id` | integer | No | Parent repository |
+| `branch_id` | integer | No | Target branch |
+| `requested_by_user_id` | UUID | Yes | Requesting user; null after user deletion or for future system work |
+| `trigger` | `index_job_trigger` | No | `manual` or future `repository_sync` |
+| `mode` | `indexing_mode` | No | `incremental` or `full` |
+| `status` | `index_job_status` | No | Durable lifecycle state |
+| `target_commit_sha` | varchar(64) | No | Immutable Git commit selected at creation |
+| `total_files` | integer | No | Planned files |
+| `processed_files` | integer | No | Successful files |
+| `skipped_files` | integer | No | Reused, ignored, or unsupported files |
+| `failed_files` | integer | No | Files with processing failures |
+| `attempt_count` | integer | No | Worker attempts |
+| `failure_code` | varchar(100) | Yes | Stable terminal error code |
+| `failure_message` | varchar(1000) | Yes | Sanitized terminal summary |
+| `started_at` | timestamptz | Yes | Latest processing start |
+| `completed_at` | timestamptz | Yes | Terminal completion time |
+| `created_at` | timestamptz | No | Queue time |
+| `updated_at` | timestamptz | No | Last lifecycle update |
+
+### Job constraints
+
+Only one active job is allowed for a repository branch:
+
+```sql
+CREATE UNIQUE INDEX uq_index_jobs_active_repository_branch
+ON index_jobs (repository_id, branch_id)
+WHERE status IN ('queued', 'running');
+```
+
+The application performs an early duplicate check for a useful `409`; the
+partial unique index remains authoritative when requests race.
+
+Counters must be non-negative and obey:
+
+```text
+processed_files + skipped_files + failed_files <= total_files
+```
+
+## `indexed_files`
+
+`indexed_files` represents the stable path identity inside one repository
+branch. Content changes create `file_hashes`; they do not replace the file ID.
+
+| Column | Type | Null | Purpose |
+|---|---|:---:|---|
+| `id` | serial integer | No | File/path identity |
+| `organization_id` | UUID | No | Tenant boundary |
+| `repository_id` | integer | No | Parent repository |
+| `branch_id` | integer | No | Parent branch |
+| `last_seen_job_id` | integer | Yes | Most recent job that observed this path |
+| `path` | varchar(1024) | No | Repository-relative normalized path |
+| `extension` | varchar(32) | Yes | Lowercase extension without interpretation |
+| `language` | varchar(64) | Yes | Detected language; null until detection |
+| `size_bytes` | integer | No | Current observed content size |
+| `status` | `indexed_file_status` | No | `active` or `deleted` |
+| `last_seen_commit_sha` | varchar(64) | No | Commit that last observed the current path state |
+| `created_at` | timestamptz | No | First observation |
+| `updated_at` | timestamptz | No | Latest inventory change |
+
+The unique key is:
+
+```text
+UNIQUE (branch_id, path)
+```
+
+Paths use `/` separators, have no leading slash, and cannot contain traversal
+segments or NUL bytes. The future scanner owns those validation rules before
+persistence. Missing paths are marked `deleted` instead of immediately
+removed, allowing downstream symbol and relationship cleanup to be explicit.
+
+## `file_hashes`
+
+`file_hashes` stores immutable content observations. It separates stable path
+identity from content version identity.
+
+| Column | Type | Null | Purpose |
+|---|---|:---:|---|
+| `id` | serial integer | No | Content-version identity |
+| `organization_id` | UUID | No | Tenant boundary |
+| `indexed_file_id` | integer | No | Stable file/path identity |
+| `observed_by_job_id` | integer | Yes | First job that persisted the version |
+| `algorithm` | `file_hash_algorithm` | No | Currently `sha256` |
+| `value` | varchar(128) | No | Lowercase digest |
+| `git_blob_oid` | varchar(64) | No | Git object ID used for cheap change detection |
+| `size_bytes` | integer | No | Hashed content size |
+| `created_at` | timestamptz | No | First observation time |
+
+The uniqueness rule is:
+
+```text
+UNIQUE (indexed_file_id, algorithm, value)
+```
+
+If a file returns to content seen earlier, the existing content version can be
+reused. The tenant/algorithm/value index supports future parser-artifact reuse
+without removing tenant scope.
+
+## `indexing_errors`
+
+`indexing_errors` preserves bounded, sanitized failures for operations and
+file-level diagnostics.
+
+| Column | Type | Null | Purpose |
+|---|---|:---:|---|
+| `id` | serial integer | No | Error identity |
+| `organization_id` | UUID | No | Tenant boundary |
+| `index_job_id` | integer | No | Owning job |
+| `indexed_file_id` | integer | Yes | Affected file, when applicable |
+| `phase` | `indexing_error_phase` | No | Pipeline stage |
+| `code` | varchar(100) | No | Stable machine-readable code |
+| `message` | varchar(1000) | No | Sanitized explanation |
+| `retryable` | boolean | No | Whether retry policy may retry |
+| `attempt_number` | integer | No | Attempt that recorded the failure |
+| `created_at` | timestamptz | No | Failure time |
+
+The message must not contain source content, credentials, absolute workspace
+paths, raw Git output, or stack traces. Those belong in access-controlled
+application logs.
+
+Supported error phases are `discovery`, `materialization`, `hashing`,
+`parsing`, `persistence`, and `finalization`.
+
+## Enum catalog
+
+| Enum | Values |
+|---|---|
+| `index_job_status` | `queued`, `running`, `succeeded`, `failed`, `cancelled` |
+| `index_job_trigger` | `manual`, `repository_sync` |
+| `indexing_mode` | `incremental`, `full` |
+| `indexed_file_status` | `active`, `deleted` |
+| `file_hash_algorithm` | `sha256` |
+| `indexing_error_phase` | `discovery`, `materialization`, `hashing`, `parsing`, `persistence`, `finalization` |
+
+`succeeded` intentionally means that all required metadata for the target
+commit was committed. It is more precise than a generic `completed` state.
+
+## Index catalog
+
+| Table/index fields | Purpose |
+|---|---|
+| Jobs: organization, repository, created | Repository job history |
+| Jobs: organization, status, created | Tenant operations queries |
+| Jobs: branch | Branch history |
+| Jobs: requester | Audit lookup |
+| Files: organization, repository, status | Tenant repository inventory |
+| Files: branch, status | Active/deleted branch inventory |
+| Files: last-seen job | Job reconciliation |
+| Hashes: organization, algorithm, value | Tenant-scoped content reuse |
+| Hashes: Git blob ID | Incremental candidate lookup |
+| Errors: organization, job, created | Ordered job diagnostics |
+| Errors: file | File diagnostics |
+
+## Foreign-key deletion rules
+
+| Parent | Child | Behavior |
+|---|---|---|
+| Organization | All indexing tables | `RESTRICT` |
+| Repository | Jobs and files | `CASCADE` |
+| Branch | Jobs and files | `CASCADE` |
+| User | Requested job | `SET NULL` |
+| Job | Last-seen file / observed hash | `SET NULL` |
+| Job | Indexing error | `CASCADE` |
+| Indexed file | Hash versions | `CASCADE` |
+| Indexed file | Error reference | `SET NULL` |
+
+Branch synchronization marks missing remote branches as `deleted`; it does
+not normally delete branch rows. Repository deletion removes its operational
+indexing data as one aggregate.
+
+## Incremental decision model
+
+ADR-012 defines a hybrid strategy:
+
+```text
+same target commit + incremental mode -> no-op success
+same path + same Git blob ID          -> reuse content version
+new blob + known SHA-256              -> reuse parser artifact when valid
+new SHA-256                            -> parse new content version
+missing previous path                  -> mark indexed file deleted
+```
+
+Git object IDs avoid reading most unchanged blobs. SHA-256 remains the durable
+cross-Git-format content identity and is computed while bounded content is
+read.
+
+## Transaction boundaries
+
+The API creates a queued job with one short database write after tenant and
+branch validation. No clone, fetch, filesystem, parser, or AI work occurs in
+that request transaction.
+
+Future workers will:
+
+1. Claim a job in a short atomic transaction.
+2. Scan/hash/parse outside a transaction.
+3. Commit inventory and content versions in bounded idempotent batches.
+4. Mark deleted paths only after the scan result is durable.
+5. Set `succeeded` only after every required batch commits.
+
+Long-running processing must never hold a database connection or row lock.
+
+## Migrations
+
+The foundation is introduced in two additive migrations:
+
+```text
+1785610000000-AddIndexJobs.ts
+1785620000000-CompleteIndexingFoundation.ts
+```
+
+The split is intentional: the durable job/API slice landed first, then the ADR
+expanded Phase 3.1 to the complete inventory, hash, error, and mode model.
+
+Commands:
+
+```bash
+yarn migration:show
+yarn migration:run
+yarn migration:revert
+yarn typeorm schema:log -d src/database/data-source.ts
+```
+
+After all migrations are applied, `schema:log` must generate no SQL.

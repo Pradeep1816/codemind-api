@@ -47,7 +47,6 @@ Implemented:
 Deferred to later phases:
 
 - Git credential references
-- Durable indexing jobs
 - File inventory and content hashes
 - Incremental indexing
 
@@ -555,9 +554,16 @@ Milestones 2.1 through 2.8 are complete:
 - Authorization and repository workflows have unit and PostgreSQL E2E coverage
 - API, module, data model, and schema documentation reflect the implementation
 
-## Next implementation phase
+## Indexing handoff
 
-Phase 3 begins the durable indexing pipeline: jobs, file inventory, content
-hashes, language detection, incremental change decisions, and worker-safe
-coordination. Repository health should then expose indexing job state in
+Phase 3.1 now consumes the repository identity, active branch state, and
+synchronized commit SHA to create a durable indexing job. The repository
+module remains responsible for Git synchronization; the indexing module owns
+job lifecycle and future file processing.
+
+The next slice adds safe per-job workspace management, followed by file
+discovery, content hashing, language detection, and incremental change
+decisions. Worker-safe job claiming follows as the background-processing
+milestone.
+Repository health can then expose active and last-completed job state in
 addition to the branch-level `lastIndexedAt` aggregate.

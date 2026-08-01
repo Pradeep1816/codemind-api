@@ -3,6 +3,7 @@ import { ConfigModule } from './config/config.module';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { HealthModule } from './modules/health/health.module';
+import { IndexingModule } from './modules/indexing/indexing.module';
 import { RepositoriesModule } from './modules/repositories/repositories.module';
 
 @Module({
@@ -11,6 +12,7 @@ import { RepositoriesModule } from './modules/repositories/repositories.module';
     DatabaseModule,
     AuthModule,
     RepositoriesModule,
+    IndexingModule,
     HealthModule,
   ],
 })

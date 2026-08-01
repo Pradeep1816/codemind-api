@@ -316,34 +316,34 @@ Dependencies
 Generate Architecture Map
 POST /repositories/{id}/analysis/architecture
 
-8. Indexing APIs
+8. Indexing Job APIs
 
 Base path:
 
-/api/v1/indexing
+```text
+/api/v1/repositories/{repositoryId}/index-jobs
+```
 
-Start Indexing
-POST /indexing/{repositoryId}
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/repositories/{repositoryId}/index-jobs` | Queue one synchronized branch snapshot |
+| `GET` | `/repositories/{repositoryId}/index-jobs` | List repository jobs |
+| `GET` | `/repositories/{repositoryId}/index-jobs/{jobId}` | Read one job |
 
+Create body:
 
-Response:
-
+```json
 {
-"jobId":"job_123",
-"status":"queued"
+  "branchId": 1,
+  "mode": "incremental"
 }
-Get Index Status
-GET /indexing/{jobId}
+```
 
+New jobs are durably stored with `status: "queued"`. Worker execution,
+cancellation, and retries are planned for the next indexing slice and are not
+currently exposed as APIs.
 
-Response:
-
-{
-"status":"running",
-"progress":65
-}
-Cancel Indexing
-POST /indexing/{jobId}/cancel
+See [Indexing Job API](indexing-api.md) for the complete contract.
 
 9. Parser APIs
 

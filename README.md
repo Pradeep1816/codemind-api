@@ -60,6 +60,10 @@ Implemented:
 - Tenant-scoped repository membership and branch synchronization APIs
 - Persistent repository synchronization and branch health reporting
 - Internal GitHub HTTPS and allow-listed local Git clone/fetch service
+- Durable, tenant-scoped indexing job creation and status APIs
+- Branch commit snapshotting and active indexing-job concurrency protection
+- Isolated per-job indexing workspace preparation and targeted cleanup
+- Bounded Git-tree file discovery with transactional active/deleted inventory
 - Database-aware `GET /health` endpoint
 - URI API versioning under `/api/v1`
 - Global request validation
@@ -72,8 +76,8 @@ Not implemented yet:
 - Invitation email delivery and invitation resend/revoke APIs
 - Password reset, verified email, and MFA
 - Organization settings APIs
-- Repository indexing
-- Indexing, parsing, and static analysis
+- Indexing worker execution and file inventory
+- Parsing and static analysis
 - Knowledge generation and search
 - AI provider integration
 - MCP server

@@ -5,6 +5,7 @@ import appConfig from './app.config';
 import databaseConfig from './database.config';
 import { validateEnvironment } from './env.validation';
 import gitConfig from './git.config';
+import indexingConfig from './indexing.config';
 import invitationConfig from './invitation.config';
 import jwtConfig from './jwt.config';
 import rateLimitConfig from './rate-limit.config';
@@ -19,6 +20,7 @@ import rateLimitConfig from './rate-limit.config';
         appConfig,
         databaseConfig,
         gitConfig,
+        indexingConfig,
         jwtConfig,
         invitationConfig,
         rateLimitConfig,
