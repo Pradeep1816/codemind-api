@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Milestones 3.1 through 3.7 implemented; tests deferred
-Version: 2.3
+Status: Milestones 3.1 through 3.8 implemented; tests deferred
+Version: 2.4
 Owner: CodeMind Engineering
 
 ## Purpose
@@ -12,11 +12,11 @@ The indexing module coordinates the durable work required to convert a
 synchronized repository branch into searchable code intelligence. It sits
 between repository ingestion and the parser/analysis pipeline.
 
-Milestones 3.1 through 3.7 establish the job and persistence model, immutable
+Milestones 3.1 through 3.8 establish the job and persistence model, immutable
 workspace boundary, file discovery, incremental hashing, language detection,
-bounded parser dispatch, and version-scoped symbol persistence. An authorized
-caller can queue a job for an active synchronized branch and inspect persisted
-job state.
+bounded parser dispatch, version-scoped symbols, and the initial dependency
+graph. An authorized caller can queue a job for an active synchronized branch
+and inspect persisted job state.
 
 A worker does not consume queued jobs yet, so new jobs remain `queued` until
 background processing is implemented.
@@ -58,12 +58,16 @@ Implemented:
 - Persist version-scoped symbols linked to immutable file hashes
 - Reconcile parser retries while preserving stable symbol IDs
 - Enforce job, commit, branch, file, hash, blob, and tenant ownership on writes
+- Persist imports, exports, `extends`, and `implements` relationships
+- Resolve deterministic relative modules and unambiguous symbol targets
+- Preserve unresolved packages, aliases, and textual targets without guessing
+- Reconcile dependency retries while preserving stable relationship IDs
 - Paginate and filter repository job history by status
 - Return `404` for cross-organization repository or job identifiers
 
 Deferred to the next slices:
 
-- Dependency resolution and static analysis
+- Function-call resolution and advanced static analysis
 - Queue transport and worker consumption
 - Job claiming, leases, retries, cancellation, and recovery
 - Updating branch `lastIndexedAt` after successful processing
@@ -73,7 +77,7 @@ Not owned by this module:
 
 - Repository registration and Git synchronization
 - AST and symbol parsing
-- Static analysis and relationship inference
+- Advanced semantic analysis and function-call inference
 - Embedding generation
 - Search ranking
 - AI response generation
@@ -86,7 +90,8 @@ flowchart LR
     Job -->|future worker claim| Scanner[File inventory]
     Scanner --> Parser[Parser module]
     Parser --> Symbols[(Code symbols)]
-    Symbols --> Analysis[Analysis module]
+    Symbols --> Graph[(Code dependencies)]
+    Graph --> Analysis[Analysis module]
     Analysis --> Knowledge[Knowledge module]
     Knowledge --> Search[Search module]
 ```
@@ -130,6 +135,9 @@ persisted state.
 | `SourceParsingService` | Validate and read one immutable source version for parsing | Typed indexing configuration, `GitService`, `ParserService` |
 | `SymbolExtractionService` | Validate normalized symbols and coordinate one file-version write | `SourceParsingService`, typed indexing configuration, `CodeSymbolsRepository` |
 | `CodeSymbolsRepository` | Tenant-aware symbol reconciliation and transaction ownership checks | TypeORM and indexing entities |
+| `DependencyExtractionService` | Normalize parser relationships and resolve reliable targets | Parser results, symbol persistence, relative resolver, `CodeDependenciesRepository` |
+| `RelativeModuleResolverService` | Produce safe ordered candidates for relative modules | POSIX path rules only |
+| `CodeDependenciesRepository` | Resolve tenant-scoped lookup data and reconcile relationships | TypeORM and indexing entities |
 | Future worker service | Claiming and executing durable jobs | Indexing application services and scanner/parser ports |
 
 The indexing module uses exported repository application services instead of
@@ -261,6 +269,12 @@ src/modules/indexing/
 │   ├── content-hash.errors.ts
 │   ├── content-hash.service.ts
 │   └── content-hash.types.ts
+├── dependencies/
+│   ├── code-dependencies.repository.ts
+│   ├── dependency-extraction.errors.ts
+│   ├── dependency-extraction.service.ts
+│   ├── dependency-extraction.types.ts
+│   └── relative-module-resolver.service.ts
 ├── discovery/
 │   ├── file-discovery.constants.ts
 │   ├── file-discovery.errors.ts
@@ -271,12 +285,14 @@ src/modules/indexing/
 │   ├── list-index-jobs-query.dto.ts
 │   └── start-index.dto.ts
 ├── entities/
+│   ├── code-dependency.entity.ts
 │   ├── code-symbol.entity.ts
 │   ├── file-hash.entity.ts
 │   ├── index-job.entity.ts
 │   ├── indexed-file.entity.ts
 │   └── indexing-error.entity.ts
 ├── enums/
+│   ├── code-dependency-kind.enum.ts
 │   ├── code-symbol-kind.enum.ts
 │   ├── code-symbol-visibility.enum.ts
 │   ├── file-hash-algorithm.enum.ts
@@ -321,14 +337,15 @@ database uniqueness races, tenant-scoped lists, and hidden cross-tenant job
 identifiers.
 
 The migration and entity metadata must also pass TypeORM schema-drift checks.
-New Phase 3 scanner, hash, language, parser, and symbol tests remain explicitly
-deferred until the planned phase-level test slice.
+New Phase 3 scanner, hash, language, parser, symbol, and dependency tests remain
+explicitly deferred until the planned phase-level test slice.
 
 ## Next implementation slice
 
-Phase 3.8 builds dependency relationships from normalized imports, exports,
-inheritance clauses, and later reliable call resolution. Relationships will
-support both unresolved text and resolved file/symbol targets.
+Milestone 3.9 expands the job lifecycle with atomic claims, ownership leases,
+heartbeats, progress transitions, cancellation, bounded retries, and recovery.
+That durable lifecycle is required before Milestone 3.10 can run this pipeline
+in background workers.
 
 Durable worker claiming remains Milestone 3.10. The job API, workspace, and
 discovery boundaries were delivered early because every later indexing

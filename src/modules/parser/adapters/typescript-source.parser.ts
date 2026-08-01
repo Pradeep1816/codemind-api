@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import ts from 'typescript';
 import { ParsedExportKind } from '../enums/parsed-export-kind.enum';
+import { ParsedRelationshipKind } from '../enums/parsed-relationship-kind.enum';
 import { ParsedSymbolKind } from '../enums/parsed-symbol-kind.enum';
 import { ParsedSymbolVisibility } from '../enums/parsed-symbol-visibility.enum';
 import { ParserDiagnosticCategory } from '../enums/parser-diagnostic-category.enum';
@@ -9,6 +10,7 @@ import { ParserError, ParserErrorCode } from '../parser.errors';
 import {
   ParsedExport,
   ParsedImport,
+  ParsedRelationship,
   ParsedSymbol,
   ParserDiagnostic,
   ParseSourceInput,
@@ -71,6 +73,7 @@ export class TypeScriptSourceParser implements SourceParser {
       symbols: this.collectSymbols(sourceFile),
       imports: this.collectImports(sourceFile),
       exports: this.collectExports(sourceFile),
+      relationships: this.collectRelationships(sourceFile),
       diagnostics,
       hasSyntaxErrors: diagnostics.some(
         (diagnostic) => diagnostic.category === ParserDiagnosticCategory.Error,
@@ -468,6 +471,7 @@ export class TypeScriptSourceParser implements SourceParser {
               importedName: element.propertyName?.text ?? element.name.text,
               localName: element.name.text,
               typeOnly: clause.isTypeOnly || element.isTypeOnly,
+              range: this.createNodeRange(sourceFile, element),
             });
           }
         }
@@ -550,6 +554,76 @@ export class TypeScriptSourceParser implements SourceParser {
     }
 
     return exports;
+  }
+
+  private collectRelationships(
+    sourceFile: ts.SourceFile,
+  ): ParsedRelationship[] {
+    const relationships: ParsedRelationship[] = [];
+
+    const visit = (node: ts.Node, containers: readonly string[]): void => {
+      let childContainers = containers;
+
+      if (ts.isClassDeclaration(node) && node.name) {
+        const qualifiedName = [...containers, node.name.text].join('.');
+        this.collectHeritageRelationships(
+          sourceFile,
+          node,
+          ParsedSymbolKind.Class,
+          qualifiedName,
+          relationships,
+        );
+        childContainers = [...containers, node.name.text];
+      } else if (ts.isInterfaceDeclaration(node)) {
+        const qualifiedName = [...containers, node.name.text].join('.');
+        this.collectHeritageRelationships(
+          sourceFile,
+          node,
+          ParsedSymbolKind.Interface,
+          qualifiedName,
+          relationships,
+        );
+        childContainers = [...containers, node.name.text];
+      } else if (ts.isFunctionDeclaration(node) && node.name) {
+        childContainers = [...containers, node.name.text];
+      } else if (ts.isEnumDeclaration(node)) {
+        childContainers = [...containers, node.name.text];
+      }
+
+      ts.forEachChild(node, (child) => visit(child, childContainers));
+    };
+
+    visit(sourceFile, []);
+
+    return relationships;
+  }
+
+  private collectHeritageRelationships(
+    sourceFile: ts.SourceFile,
+    declaration: ts.ClassDeclaration | ts.InterfaceDeclaration,
+    sourceKind: ParsedSymbolKind.Class | ParsedSymbolKind.Interface,
+    sourceQualifiedName: string,
+    relationships: ParsedRelationship[],
+  ): void {
+    for (const clause of declaration.heritageClauses ?? []) {
+      const kind =
+        clause.token === ts.SyntaxKind.ExtendsKeyword
+          ? ParsedRelationshipKind.Extends
+          : ParsedRelationshipKind.Implements;
+
+      for (const target of clause.types) {
+        relationships.push({
+          kind,
+          sourceSymbol: {
+            kind: sourceKind,
+            qualifiedName: sourceQualifiedName,
+            startOffset: declaration.getStart(sourceFile, false),
+          },
+          targetName: target.expression.getText(sourceFile),
+          range: this.createNodeRange(sourceFile, target),
+        });
+      }
+    }
   }
 
   private createExportDeclarations(

@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Milestone 3.7 symbol persistence integrated; tests deferred
-Version: 2.1
+Status: Milestone 3.8 dependency extraction integrated; tests deferred
+Version: 2.2
 Owner: CodeMind Engineering
 
 ## Purpose
@@ -28,10 +28,11 @@ Implemented in Milestone 3.6:
 - UTF-8 validation before source enters a parser
 - No TypeORM, Git, HTTP, or source-execution concerns inside parser adapters
 - Version-scoped symbol persistence through an indexing-owned adapter
+- Normalized class/interface `extends` and class `implements` relationships
 
 Deferred:
 
-- Resolving imports and building dependencies in Milestone 3.8
+- Function-call extraction and semantic type-checker relationships
 - Background orchestration, retries, and failure thresholds in Milestone 3.10
 - Additional language adapters
 - Phase-level parser tests, as explicitly deferred for the current development
@@ -48,7 +49,7 @@ flowchart LR
     Router --> TS[TypeScriptSourceParser]
     TS --> Result[ParseSourceResult]
     Result --> Symbols[(code_symbols)]
-    Result --> Dependencies[Milestone 3.8 resolution]
+    Result --> Dependencies[(code_dependencies)]
 ```
 
 The dependency direction is intentional:
@@ -70,6 +71,7 @@ src/modules/parser/
 │   └── typescript-source.parser.ts
 ├── enums/
 │   ├── parsed-export-kind.enum.ts
+│   ├── parsed-relationship-kind.enum.ts
 │   ├── parsed-symbol-kind.enum.ts
 │   ├── parsed-symbol-visibility.enum.ts
 │   └── parser-diagnostic-category.enum.ts
@@ -115,8 +117,9 @@ interface SourceParser {
 - `content`: bounded UTF-8 source text
 
 `ParseSourceResult` carries the same identities plus normalized symbols,
-imports, exports, diagnostics, and `hasSyntaxErrors`. It never contains a
-TypeScript compiler node or TypeORM entity.
+imports, exports, inheritance relationships, diagnostics, and
+`hasSyntaxErrors`. It never contains a TypeScript compiler node or TypeORM
+entity.
 
 ## Adapter selection
 
@@ -165,9 +168,9 @@ bindings, aliases, and type-only state. Exports capture declarations, named
 exports, namespace exports, star exports, default exports, and export
 assignments.
 
-Milestone 3.7 persists these declaration facts against an immutable file hash.
-Inheritance, calls, and resolved target identities remain later metadata and
-analysis work.
+Milestone 3.7 persists declaration facts against an immutable file hash.
+Milestone 3.8 normalizes and resolves supported inheritance targets. Function
+calls and type-checker relationships remain later analysis work.
 
 ## Diagnostics
 
@@ -204,6 +207,7 @@ Repository source is untrusted. Parsing follows these rules:
 The configured default per-file limit is 2 MiB. Discovery and hashing enforce
 the same limit before parsing. `INDEXING_MAX_SYMBOLS_PER_FILE` additionally
 caps normalized symbols from one file; its default is 10,000.
+`INDEXING_MAX_DEPENDENCIES_PER_FILE` caps relationships at 20,000 per file.
 
 ## Error ownership
 
@@ -247,8 +251,15 @@ The write is accepted only while the same running job owns the organization,
 repository, branch, target commit, current file hash, Git blob, and byte size.
 This prevents stale parsing work from replacing newer metadata.
 
+## Dependency integration
+
+`DependencyExtractionService` reuses the same parse result after symbol
+persistence. It converts imports, exports, `extends`, and `implements` into
+version-scoped relationships, resolves deterministic relative repository
+paths, and links unambiguous symbols. Bare packages, aliases, and ambiguous
+symbols preserve their text without an incorrect target.
+
 ## Next milestone
 
-Milestone 3.8 will consume normalized imports, exports, and declaration
-relationships to create version-scoped dependencies without coupling compiler
-internals to database entities.
+Milestone 3.9 expands durable indexing-job ownership and lifecycle transitions
+so a worker can coordinate inventory, parsing, symbols, and dependencies.

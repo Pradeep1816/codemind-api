@@ -1,4 +1,5 @@
 import { ParsedExportKind } from '../enums/parsed-export-kind.enum';
+import { ParsedRelationshipKind } from '../enums/parsed-relationship-kind.enum';
 import { ParsedSymbolKind } from '../enums/parsed-symbol-kind.enum';
 import { ParsedSymbolVisibility } from '../enums/parsed-symbol-visibility.enum';
 import { ParserDiagnosticCategory } from '../enums/parser-diagnostic-category.enum';
@@ -39,6 +40,7 @@ export interface ParsedNamedImport {
   importedName: string;
   localName: string;
   typeOnly: boolean;
+  range: SourceRange;
 }
 
 export interface ParsedImport {
@@ -66,6 +68,19 @@ export interface ParserDiagnostic {
   range: SourceRange | null;
 }
 
+export interface ParsedSymbolReference {
+  kind: ParsedSymbolKind;
+  qualifiedName: string;
+  startOffset: number;
+}
+
+export interface ParsedRelationship {
+  kind: ParsedRelationshipKind;
+  sourceSymbol: ParsedSymbolReference;
+  targetName: string;
+  range: SourceRange;
+}
+
 export interface ParseSourceResult {
   indexedFileId: number;
   fileHashId: number;
@@ -75,6 +90,7 @@ export interface ParseSourceResult {
   symbols: ParsedSymbol[];
   imports: ParsedImport[];
   exports: ParsedExport[];
+  relationships: ParsedRelationship[];
   diagnostics: ParserDiagnostic[];
   hasSyntaxErrors: boolean;
 }

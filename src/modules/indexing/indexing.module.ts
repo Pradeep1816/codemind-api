@@ -5,6 +5,10 @@ import indexingConfig from '../../config/indexing.config';
 import { ParserModule } from '../parser/parser.module';
 import { RepositoriesModule } from '../repositories/repositories.module';
 import { ContentHashService } from './content/content-hash.service';
+import { CodeDependenciesRepository } from './dependencies/code-dependencies.repository';
+import { DependencyExtractionService } from './dependencies/dependency-extraction.service';
+import { RelativeModuleResolverService } from './dependencies/relative-module-resolver.service';
+import { CodeDependencyEntity } from './entities/code-dependency.entity';
 import { CodeSymbolEntity } from './entities/code-symbol.entity';
 import { FileHashEntity } from './entities/file-hash.entity';
 import { IndexJobEntity } from './entities/index-job.entity';
@@ -32,6 +36,7 @@ import { SymbolExtractionService } from './symbols/symbol-extraction.service';
       FileHashEntity,
       IndexingErrorEntity,
       CodeSymbolEntity,
+      CodeDependencyEntity,
     ]),
   ],
   controllers: [IndexingController],
@@ -46,6 +51,9 @@ import { SymbolExtractionService } from './symbols/symbol-extraction.service';
     SourceParsingService,
     CodeSymbolsRepository,
     SymbolExtractionService,
+    CodeDependenciesRepository,
+    RelativeModuleResolverService,
+    DependencyExtractionService,
   ],
   exports: [
     IndexingService,
@@ -56,6 +64,7 @@ import { SymbolExtractionService } from './symbols/symbol-extraction.service';
     LanguageDetectionService,
     SourceParsingService,
     SymbolExtractionService,
+    DependencyExtractionService,
   ],
 })
 export class IndexingModule {}

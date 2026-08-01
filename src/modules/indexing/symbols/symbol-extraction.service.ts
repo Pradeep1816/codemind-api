@@ -3,7 +3,10 @@ import type { ConfigType } from '@nestjs/config';
 import indexingConfig from '../../../config/indexing.config';
 import { ParsedSymbolKind } from '../../parser/enums/parsed-symbol-kind.enum';
 import { ParsedSymbolVisibility } from '../../parser/enums/parsed-symbol-visibility.enum';
-import { ParsedSymbol } from '../../parser/types/parser.types';
+import {
+  ParsedSymbol,
+  ParseSourceResult,
+} from '../../parser/types/parser.types';
 import { CodeSymbolKind } from '../enums/code-symbol-kind.enum';
 import { CodeSymbolVisibility } from '../enums/code-symbol-visibility.enum';
 import { SourceParsingService } from '../parsing/source-parsing.service';
@@ -44,6 +47,16 @@ export class SymbolExtractionService {
     this.assertInput(input);
 
     const parsed = await this.sourceParsingService.parseFile(input);
+
+    return this.persistParsed(input, parsed);
+  }
+
+  /** Persists an already parsed result so a worker can reuse one AST pass. */
+  async persistParsed(
+    input: ExtractAndPersistSymbolsInput,
+    parsed: ParseSourceResult,
+  ): Promise<SymbolExtractionResult> {
+    this.assertInput(input);
 
     if (
       parsed.indexedFileId !== input.indexedFileId ||

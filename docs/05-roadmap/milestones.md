@@ -10,14 +10,15 @@
 | Phases 4–7 | Planned |
 | Phase 8 | Future |
 
-Milestones 3.1 through 3.7 are implemented. They define the indexing data model,
+Milestones 3.1 through 3.8 are implemented. They define the indexing data model,
 durable queued-job API, immutable commit verification, and isolated job
 workspace lifecycle, plus bounded Git-tree discovery and transactional file
 inventory. Incremental mode skips unchanged Git blobs and persists SHA-256
 content versions in bounded batches. A centralized registry now persists
 language and parser capability, normalized TS/JS parsing through the
-TypeScript Compiler API, and version-scoped symbol persistence. The E2E and
-new Phase 3 tests are explicitly deferred. Milestone 3.8 dependencies are next.
+TypeScript Compiler API, version-scoped symbol persistence, and the initial
+dependency graph. The E2E and new Phase 3 tests are explicitly deferred.
+Milestone 3.9 durable job lifecycle expansion is next.
 
 ## Phase 1 — Platform & Identity
 
@@ -224,7 +225,7 @@ Those results are persisted by Milestone 3.7.
 
 ### 3.7 Symbol extraction
 
-Status: Implemented; migration execution and tests deferred
+Status: Implemented; tests deferred
 
 Create version-scoped symbol metadata for:
 
@@ -240,7 +241,7 @@ output after verifying running-job and tenant ownership.
 
 ### 3.8 Dependency graph
 
-Status: Planned
+Status: Implemented; migration execution and tests deferred
 
 Create directed relationships for:
 
@@ -248,6 +249,11 @@ Create directed relationships for:
 - Extends and implements
 - Calls when resolution is reliable
 - Resolved file/symbol targets and unresolved textual targets
+
+The first graph slice resolves deterministic relative TS/JS modules and local
+symbols. Bare packages, path aliases, ambiguous declarations, and unsupported
+targets remain safely unresolved with their original text. Function calls are
+deferred until semantic resolution is reliable.
 
 ### 3.9 Index job system
 

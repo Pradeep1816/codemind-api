@@ -237,6 +237,12 @@ class EnvironmentVariables {
   @Max(100_000)
   INDEXING_MAX_SYMBOLS_PER_FILE = 10_000;
 
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100_000)
+  INDEXING_MAX_DEPENDENCIES_PER_FILE = 20_000;
+
   @IsEnum(AiProvider)
   AI_PROVIDER = AiProvider.OpenAi;
 

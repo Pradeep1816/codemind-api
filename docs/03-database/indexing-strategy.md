@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Milestone 3.7 schema implemented; migration execution deferred
-Version: 2.2
+Status: Milestone 3.8 schema implemented; dependency migration pending
+Version: 2.3
 Owner: CodeMind Engineering
 Architecture decision: [ADR-012](../06-adrs/012-indexing-engine.md)
 
@@ -14,12 +14,13 @@ produced code metadata. PostgreSQL is the source of truth for jobs, file
 inventory, content versions, progress, and sanitized failures. A future queue
 may notify workers, but it is not the durable record of work.
 
-The schema through Milestone 3.7 contains:
+The schema through Milestone 3.8 contains:
 
 - `index_jobs` for durable orchestration
 - `indexed_files` for stable branch/path inventory
 - `file_hashes` for immutable content observations
 - `code_symbols` for normalized declarations tied to content versions
+- `code_dependencies` for versioned imports, exports, and inheritance edges
 - `indexing_errors` for operational failure records
 
 All high-volume indexing records use auto-increment integer IDs. Organization
@@ -49,6 +50,17 @@ erDiagram
     INDEXED_FILES ||--o{ CODE_SYMBOLS : declares
     FILE_HASHES ||--o{ CODE_SYMBOLS : versions
     INDEX_JOBS o|--o{ CODE_SYMBOLS : observes
+
+    ORGANIZATIONS ||--o{ CODE_DEPENDENCIES : owns
+    REPOSITORIES ||--o{ CODE_DEPENDENCIES : contains
+    REPOSITORY_BRANCHES ||--o{ CODE_DEPENDENCIES : scopes
+    INDEXED_FILES ||--o{ CODE_DEPENDENCIES : sources
+    FILE_HASHES ||--o{ CODE_DEPENDENCIES : versions
+    CODE_SYMBOLS o|--o{ CODE_DEPENDENCIES : source_symbol
+    INDEXED_FILES o|--o{ CODE_DEPENDENCIES : target_file
+    FILE_HASHES o|--o{ CODE_DEPENDENCIES : target_version
+    CODE_SYMBOLS o|--o{ CODE_DEPENDENCIES : target_symbol
+    INDEX_JOBS o|--o{ CODE_DEPENDENCIES : observes
 
     ORGANIZATIONS ||--o{ INDEXING_ERRORS : owns
     INDEX_JOBS ||--o{ INDEXING_ERRORS : records
@@ -220,6 +232,58 @@ This ownership recheck prevents a stale parser result from overwriting current
 metadata. `INDEXING_MAX_SYMBOLS_PER_FILE` bounds one reconciliation; the
 default is 10,000, and writes use batches of 250 rows.
 
+## `code_dependencies`
+
+`code_dependencies` stores directed normalized relationships owned by one
+immutable source file version. Original textual targets remain available even
+when a file or symbol cannot be resolved.
+
+| Column | Type | Null | Purpose |
+|---|---|:---:|---|
+| `id` | serial integer | No | Stable internal relationship identity |
+| `organization_id` | UUID | No | Tenant boundary |
+| `repository_id` | integer | No | Parent repository |
+| `branch_id` | integer | No | Parent branch |
+| `source_indexed_file_id` | integer | No | Source path identity |
+| `source_file_hash_id` | integer | No | Immutable source content version |
+| `source_symbol_id` | integer | Yes | Source declaration for inheritance edges |
+| `observed_by_job_id` | integer | Yes | Most recent reconciling job |
+| `identity_hash` | varchar(64) | No | SHA-256 of the normalized relationship identity |
+| `kind` | `code_dependency_kind` | No | `import`, `export`, `extends`, or `implements` |
+| `module_specifier` | varchar(1024) | Yes | Original module target such as `./user.service` |
+| `target_name` | varchar(512) | Yes | Imported, exported, or inherited textual name |
+| `local_name` | varchar(255) | Yes | Local binding or export alias |
+| `type_only` | boolean | No | Type-only import/export marker |
+| `target_indexed_file_id` | integer | Yes | Reliably resolved target path |
+| `target_file_hash_id` | integer | Yes | Resolved immutable target version |
+| `target_symbol_id` | integer | Yes | Unambiguous resolved target declaration |
+| Source range columns | integer | No | One-based lines/columns and zero-based offsets |
+| `created_at`, `updated_at` | timestamptz | No | Persistence lifecycle |
+
+The stable reconciliation key is:
+
+```text
+UNIQUE (source_file_hash_id, identity_hash)
+```
+
+The identity hash covers relationship kind, original module, textual target,
+local alias, type-only state, and source offset. Resolution IDs are excluded,
+so a later successful resolution updates the same row instead of creating a
+new relationship.
+
+The first resolver supports deterministic repository-relative TS, TSX, JS,
+JSX, and JSON candidates. It maps `.js` source imports to `.ts`/`.tsx` when
+present and supports directory `index` files. Bare packages, path aliases,
+paths outside the repository, and ambiguous symbols remain unresolved. This
+policy prefers a textual edge over an incorrect graph edge.
+
+Persistence rechecks running-job ownership and the current source file hash.
+Every resolved target file must be active in the same organization,
+repository, and branch, and its target hash must still be current. Symbol IDs
+must belong to their declared source or target file version. Reconciliation
+uses 250-row writes and is capped by
+`INDEXING_MAX_DEPENDENCIES_PER_FILE` (20,000 by default).
+
 ## `indexing_errors`
 
 `indexing_errors` preserves bounded, sanitized failures for operations and
@@ -256,6 +320,7 @@ Supported error phases are `discovery`, `materialization`, `hashing`,
 | `file_hash_algorithm` | `sha256` |
 | `code_symbol_kind` | `class`, `interface`, `function`, `method`, `enum`, `type_alias` |
 | `code_symbol_visibility` | `public`, `protected`, `private` |
+| `code_dependency_kind` | `import`, `export`, `extends`, `implements` |
 | `indexing_error_phase` | `discovery`, `materialization`, `hashing`, `parsing`, `persistence`, `finalization` |
 
 `succeeded` intentionally means that all required metadata for the target
@@ -279,6 +344,11 @@ commit was committed. It is more precise than a generic `completed` state.
 | Symbols: organization, repository, name | Tenant repository name lookup |
 | Symbols: branch, indexed file, file hash | Scoped graph and version traversal |
 | Symbols: observed job | Job reconciliation/audit lookup |
+| Dependencies: source hash, identity hash | Stable retry-safe identity |
+| Dependencies: organization, repository, kind | Tenant graph queries |
+| Dependencies: source file/hash/symbol | Outgoing graph traversal |
+| Dependencies: target file/hash/symbol | Incoming graph traversal |
+| Dependencies: observed job | Job reconciliation/audit lookup |
 | Errors: organization, job, created | Ordered job diagnostics |
 | Errors: file | File diagnostics |
 
@@ -296,6 +366,8 @@ commit was committed. It is more precise than a generic `completed` state.
 | File hash | Indexed-file current pointer | `SET NULL` |
 | Repository / branch / indexed file / file hash | Code symbol | `CASCADE` |
 | Job | Observed symbol | `SET NULL` |
+| Repository / branch / source file / source hash | Code dependency | `CASCADE` |
+| Source/target symbol, target file/hash, observed job | Code dependency reference | `SET NULL` |
 | Indexed file | Error reference | `SET NULL` |
 
 Branch synchronization marks missing remote branches as `deleted`; it does
@@ -343,12 +415,14 @@ The indexing schema is introduced through additive migrations:
 1785620000000-CompleteIndexingFoundation.ts
 1785630000000-AddCurrentFileHash.ts
 1785640000000-AddCodeSymbols.ts
+1785650000000-AddCodeDependencies.ts
 ```
 
 The split is intentional: the durable job/API slice landed first, the ADR
 expanded Phase 3.1 to the complete inventory, hash, error, and mode model,
-incremental processing added the explicit current-content pointer, and
-Milestone 3.7 added immutable version-scoped symbol metadata.
+incremental processing added the explicit current-content pointer, Milestone
+3.7 added immutable version-scoped symbol metadata, and Milestone 3.8 added
+retry-safe directed dependency relationships.
 
 Commands:
 

@@ -68,6 +68,7 @@ Implemented:
 - Centralized source-language detection with parser-support classification
 - Bounded TypeScript/JavaScript parsing with normalized syntax metadata
 - Version-scoped, tenant-aware code symbol persistence
+- Version-scoped import, export, and inheritance dependency graph
 - Database-aware `GET /health` endpoint
 - URI API versioning under `/api/v1`
 - Global request validation
@@ -81,7 +82,7 @@ Not implemented yet:
 - Password reset, verified email, and MFA
 - Organization settings APIs
 - Indexing worker execution
-- Dependency resolution and static analysis
+- Function-call resolution and advanced static analysis
 - Knowledge generation and search
 - AI provider integration
 - MCP server
