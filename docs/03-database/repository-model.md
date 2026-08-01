@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Foundation, membership, branch synchronization, and health implemented
-Version: 1.3
+Status: Phase 2 repository data model complete
+Version: 2.0
 Owner: CodeMind Engineering
 
 ## Scope
@@ -12,8 +12,9 @@ The repository data model provides the persistent identity and relationships
 required for repository registration, repository-specific access, and Git
 branch tracking.
 
-This model supports repository registration, membership, and synchronized
-Git branch APIs. Repository source indexing remains a later milestone.
+This model supports repository registration, membership, synchronized Git
+branch APIs, and persisted repository health. Repository source indexing starts
+in Phase 3.
 
 ## Entity relationship diagram
 

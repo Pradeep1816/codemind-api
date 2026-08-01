@@ -7,9 +7,9 @@ Product: CodeMind
 
 Document: Product Roadmap
 
-Status: Draft
+Status: Active
 
-Version: 1.0
+Version: 1.1
 
 Owner: CodeMind Team
 
@@ -80,6 +80,20 @@ Autonomous Engineering Intelligence
 | Phase 2 | Business Understanding | Generate rules and workflows |
 | Phase 3 | AI Assistant | Provide developer assistance |
 | Phase 4 | Autonomous Engineering | AI agents and automation |
+
+
+## Current checkpoint
+
+
+The backend execution plan uses smaller numbered phases inside this product
+roadmap. Backend Phase 2 (Repository Management milestones 2.1–2.8) is
+complete. It delivers repository metadata, membership, secure Git branch
+synchronization, repository health, tests, and documentation.
+
+The product remains in Phase 1 (Repository Intelligence) because indexing,
+parsing, and searchable code understanding are not complete. The next backend
+phase builds the indexing pipeline: jobs, file inventory, content hashes,
+language detection, and incremental updates.
 
 
 

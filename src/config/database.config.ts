@@ -1,4 +1,5 @@
 import { registerAs } from '@nestjs/config';
+import { join } from 'node:path';
 
 export default registerAs('database', () => ({
   type: 'postgres' as const,
@@ -9,4 +10,7 @@ export default registerAs('database', () => ({
   database: process.env.DATABASE_NAME,
   ssl: process.env.DATABASE_SSL === 'true',
   synchronize: false,
+  migrations: [join(__dirname, '..', 'database', 'migrations', '*.{ts,js}')],
+  migrationsTableName: 'migrations',
+  migrationsRun: false,
 }));

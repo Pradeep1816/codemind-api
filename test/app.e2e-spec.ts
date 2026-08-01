@@ -1,29 +1,38 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
+import { DataSource } from 'typeorm';
 import request from 'supertest';
-import { App } from 'supertest/types';
-import { AppModule } from './../src/app.module';
+import type { App } from 'supertest/types';
+import { createE2eApplication } from './support/e2e-application';
 
-describe('AppController (e2e)', () => {
-  let app: INestApplication<App>;
+describe('Application health (e2e)', () => {
+  let app: INestApplication;
+  let dataSource: DataSource;
+  let httpServer: App;
 
-  beforeEach(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [AppModule],
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-    await app.init();
+  beforeAll(async () => {
+    ({ app, dataSource, httpServer } = await createE2eApplication());
   });
 
-  it('/ (GET)', () => {
-    return request(app.getHttpServer())
-      .get('/')
+  it('reports that the API and PostgreSQL connection are healthy', () => {
+    return request(httpServer)
+      .get('/health')
       .expect(200)
-      .expect('Hello World!');
+      .expect(({ body }) => {
+        expect(body).toMatchObject({
+          status: 'ok',
+          checks: {
+            database: {
+              status: 'up',
+            },
+          },
+        });
+      });
   });
 
-  afterEach(async () => {
-    await app.close();
+  afterAll(async () => {
+    if (app) {
+      await app.close();
+      expect(dataSource.isInitialized).toBe(false);
+    }
   });
 });

@@ -1,17 +1,3 @@
-This document defines the execution plan for building CodeMind step by step.
-
-The roadmap defines where CodeMind is going.
-
-The milestones define:
-
-"What should we build first, and what should be completed before moving forward?"
-
-Create:
-
-docs/05-roadmap/milestones.md
-
-Content:
-
 # CodeMind Development Milestones
 
 
@@ -21,9 +7,9 @@ Product: CodeMind
 
 Document: Development Milestones
 
-Status: Draft
+Status: Active
 
-Version: 1.0
+Version: 1.1
 
 Owner: CodeMind Engineering Team
 
@@ -73,14 +59,36 @@ Automation
 
 | Milestone | Goal | Status |
 |---|---|---|
-| M1 | Backend Foundation | Planned |
-| M2 | Repository Intelligence | Planned |
+| M1 | Backend Foundation | Complete |
+| M2 | Repository Intelligence | In progress |
 | M3 | Code Analysis Engine | Planned |
 | M4 | Knowledge Engine | Planned |
 | M5 | Search Intelligence | Planned |
 | M6 | AI Assistant | Planned |
 | M7 | MCP Platform | Planned |
 | M8 | Enterprise Platform | Future |
+
+
+## Current execution checkpoint
+
+
+Backend Foundation is complete: validated configuration, PostgreSQL migrations,
+health reporting, authentication, persisted sessions, invitations, audit
+events, organization users, and permission-based authorization are operating.
+
+The Repository Management delivery slice within M2 is also complete:
+
+- 2.1 repository foundation
+- 2.2 tenant-scoped repository CRUD
+- 2.3 repository membership
+- 2.4 hardened Git integration
+- 2.5 branch synchronization
+- 2.6 repository health
+- 2.7 PostgreSQL E2E and authorization tests
+- 2.8 API, module, and database documentation
+
+M2 remains in progress because repository file scanning, language detection,
+content hashing, and durable incremental indexing start next.
 
 
 
@@ -191,46 +199,41 @@ Authentication working
 Allow CodeMind to understand repositories.
 
 
+Status: In progress. Repository management is complete; indexing is next.
+
+
 
 ## Features
 
 
 
-### Repository Management
+### Completed repository management foundation
 
 
-Implement:
+- Tenant-scoped repository CRUD and membership
+- Provider detection and normalized HTTPS metadata
+- Credential-free public GitHub clone/fetch
+- Persisted default branch, branch SHAs, and deleted-branch lifecycle
+- Repository synchronization and storage health
+- Permission and cross-organization authorization enforcement
+- Unit and real PostgreSQL E2E coverage
+- API, module, ER model, and schema documentation
 
-
-- Add repository
-- Connect Git provider
-- Clone repository
-- Repository metadata
-
-
-
-### Git Integration
-
-
-Support:
-
-
-- GitHub
-- GitLab
-- Bitbucket
+GitLab, Bitbucket, and generic HTTPS URLs are recognized as metadata but are
+not enabled for Git execution yet. Private provider access requires the future
+credential-reference design.
 
 
 
-### Repository Scanner
-
-
-Analyze:
+### Next repository indexing slice
 
 
 - Files
 - Languages
 - Folder structure
-- Size
+- Content hashes
+- Incremental changes
+- Durable indexing jobs
 
 
 

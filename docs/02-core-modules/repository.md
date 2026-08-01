@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Repository CRUD, membership, Git, branch, and health APIs implemented
-Version: 2.4
+Status: Phase 2 repository module complete
+Version: 3.0
 Owner: CodeMind Engineering
 
 ## Purpose
@@ -44,7 +44,7 @@ Implemented:
 - Report synchronization, indexing, branch, and storage health without Git I/O
 - Return `404` for cross-organization IDs
 
-Next:
+Deferred to later phases:
 
 - Git credential references
 - Durable indexing jobs
@@ -82,6 +82,61 @@ PostgreSQL
 
 Controllers obtain `organizationId` and the creating user ID from
 `CurrentUser`. Clients never submit an organization ID.
+
+## Module boundaries and dependencies
+
+```mermaid
+flowchart LR
+    Auth[Auth guards and CurrentUser] --> Controllers[Repository controllers]
+    Controllers --> Services[Repository application services]
+    Services --> Persistence[Repository persistence adapters]
+    Services --> Users[UsersService]
+    Services --> Git[GitService]
+    Persistence --> PostgreSQL[(PostgreSQL)]
+    Git --> Process[Hardened Git process]
+    Git --> Workspace[(Managed workspace)]
+```
+
+| Component | Owns | May depend on |
+|---|---|---|
+| Controllers | HTTP parsing, authenticated context, response status | Repository services, shared decorators and guards |
+| Services | Use-case orchestration, tenant checks, lifecycle rules, error mapping | Repository adapters, `UsersService`, `GitService`, `DataSource` for transactions |
+| Repository adapters | TypeORM queries and persistence | Repository entities and TypeORM only |
+| `GitService` | Source policy, workspace identity, clone/fetch inspection | `GitCommandService`, validated Git configuration |
+| `GitCommandService` | Bounded non-shell Git process execution | Node process APIs and validated limits |
+
+`RepositoriesModule` imports `UsersModule`, Git configuration, and TypeORM
+feature repositories. It exports application services and `GitService`, but it
+does not export its TypeORM repository adapters. Other modules should call a
+repository application service instead of querying these tables directly.
+
+The module may reference organization and user entities for ORM relationship
+metadata. Business operations involving users go through `UsersService`; this
+keeps database relationship metadata separate from capability ownership.
+
+## Authorization model
+
+Every endpoint is protected by the global JWT guard. Permission decorators add
+the following default-role behavior:
+
+| Capability | OWNER | ADMIN | DEVELOPER | VIEWER |
+|---|:---:|:---:|:---:|:---:|
+| Read/list/status/branches | Yes | Yes | Yes | Yes |
+| Register/update repository | Yes | Yes | Yes | No |
+| Delete repository | Yes | Yes | No | No |
+| Manage repository members | Yes | Yes | No | No |
+| Synchronize branches | Yes | Yes | Yes | No |
+
+This table describes seeded roles, not hard-coded role-name checks. The guards
+authorize permission names, so custom roles can express the same capabilities.
+All resource queries also include the authenticated organization ID. A valid
+ID from another organization is intentionally indistinguishable from a missing
+ID and returns `404`.
+
+Repository membership records do not yet filter read access. At this stage,
+`repository.read` grants access to all repositories in the authenticated
+organization. Membership is persisted now so a future policy can narrow
+repository visibility without redesigning the data model.
 
 ## Domain model
 
@@ -162,8 +217,13 @@ repository identity.
 This validation prevents credentials from being persisted. The internal Git
 service initially permits outbound operations only for exact `github.com`
 HTTPS URLs. Although registration recognizes other provider metadata, GitLab,
-Bitbucket, and generic HTTPS execution remain unsupported until explicit
-provider policies are implemented.
+Bitbucket, generic HTTPS, and private credentials remain unsupported until
+explicit provider and credential-reference policies are implemented.
+
+The internal Git boundary also supports absolute local repositories contained
+by `GIT_LOCAL_REPOSITORIES_ROOT`. This is an infrastructure capability for
+controlled deployments; the public create DTO accepts HTTPS URLs only and does
+not currently expose local repository registration.
 
 ## Git service and synchronization
 
@@ -200,6 +260,43 @@ A successful synchronization records its attempted and completion timestamps,
 `succeeded` status, and Git object-storage size. A failed Git operation records
 `failed` and the new attempt timestamp while preserving the last successful
 timestamp and size.
+
+## Transaction and concurrency boundaries
+
+| Operation | Boundary |
+|---|---|
+| Register/update/delete repository | One tenant-scoped repository write; database constraints resolve races |
+| Add/remove member | Tenant and user checks followed by one membership write; unique membership constraint resolves duplicate races |
+| Synchronize Git | Git clone/fetch occurs before the database transaction |
+| Persist successful sync | Repository row lock, health update, and branch reconciliation in one transaction |
+| Persist failed sync | Short transaction locks the repository and records failed status/attempt time |
+| Read status | PostgreSQL-only repository read plus branch aggregate |
+
+The long-running Git operation is deliberately outside the database
+transaction. This prevents connections and row locks from being held during
+network and filesystem work. Persistence rechecks and locks the tenant-scoped
+repository before committing results, so a repository deleted or disabled
+during Git work cannot be updated incorrectly.
+
+Within one API process, concurrent sync requests for the same
+`organizationId:repositoryId` share a promise. Multi-process deployments will
+require a distributed job or lock in the indexing phase; the in-memory map is
+not a cross-instance guarantee.
+
+## Runtime configuration
+
+| Variable | Default | Purpose |
+|---|---:|---|
+| `GIT_WORKSPACE_ROOT` | `.codemind/repositories` | Root for isolated managed clones |
+| `GIT_LOCAL_REPOSITORIES_ROOT` | unset | Optional allow-list root for internal local sources |
+| `GIT_COMMAND_TIMEOUT_MS` | `120000` | Per-command timeout |
+| `GIT_MAX_OUTPUT_BYTES` | `1048576` | Maximum buffered stdout/stderr |
+| `GIT_CLONE_DEPTH` | `1` | Shallow clone/fetch depth; `0` disables depth limiting |
+| `REPOSITORY_SYNC_RATE_LIMIT_TTL_MS` | `60000` | Synchronization rate-limit window |
+| `REPOSITORY_SYNC_RATE_LIMIT` | `5` | Requests allowed per window and tracker key |
+
+The workspace path is derived only from validated organization and repository
+IDs. API clients cannot provide or override it.
 
 ## API contract
 
@@ -412,10 +509,11 @@ src/modules/repositories/
 └── repositories.module.ts
 ```
 
-## Next implementation slice
+## Milestone 2.7 verification
 
-Milestone 2.7 should harden repository workflows with integration and
-authorization tests:
+Repository workflows are covered by a real PostgreSQL E2E suite. The harness
+runs migrations, exercises the same HTTP configuration as production, and
+refuses to clean a database unless its actual name ends with `_test`.
 
 ```text
 Repository API
@@ -424,3 +522,42 @@ Repository API
     -> permission matrix coverage
     -> synchronization lifecycle coverage
 ```
+
+The suite verifies authentication, DTO validation, repository CRUD,
+organization isolation, OWNER/DEVELOPER/VIEWER access, repository membership,
+branch synchronization, and health-state persistence. Git is mocked only at
+the external process boundary so the HTTP, guard, service, and database layers
+remain integrated and deterministic.
+
+See [../../test/README.md](../../test/README.md) for setup and execution.
+
+## Failure behavior
+
+| Failure | API result | Persistence result |
+|---|---:|---|
+| Missing/foreign repository | `404` | No change |
+| Disabled repository synchronization | `409` | No Git operation; no health change |
+| Unsupported source policy | `422` | Sync status becomes `failed` |
+| Git command/workspace failure | `503` | Sync status becomes `failed`; last success is retained |
+| Missing permission | `403` | No service or Git operation |
+| Duplicate repository/member | `409` | Existing row retained |
+
+Error responses do not expose Git command output, filesystem paths, database
+details, or credentials.
+
+## Phase 2 completion criteria
+
+Milestones 2.1 through 2.8 are complete:
+
+- Repository, membership, branch, and health persistence is migration-backed
+- CRUD, membership, branch sync, and health endpoints are tenant-scoped
+- Git execution is bounded and credential-free
+- Authorization and repository workflows have unit and PostgreSQL E2E coverage
+- API, module, data model, and schema documentation reflect the implementation
+
+## Next implementation phase
+
+Phase 3 begins the durable indexing pipeline: jobs, file inventory, content
+hashes, language detection, incremental change decisions, and worker-safe
+coordination. Repository health should then expose indexing job state in
+addition to the branch-level `lastIndexedAt` aggregate.

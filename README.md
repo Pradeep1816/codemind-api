@@ -774,6 +774,7 @@ development workflow.
 | `yarn test`               | Run unit tests                            |
 | `yarn test:watch`         | Run unit tests in watch mode              |
 | `yarn test:cov`           | Generate test coverage                    |
+| `yarn test:e2e:db:create` | Create the isolated PostgreSQL test DB    |
 | `yarn test:e2e`           | Run end-to-end tests                      |
 | `yarn migration:create`   | Create an empty migration                 |
 | `yarn migration:generate` | Generate a migration from entity changes  |
@@ -790,7 +791,11 @@ Before submitting a change:
 yarn build
 yarn lint
 yarn test
+yarn test:e2e
 ```
+
+Run `yarn test:e2e:db:create` once before the first E2E run. See
+[test/README.md](test/README.md) for database isolation and configuration.
 
 When entities change:
 
@@ -809,6 +814,9 @@ Never enable automatic schema synchronization in production.
 - [Backend structure](docs/01-architecture/backend-structure.md)
 - [Database architecture](docs/03-database/database-architecture.md)
 - [API overview](docs/04-api/api-overview.md)
+- [Repository API](docs/04-api/repository-api.md)
+- [Repository module](docs/02-core-modules/repository.md)
+- [Repository schema](docs/03-database/repository-schema.md)
 - [Roadmap](docs/05-roadmap/roadmap.md)
 - [Milestones](docs/05-roadmap/milestones.md)
 - [Architecture decisions](docs/06-adrs/README.md)

@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Repository CRUD, membership, branch synchronization, and health implemented
-Version: 1.3
+Status: Phase 2 repository API complete
+Version: 2.0
 Owner: CodeMind Engineering
 
 ## Base path
@@ -15,23 +15,72 @@ Owner: CodeMind Engineering
 All repository endpoints require a bearer access token. Organization scope is
 derived from the authenticated user and cannot be supplied by clients.
 
+Requests and responses use JSON except successful delete operations, which
+return no body. Timestamps use ISO 8601 UTC strings. The API returns plain
+resource objects; it does not wrap successful responses in a `data` envelope.
+
+```http
+Authorization: Bearer <access-token>
+Content-Type: application/json
+```
+
 ## Endpoints
 
-| Method | Path | Required permission |
-|---|---|---|
-| `POST` | `/repositories` | `repository.create` |
-| `GET` | `/repositories` | `repository.read` |
-| `GET` | `/repositories/:repositoryId` | `repository.read` |
-| `PATCH` | `/repositories/:repositoryId` | `repository.create` |
-| `DELETE` | `/repositories/:repositoryId` | `repository.delete` |
-| `POST` | `/repositories/:repositoryId/members` | `repository.read`, `repository.member.manage` |
-| `GET` | `/repositories/:repositoryId/members` | `repository.read` |
-| `DELETE` | `/repositories/:repositoryId/members/:userId` | `repository.read`, `repository.member.manage` |
-| `GET` | `/repositories/:repositoryId/branches` | `repository.read` |
-| `POST` | `/repositories/:repositoryId/branches/sync` | `repository.read`, `repository.index` |
-| `GET` | `/repositories/:repositoryId/status` | `repository.read` |
+| Method | Path | Success | Required permission |
+|---|---|---:|---|
+| `POST` | `/repositories` | `201` | `repository.create` |
+| `GET` | `/repositories` | `200` | `repository.read` |
+| `GET` | `/repositories/:repositoryId` | `200` | `repository.read` |
+| `PATCH` | `/repositories/:repositoryId` | `200` | `repository.create` |
+| `DELETE` | `/repositories/:repositoryId` | `204` | `repository.delete` |
+| `POST` | `/repositories/:repositoryId/members` | `201` | `repository.read`, `repository.member.manage` |
+| `GET` | `/repositories/:repositoryId/members` | `200` | `repository.read` |
+| `DELETE` | `/repositories/:repositoryId/members/:userId` | `204` | `repository.read`, `repository.member.manage` |
+| `GET` | `/repositories/:repositoryId/branches` | `200` | `repository.read` |
+| `POST` | `/repositories/:repositoryId/branches/sync` | `201` | `repository.read`, `repository.index` |
+| `GET` | `/repositories/:repositoryId/status` | `200` | `repository.read` |
 
-Repository IDs are positive integers. User IDs are UUID v4 values.
+Persisted repository IDs are positive integers. Non-integer route values return
+`400`; integer values that do not identify a tenant-owned repository return
+`404`. User IDs are UUID v4 values.
+
+Permissions are cumulative. When an endpoint lists two permissions, the caller
+must hold both. Default OWNER and ADMIN roles can manage repositories;
+DEVELOPER can read, create, update, and synchronize; VIEWER has read-only
+access. Custom roles are evaluated from their permission assignments rather
+than their names.
+
+Repository membership is stored for future repository-specific access policy.
+In the current phase, read/list authorization is organization-wide and is not
+filtered by membership.
+
+## Repository response
+
+Create, retrieve, and update operations return the following shape:
+
+```json
+{
+  "id": 101,
+  "name": "CodeMind API",
+  "provider": "github",
+  "remoteUrl": "https://github.com/codemind/codemind-api.git",
+  "defaultBranch": "main",
+  "status": "active",
+  "createdAt": "2026-08-01T10:00:00.000Z",
+  "updatedAt": "2026-08-01T10:00:00.000Z"
+}
+```
+
+| Field | Type | Values or meaning |
+|---|---|---|
+| `id` | integer | Repository identifier |
+| `name` | string | Organization-facing name |
+| `provider` | string | `github`, `gitlab`, `bitbucket`, or `generic` |
+| `remoteUrl` | string | Normalized credential-free HTTPS URL |
+| `defaultBranch` | string or null | Configured or Git-detected default branch |
+| `status` | string | `active` or `disabled` |
+| `createdAt` | string | Creation timestamp |
+| `updatedAt` | string | Last metadata or health update timestamp |
 
 ## Register repository
 
@@ -49,6 +98,14 @@ POST /api/v1/repositories
 
 The remote URL must use HTTPS and cannot include credentials, query
 parameters, or a fragment. The provider is detected from the hostname.
+`defaultBranch` is optional. Unknown request properties are rejected.
+
+Registration is metadata-only: it performs no outbound Git request. A trailing
+slash is removed before the URL uniqueness check. Registering the same
+normalized URL twice in one organization returns `409`; another organization
+may register the same URL independently.
+
+Successful registration returns `201` and the repository response above.
 
 ## List repositories
 
@@ -57,6 +114,45 @@ GET /api/v1/repositories?page=1&limit=20&search=api&provider=github&status=activ
 ```
 
 `page` defaults to `1`; `limit` defaults to `20` and cannot exceed `100`.
+`search` performs a case-insensitive partial match against name and remote URL.
+`provider` and `status` require exact enum values.
+
+Response:
+
+```json
+{
+  "data": [
+    {
+      "id": 101,
+      "name": "CodeMind API",
+      "provider": "github",
+      "remoteUrl": "https://github.com/codemind/codemind-api.git",
+      "defaultBranch": "main",
+      "status": "active",
+      "createdAt": "2026-08-01T10:00:00.000Z",
+      "updatedAt": "2026-08-01T10:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 1,
+    "totalPages": 1
+  }
+}
+```
+
+Results are ordered by creation time descending, then repository ID ascending.
+An empty result returns `data: []` and `totalPages: 0`.
+
+## Get repository
+
+```http
+GET /api/v1/repositories/101
+```
+
+Returns the repository response. Unknown and cross-organization repository IDs
+return the same `404` response.
 
 ## Update repository
 
@@ -73,7 +169,23 @@ PATCH /api/v1/repositories/101
 ```
 
 At least one mutable field is required. Remote URL and organization ownership
-cannot be changed.
+cannot be changed. `name`, `defaultBranch`, and `status` are optional in the
+DTO, but an empty object returns `400`. The response contains the complete
+updated repository.
+
+Disabling a repository prevents branch synchronization but does not prevent
+read, update, status, or deletion operations.
+
+## Delete repository
+
+```http
+DELETE /api/v1/repositories/101
+```
+
+Successful deletion returns `204` with no response body. PostgreSQL cascades
+the deletion to repository membership and branch rows. The managed Git
+workspace is not currently removed by this endpoint; workspace retention and
+cleanup belongs to a later operational milestone.
 
 ## Add repository member
 
@@ -114,6 +226,8 @@ GET /api/v1/repositories/101/members
 ```
 
 Members are ordered by user name, email, and membership ID.
+The response is a JSON array of the same member shape returned by the add
+operation. An unshared repository returns an empty array.
 
 ## Remove repository member
 
@@ -161,6 +275,9 @@ updates commit SHAs and the detected repository default branch but preserves
 `lastIndexedAt` for the indexing milestone.
 
 The default rate limit is five synchronization requests per IP in 60 seconds.
+The limit is configurable. Same-repository requests received by one API process
+share a single in-flight Git operation; this is not a distributed lock across
+multiple API processes.
 
 ## List repository branches
 
@@ -211,9 +328,23 @@ Repository size represents Git object storage, not a checked-out working tree.
 
 ## Error behavior
 
+NestJS HTTP exceptions currently use this shape:
+
+```json
+{
+  "message": "Repository was not found",
+  "error": "Not Found",
+  "statusCode": 404
+}
+```
+
+Validation errors use `message` as an array of validation messages. Responses
+never include SQL, filesystem paths, Git command output, tokens, or stored
+credentials.
+
 | Status | Meaning |
 |---:|---|
-| `400` | Invalid repository ID, user UUID, query, or body |
+| `400` | Invalid route value, user UUID, query, body, or empty update |
 | `401` | Missing or invalid access token |
 | `403` | Required permission is missing |
 | `404` | Tenant-scoped repository, user, or membership was not found |
@@ -232,6 +363,28 @@ clone. Only the explicit synchronization endpoint starts Git work, and no Git
 workspace path is accepted from an API client.
 
 Current Git execution supports public, credential-free GitHub HTTPS sources
-and explicitly allow-listed local sources. GitLab, Bitbucket, generic hosts,
-and private repository credentials are not yet supported for synchronization,
-even though those provider types can be registered as metadata.
+through this API. GitLab, Bitbucket, and generic HTTPS hosts can be registered
+as metadata but return `422` when synchronization is requested.
+
+Private GitHub URLs can also be registered as metadata, but synchronization
+cannot authenticate yet and normally returns `503`. Credentials must never be
+embedded in `remoteUrl`; a future credential-reference design will add private
+repository support without persisting secrets in repository metadata.
+
+The internal Git service can validate explicitly allow-listed absolute local
+paths for controlled deployments. The public repository DTO accepts HTTPS
+URLs only, so local paths cannot currently be registered through this API.
+
+## Verification coverage
+
+The PostgreSQL E2E suite verifies:
+
+- Bearer authentication and DTO validation
+- Create, duplicate detection, list, retrieve, update, and delete behavior
+- Organization isolation across CRUD, membership, branch, and status routes
+- OWNER, DEVELOPER, and VIEWER permission behavior
+- Repository membership lifecycle
+- Successful and failed synchronization health persistence
+
+See [../../test/README.md](../../test/README.md) for the isolated test database
+workflow.
