@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Phase 3.1 schema implemented
-Version: 2.1
+Status: Milestone 3.7 schema implemented; migration execution deferred
+Version: 2.2
 Owner: CodeMind Engineering
 Architecture decision: [ADR-012](../06-adrs/012-indexing-engine.md)
 
@@ -14,11 +14,12 @@ produced code metadata. PostgreSQL is the source of truth for jobs, file
 inventory, content versions, progress, and sanitized failures. A future queue
 may notify workers, but it is not the durable record of work.
 
-The Phase 3.1 schema contains:
+The schema through Milestone 3.7 contains:
 
 - `index_jobs` for durable orchestration
 - `indexed_files` for stable branch/path inventory
 - `file_hashes` for immutable content observations
+- `code_symbols` for normalized declarations tied to content versions
 - `indexing_errors` for operational failure records
 
 All high-volume indexing records use auto-increment integer IDs. Organization
@@ -41,6 +42,13 @@ erDiagram
     ORGANIZATIONS ||--o{ FILE_HASHES : owns
     INDEXED_FILES ||--o{ FILE_HASHES : versions
     INDEX_JOBS o|--o{ FILE_HASHES : observes
+
+    ORGANIZATIONS ||--o{ CODE_SYMBOLS : owns
+    REPOSITORIES ||--o{ CODE_SYMBOLS : contains
+    REPOSITORY_BRANCHES ||--o{ CODE_SYMBOLS : scopes
+    INDEXED_FILES ||--o{ CODE_SYMBOLS : declares
+    FILE_HASHES ||--o{ CODE_SYMBOLS : versions
+    INDEX_JOBS o|--o{ CODE_SYMBOLS : observes
 
     ORGANIZATIONS ||--o{ INDEXING_ERRORS : owns
     INDEX_JOBS ||--o{ INDEXING_ERRORS : records
@@ -125,7 +133,7 @@ UNIQUE (branch_id, path)
 ```
 
 Paths use `/` separators, have no leading slash, and cannot contain traversal
-segments or NUL bytes. The future scanner owns those validation rules before
+segments or NUL bytes. The scanner owns those validation rules before
 persistence. Missing paths are marked `deleted` instead of immediately
 removed, allowing downstream symbol and relationship cleanup to be explicit.
 
@@ -161,6 +169,57 @@ If a file returns to content seen earlier, the existing content version can be
 reused. The tenant/algorithm/value index supports future parser-artifact reuse
 without removing tenant scope.
 
+## `code_symbols`
+
+`code_symbols` stores normalized declarations from one immutable file content
+version. The row never contains a TypeScript compiler node or source body.
+
+| Column | Type | Null | Purpose |
+|---|---|:---:|---|
+| `id` | serial integer | No | Stable internal symbol identity |
+| `organization_id` | UUID | No | Tenant boundary |
+| `repository_id` | integer | No | Parent repository for scoped queries |
+| `branch_id` | integer | No | Parent branch |
+| `indexed_file_id` | integer | No | Stable branch/path identity |
+| `file_hash_id` | integer | No | Immutable content version |
+| `observed_by_job_id` | integer | Yes | Most recent job that reconciled the symbol |
+| `name` | varchar(255) | No | Declaration name |
+| `qualified_name` | varchar(512) | No | Name including containing declarations |
+| `kind` | `code_symbol_kind` | No | Normalized declaration kind |
+| `visibility` | `code_symbol_visibility` | Yes | Explicit/effective member visibility; null when not applicable |
+| `exported` | boolean | No | Declaration has an export modifier |
+| `default_export` | boolean | No | Declaration is the module default export |
+| `signature` | varchar(2000) | Yes | Bounded declaration header without the implementation body |
+| `documentation` | varchar(4000) | Yes | Bounded normalized JSDoc summary |
+| `start_line`, `end_line` | integer | No | One-based source lines |
+| `start_column`, `end_column` | integer | No | One-based source columns |
+| `start_offset`, `end_offset` | integer | No | Zero-based source offsets |
+| `created_at`, `updated_at` | timestamptz | No | Persistence lifecycle |
+
+The parser identity key is:
+
+```text
+UNIQUE (file_hash_id, kind, qualified_name, start_offset)
+```
+
+A safe retry loads symbols for the file hash, updates matching rows in place,
+inserts new declarations, and deletes stale declarations in one transaction.
+This preserves auto-increment IDs for unchanged identities while allowing a
+parser upgrade to reconcile output. Position checks require positive lines and
+columns, non-negative offsets, and an end position not before its start.
+
+Before persistence, the repository verifies that:
+
+- The job is still `running` for the organization, repository, branch, and
+  target commit.
+- The file belongs to that tenant/repository/branch and remains active.
+- `indexed_files.current_file_hash_id` is the parsed content version.
+- The file hash matches the expected Git blob and byte size.
+
+This ownership recheck prevents a stale parser result from overwriting current
+metadata. `INDEXING_MAX_SYMBOLS_PER_FILE` bounds one reconciliation; the
+default is 10,000, and writes use batches of 250 rows.
+
 ## `indexing_errors`
 
 `indexing_errors` preserves bounded, sanitized failures for operations and
@@ -195,6 +254,8 @@ Supported error phases are `discovery`, `materialization`, `hashing`,
 | `indexing_mode` | `incremental`, `full` |
 | `indexed_file_status` | `active`, `deleted` |
 | `file_hash_algorithm` | `sha256` |
+| `code_symbol_kind` | `class`, `interface`, `function`, `method`, `enum`, `type_alias` |
+| `code_symbol_visibility` | `public`, `protected`, `private` |
 | `indexing_error_phase` | `discovery`, `materialization`, `hashing`, `parsing`, `persistence`, `finalization` |
 
 `succeeded` intentionally means that all required metadata for the target
@@ -213,6 +274,11 @@ commit was committed. It is more precise than a generic `completed` state.
 | Files: last-seen job | Job reconciliation |
 | Hashes: organization, algorithm, value | Tenant-scoped content reuse |
 | Hashes: Git blob ID | Incremental candidate lookup |
+| Symbols: file hash, kind, qualified name, offset | Idempotent parser identity |
+| Symbols: organization, repository, kind | Tenant repository kind lookup |
+| Symbols: organization, repository, name | Tenant repository name lookup |
+| Symbols: branch, indexed file, file hash | Scoped graph and version traversal |
+| Symbols: observed job | Job reconciliation/audit lookup |
 | Errors: organization, job, created | Ordered job diagnostics |
 | Errors: file | File diagnostics |
 
@@ -228,6 +294,8 @@ commit was committed. It is more precise than a generic `completed` state.
 | Job | Indexing error | `CASCADE` |
 | Indexed file | Hash versions | `CASCADE` |
 | File hash | Indexed-file current pointer | `SET NULL` |
+| Repository / branch / indexed file / file hash | Code symbol | `CASCADE` |
+| Job | Observed symbol | `SET NULL` |
 | Indexed file | Error reference | `SET NULL` |
 
 Branch synchronization marks missing remote branches as `deleted`; it does
@@ -268,17 +336,19 @@ Long-running processing must never hold a database connection or row lock.
 
 ## Migrations
 
-The foundation is introduced in two additive migrations:
+The indexing schema is introduced through additive migrations:
 
 ```text
 1785610000000-AddIndexJobs.ts
 1785620000000-CompleteIndexingFoundation.ts
 1785630000000-AddCurrentFileHash.ts
+1785640000000-AddCodeSymbols.ts
 ```
 
 The split is intentional: the durable job/API slice landed first, the ADR
-expanded Phase 3.1 to the complete inventory, hash, error, and mode model, and
-incremental processing added the explicit current-content pointer.
+expanded Phase 3.1 to the complete inventory, hash, error, and mode model,
+incremental processing added the explicit current-content pointer, and
+Milestone 3.7 added immutable version-scoped symbol metadata.
 
 Commands:
 

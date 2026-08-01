@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Phase 3.1 indexing foundation implemented
-Version: 2.1
+Status: Milestones 3.1 through 3.7 implemented; tests deferred
+Version: 2.3
 Owner: CodeMind Engineering
 
 ## Purpose
@@ -12,11 +12,11 @@ The indexing module coordinates the durable work required to convert a
 synchronized repository branch into searchable code intelligence. It sits
 between repository ingestion and the parser/analysis pipeline.
 
-Phase 3.1 establishes the persistence model and the first job API boundary. An
-authorized caller can queue a job for an active, synchronized branch and
-inspect persisted job state. The schema also defines stable file inventory,
-immutable content versions, and sanitized indexing errors for later scanner
-and worker milestones.
+Milestones 3.1 through 3.7 establish the job and persistence model, immutable
+workspace boundary, file discovery, incremental hashing, language detection,
+bounded parser dispatch, and version-scoped symbol persistence. An authorized
+caller can queue a job for an active synchronized branch and inspect persisted
+job state.
 
 A worker does not consume queued jobs yet, so new jobs remain `queued` until
 background processing is implemented.
@@ -52,13 +52,18 @@ Implemented:
 - Detect languages through one extension registry shared with discovery
 - Persist language on every active indexed file
 - Separate parser-supported TS/JS files from inventory-only documents
+- Read one immutable parser input at a time through `GitService`
+- Enforce the configured byte ceiling, persisted size, and UTF-8 encoding
+- Dispatch TS/TSX/JS/JSX through the parser module without ORM coupling
+- Persist version-scoped symbols linked to immutable file hashes
+- Reconcile parser retries while preserving stable symbol IDs
+- Enforce job, commit, branch, file, hash, blob, and tenant ownership on writes
 - Paginate and filter repository job history by status
 - Return `404` for cross-organization repository or job identifiers
 
 Deferred to the next slices:
 
-- Optional bounded source materialization for parsers
-- Parser and analysis dispatch
+- Dependency resolution and static analysis
 - Queue transport and worker consumption
 - Job claiming, leases, retries, cancellation, and recovery
 - Updating branch `lastIndexedAt` after successful processing
@@ -80,7 +85,8 @@ flowchart LR
     Repo[Repository module] -->|branch and commit SHA| Job[Indexing job]
     Job -->|future worker claim| Scanner[File inventory]
     Scanner --> Parser[Parser module]
-    Parser --> Analysis[Analysis module]
+    Parser --> Symbols[(Code symbols)]
+    Symbols --> Analysis[Analysis module]
     Analysis --> Knowledge[Knowledge module]
     Knowledge --> Search[Search module]
 ```
@@ -121,7 +127,10 @@ persisted state.
 | `IndexingService` | Tenant checks, branch eligibility, lifecycle rules, error mapping | Repository application services, `IndexingRepository` |
 | `IndexingRepository` | TypeORM job queries and persistence | TypeORM and indexing entities |
 | `IndexingWorkspaceService` | Validate identity, verify commit, prepare and clean isolated paths | Typed indexing configuration, `GitService`, Node filesystem APIs |
-| Future worker service | Claiming and executing durable jobs | Indexing application services and scanner ports |
+| `SourceParsingService` | Validate and read one immutable source version for parsing | Typed indexing configuration, `GitService`, `ParserService` |
+| `SymbolExtractionService` | Validate normalized symbols and coordinate one file-version write | `SourceParsingService`, typed indexing configuration, `CodeSymbolsRepository` |
+| `CodeSymbolsRepository` | Tenant-aware symbol reconciliation and transaction ownership checks | TypeORM and indexing entities |
+| Future worker service | Claiming and executing durable jobs | Indexing application services and scanner/parser ports |
 
 The indexing module uses exported repository application services instead of
 querying repository tables directly. Its TypeORM persistence adapter is not
@@ -262,11 +271,14 @@ src/modules/indexing/
 │   ├── list-index-jobs-query.dto.ts
 │   └── start-index.dto.ts
 ├── entities/
+│   ├── code-symbol.entity.ts
 │   ├── file-hash.entity.ts
 │   ├── index-job.entity.ts
 │   ├── indexed-file.entity.ts
 │   └── indexing-error.entity.ts
 ├── enums/
+│   ├── code-symbol-kind.enum.ts
+│   ├── code-symbol-visibility.enum.ts
 │   ├── file-hash-algorithm.enum.ts
 │   ├── index-job-status.enum.ts
 │   ├── index-job-trigger.enum.ts
@@ -286,6 +298,15 @@ src/modules/indexing/
 ├── indexing.repository.ts
 ├── indexing.service.spec.ts
 ├── indexing.service.ts
+├── parsing/
+│   ├── source-parsing.errors.ts
+│   ├── source-parsing.service.ts
+│   └── source-parsing.types.ts
+├── symbols/
+│   ├── code-symbols.repository.ts
+│   ├── symbol-extraction.errors.ts
+│   ├── symbol-extraction.service.ts
+│   └── symbol-extraction.types.ts
 └── workspace/
     ├── indexing-workspace.errors.ts
     ├── indexing-workspace.service.ts
@@ -300,13 +321,14 @@ database uniqueness races, tenant-scoped lists, and hidden cross-tenant job
 identifiers.
 
 The migration and entity metadata must also pass TypeORM schema-drift checks.
-Worker and scanner integration tests will be added with those slices.
+New Phase 3 scanner, hash, language, parser, and symbol tests remain explicitly
+deferred until the planned phase-level test slice.
 
 ## Next implementation slice
 
-Phase 3.6 implements the parser engine through the `SourceParser` abstraction
-defined by ADR-012. The first adapter uses the TypeScript Compiler API for
-TypeScript, TSX, JavaScript, and JSX without executing repository source.
+Phase 3.8 builds dependency relationships from normalized imports, exports,
+inheritance clauses, and later reliable call resolution. Relationships will
+support both unresolved text and resolved file/symbol targets.
 
 Durable worker claiming remains Milestone 3.10. The job API, workspace, and
 discovery boundaries were delivered early because every later indexing

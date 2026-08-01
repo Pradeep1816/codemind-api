@@ -66,6 +66,8 @@ Implemented:
 - Bounded Git-tree file discovery with transactional active/deleted inventory
 - Incremental Git-blob detection and immutable SHA-256 content versions
 - Centralized source-language detection with parser-support classification
+- Bounded TypeScript/JavaScript parsing with normalized syntax metadata
+- Version-scoped, tenant-aware code symbol persistence
 - Database-aware `GET /health` endpoint
 - URI API versioning under `/api/v1`
 - Global request validation
@@ -78,8 +80,8 @@ Not implemented yet:
 - Invitation email delivery and invitation resend/revoke APIs
 - Password reset, verified email, and MFA
 - Organization settings APIs
-- Indexing worker execution and file inventory
-- Parsing and static analysis
+- Indexing worker execution
+- Dependency resolution and static analysis
 - Knowledge generation and search
 - AI provider integration
 - MCP server

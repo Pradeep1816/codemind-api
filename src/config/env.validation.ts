@@ -231,6 +231,12 @@ class EnvironmentVariables {
   @Max(512)
   INDEXING_MAX_PATH_DEPTH = 64;
 
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100_000)
+  INDEXING_MAX_SYMBOLS_PER_FILE = 10_000;
+
   @IsEnum(AiProvider)
   AI_PROVIDER = AiProvider.OpenAi;
 

@@ -10,13 +10,14 @@
 | Phases 4–7 | Planned |
 | Phase 8 | Future |
 
-Milestones 3.1 through 3.5 are implemented. They define the indexing data model,
+Milestones 3.1 through 3.7 are implemented. They define the indexing data model,
 durable queued-job API, immutable commit verification, and isolated job
 workspace lifecycle, plus bounded Git-tree discovery and transactional file
 inventory. Incremental mode skips unchanged Git blobs and persists SHA-256
 content versions in bounded batches. A centralized registry now persists
-language and parser capability. The E2E and new Phase 3 tests are explicitly
-deferred. Milestone 3.6 parser architecture is next.
+language and parser capability, normalized TS/JS parsing through the
+TypeScript Compiler API, and version-scoped symbol persistence. The E2E and
+new Phase 3 tests are explicitly deferred. Milestone 3.8 dependencies are next.
 
 ## Phase 1 — Platform & Identity
 
@@ -180,7 +181,7 @@ Deliver:
 
 ### 3.4 Incremental indexing
 
-Status: Implemented; tests and migration execution deferred
+Status: Implemented; tests deferred
 
 Deliver the ADR-012 hybrid strategy:
 
@@ -207,7 +208,7 @@ files. Future adapters add Python, Java, Go, PHP, and C#.
 
 ### 3.6 Parser engine
 
-Status: Next
+Status: Implemented; tests deferred
 
 Deliver:
 
@@ -217,9 +218,13 @@ Deliver:
 - Syntax diagnostics and per-file failure isolation
 - Bounded source input and parser execution
 
+The adapter extracts normalized classes, interfaces, functions, methods,
+enums, type aliases, imports, exports, source ranges, and syntax diagnostics.
+Those results are persisted by Milestone 3.7.
+
 ### 3.7 Symbol extraction
 
-Status: Planned
+Status: Implemented; migration execution and tests deferred
 
 Create version-scoped symbol metadata for:
 
@@ -228,6 +233,10 @@ Create version-scoped symbol metadata for:
 - Enums and type aliases
 - Imports and exports
 - Names, qualified names, signatures, and source ranges
+
+Symbols use auto-increment IDs and immutable `file_hash_id` ownership. Safe
+retries preserve matching IDs, insert new output, and atomically remove stale
+output after verifying running-job and tenant ownership.
 
 ### 3.8 Dependency graph
 

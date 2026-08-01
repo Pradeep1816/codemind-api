@@ -208,6 +208,7 @@ disabled.
 | `INDEXING_MAX_TOTAL_BYTES`     |       No | `536870912`          | Maximum selected source bytes in one scan          |
 | `INDEXING_MAX_PATH_LENGTH`     |       No | `1024`               | Maximum repository-relative path length            |
 | `INDEXING_MAX_PATH_DEPTH`      |       No | `64`                 | Maximum path segment depth                         |
+| `INDEXING_MAX_SYMBOLS_PER_FILE` |      No | `10000`              | Maximum normalized symbols persisted per file      |
 
 The `indexing` namespace exposes:
 
@@ -219,6 +220,7 @@ The `indexing` namespace exposes:
   maxTotalBytes: number;
   maxPathLength: number;
   maxPathDepth: number;
+  maxSymbolsPerFile: number;
 }
 ```
 
@@ -311,6 +313,7 @@ Startup fails when:
 - `INVITATION_TTL_HOURS` is outside the allowed 1–720 hour range.
 - A rate-limit duration or request count is outside its documented range.
 - A Git timeout, output limit, or clone depth is outside its documented range.
+- An indexing file, byte, path, depth, or symbol limit is outside its range.
 
 This prevents the application from running with incomplete or unsafe
 configuration.

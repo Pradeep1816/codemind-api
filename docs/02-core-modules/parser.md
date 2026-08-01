@@ -1,726 +1,254 @@
-Parser Module Design
-
-
-## Document Information
-
-Module: Parser Engine
-
-Status: Draft
-
-Version: 1.0
-
-Owner: CodeMind Engineering Team
-
-
-
-# 1. Overview
-
-
-The Parser Module is responsible for understanding source code structure.
-
-It transforms raw source files into structured representations that can be analysed by other CodeMind modules.
-
-
-Input:
-
-
-
-Source Code Files
-
-
-
-Output:
-
-
-
-Classes
-
-Functions
-
-Methods
-
-Variables
-
-Imports
-
-Interfaces
-
-Decorators
-
-Relationships
-
-
-
-
-The Parser Module is the foundation for:
-
-- Dependency analysis
-- Call graph generation
-- Knowledge extraction
-- Business rule discovery
-- Documentation generation
-
-
-
----
-
-# 2. Goals
-
-
-The Parser Module should:
-
-
-- Understand programming language syntax
-- Extract meaningful code structures
-- Support multiple programming languages
-- Provide a consistent parsing interface
-- Generate machine-readable metadata
-- Handle large codebases efficiently
-
-
-
----
-
-# 3. Non Goals
-
-
-The Parser Module should NOT:
-
-
-- Understand business rules
-- Generate AI summaries
-- Create embeddings
-- Decide architecture quality
-
-
-Those belong to:
-
-
-
-Analysis Module
-
-Business Engine
-
-AI Module
-
-
-
-
----
-
-# 4. Parser Architecture
-
-
-CodeMind uses a plugin-based parser architecture.
-
-
-                 Parser Engine
-
-
-                       |
-
-          ----------------------------
-
-          |            |             |
-
-          v            v             v
-
-
-    TypeScript       Java        Python
-
-    Parser           Parser      Parser
-
-
-Each language parser follows the same contract.
-
-
-Benefits:
-
-
-- Add new languages easily
-- Independent development
-- Replace parser technology
-- Consistent output format
-
-
-
----
-
-# 5. Parsing Pipeline
-
-
-Complete flow:
-
-
-
-Indexed File
-
- |
-
- v
-
-Language Detection
-
- |
-
- v
-
-Select Parser
-
- |
-
- v
-
-Generate AST
-
- |
-
- v
-
-Extract Metadata
-
- |
-
- v
-
-Store Parsed Result
-
-
-
-
----
-
-# 6. Abstract Syntax Tree (AST)
-
-
-## What is AST?
-
-
-An Abstract Syntax Tree is a structured representation of source code.
-
-
-Example:
-
-
-Source:
-
+# Parser Module
+
+## Document information
+
+Status: Milestone 3.7 symbol persistence integrated; tests deferred
+Version: 2.1
+Owner: CodeMind Engineering
+
+## Purpose
+
+The parser module converts bounded TypeScript and JavaScript source text into
+plain, normalized code metadata. It understands syntax; it does not execute
+repository code, query PostgreSQL, or decide how parsed metadata is stored.
+
+Its output is the stable boundary consumed by later symbol, dependency,
+analysis, knowledge, search, and AI modules.
+
+## Current scope
+
+Implemented in Milestone 3.6:
+
+- A language-specific `SourceParser` contract
+- A `ParserService` registry and routing boundary
+- A TypeScript Compiler API adapter for `.ts`, `.tsx`, `.js`, and `.jsx`
+- Normalized symbols, imports, exports, ranges, and syntax diagnostics
+- Stable indexed-file and file-hash identities on every parse result
+- An indexing bridge that reads one bounded immutable Git blob at a time
+- UTF-8 validation before source enters a parser
+- No TypeORM, Git, HTTP, or source-execution concerns inside parser adapters
+- Version-scoped symbol persistence through an indexing-owned adapter
+
+Deferred:
+
+- Resolving imports and building dependencies in Milestone 3.8
+- Background orchestration, retries, and failure thresholds in Milestone 3.10
+- Additional language adapters
+- Phase-level parser tests, as explicitly deferred for the current development
+  sequence
+
+## Architecture boundary
+
+```mermaid
+flowchart LR
+    File[(indexed_files)] --> Version[(file_hashes)]
+    Version --> Bridge[SourceParsingService]
+    Bridge -->|bounded immutable blob| Git[GitService]
+    Git -->|valid UTF-8 text| Router[ParserService]
+    Router --> TS[TypeScriptSourceParser]
+    TS --> Result[ParseSourceResult]
+    Result --> Symbols[(code_symbols)]
+    Result --> Dependencies[Milestone 3.8 resolution]
+```
+
+The dependency direction is intentional:
+
+```text
+Indexing module -> Parser module
+Parser module   -X-> Indexing, repositories, TypeORM, HTTP
+```
+
+`SourceParsingService` belongs to indexing because it joins persisted indexing
+identity, the immutable Git snapshot, and the parser port. `ParserService`
+belongs to parser because it selects a syntax adapter.
+
+## Module structure
+
+```text
+src/modules/parser/
+├── adapters/
+│   └── typescript-source.parser.ts
+├── enums/
+│   ├── parsed-export-kind.enum.ts
+│   ├── parsed-symbol-kind.enum.ts
+│   ├── parsed-symbol-visibility.enum.ts
+│   └── parser-diagnostic-category.enum.ts
+├── interfaces/
+│   └── source-parser.interface.ts
+├── types/
+│   └── parser.types.ts
+├── parser.errors.ts
+├── parser.module.ts
+└── parser.service.ts
+```
+
+The indexing-side source bridge is separate:
+
+```text
+src/modules/indexing/parsing/
+├── source-parsing.errors.ts
+├── source-parsing.service.ts
+└── source-parsing.types.ts
+```
+
+## Parser contract
+
+Every language adapter implements:
 
 ```typescript
-class UserService {
+interface SourceParser {
+  supports(
+    input: Pick<ParseSourceInput, 'language' | 'extension'>,
+  ): boolean;
 
- createUser(){
-
- }
-
+  parse(input: ParseSourceInput): Promise<ParseSourceResult>;
 }
+```
+
+`ParseSourceInput` carries:
+
+- `indexedFileId`: stable branch/path identity
+- `fileHashId`: immutable content-version identity
+- `path`: normalized repository-relative path
+- `language`: centralized detected language
+- `extension`: dialect selector such as `tsx` or `jsx`
+- `content`: bounded UTF-8 source text
+
+`ParseSourceResult` carries the same identities plus normalized symbols,
+imports, exports, diagnostics, and `hasSyntaxErrors`. It never contains a
+TypeScript compiler node or TypeORM entity.
+
+## Adapter selection
+
+`ParserService` owns a registry of `SourceParser` implementations. It asks each
+adapter whether it supports the detected language and stored extension, then
+dispatches the file to the first match.
 
-
-AST:
-
-ClassDeclaration
-
-      |
-
-      +---- Name
-
-      |       UserService
-
-      |
-
-      +---- Method
-
-              createUser()
-
-
-The parser works with AST instead of plain text.
-
-7. TypeScript Parser
-
-Initial CodeMind implementation focuses on TypeScript.
-
-Technology options:
-
-Option 1: ts-morph
-
-Advantages:
-
-TypeScript native
-Easy API
-Built on TypeScript compiler API
-Good metadata extraction
-
-Example:
-
-const project = new Project();
-
-const sourceFile =
-project.addSourceFileAtPath(
-"invoice.service.ts"
-);
-
-Option 2: Tree-sitter
-
-Advantages:
-
-Multi-language support
-Fast parsing
-Incremental parsing
-
-Future architecture can combine:
-
-TypeScript
-
-    |
-
- ts-morph
-
-
-Other Languages
-
-    |
-
-Tree-sitter
-
-8. Parser Interface Design
-
-All parsers implement the same interface.
-
-Example:
-
-interface CodeParser {
-
-
-supports(language:string): boolean;
-
-
-parse(
- file: ParsedFile
-): ParseResult;
-
-
-}
-
-
-Example implementations:
-
-TypeScriptParser
-
-JavaParser
-
-PythonParser
-
-9. Language Detection
-
-Before parsing:
-
-File
-
- |
-
- v
-
-Extension Detection
-
- |
-
- v
-
-Language Resolver
-
- |
-
- v
-
-Parser Selection
-
-
-Example:
-
-invoice.service.ts
-
-        |
-
-        v
-
-TypeScriptParser
-
-
-Supported mapping:
-
-Extension	Language
-.ts	TypeScript
-.js	JavaScript
-.java	Java
-.py	Python
-.go	Go
-10. Metadata Extraction
-
-The parser extracts:
-
-Classes
-
-Example:
-
-class InvoiceService {}
-
-
-Output:
-
-{
-"type":"class",
-"name":"InvoiceService"
-}
-
-Functions
-
-Example:
-
-function calculateTax(){}
-
-
-Output:
-
-{
-"type":"function",
-"name":"calculateTax"
-}
-
-Methods
-
-Example:
-
-createInvoice()
-
-
-Output:
-
-{
-"class":"InvoiceService",
-"method":"createInvoice"
-}
-
-Imports
-
-Example:
-
-import {PaymentService}
-from './payment';
-
-
-Output:
-
-{
-"source":"./payment",
-"import":"PaymentService"
-}
-
-Decorators
-
-Important for frameworks like NestJS.
-
-Example:
-
-@Controller('invoice')
-
-
-Output:
-
-{
-"type":"controller",
-"name":"invoice"
-}
-
-11. Parser Database Model
-Files Table
-files
-
-id
-
-repository_id
-
-path
-
-language
-
-hash
-
-Classes Table
-classes
-
-id
-
-file_id
-
-name
-
-type
-
-visibility
-
-Functions Table
-functions
-
-id
-
-file_id
-
-class_id
-
-name
-
-parameters
-
-return_type
-
-Imports Table
-imports
-
-id
-
-file_id
-
-source
-
-target
-
-12. Parser Result Example
-
-Input:
-
-@Injectable()
-
-class PaymentService {
-
-
-processPayment(){
-
-}
-
-}
-
-
-Output:
-
-{
-"class":"PaymentService",
-
-"decorators":[
-"Injectable"
-],
-
-"methods":[
-"processPayment"
-]
-
-}
-
-13. Parser Events
-
-Parser publishes events.
-
-FileParsedEvent
-
-Payload:
-
-{
-"fileId":"123",
-"language":"typescript"
-}
-
-
-Consumers:
-
-Analysis Module
-
-Knowledge Module
-
-14. Error Handling
-
-Possible errors:
-
-Invalid Syntax
-
-Example:
-
-class User {
-
-
-Action:
-
-Store parsing error
-
-Continue processing
-
-Unsupported Language
-
-Action:
-
-Mark as unsupported
-
-Skip file
-
-Parser Crash
-
-Action:
-
-Retry job
-
-Log failure
-
-Notify system
-
-15. Performance Strategy
-
-Large repositories require optimization.
-
-Incremental Parsing
-
-Only parse changed files.
-
-Example:
-
-Before:
-
-500,000 files
-
-
-Change:
-
-invoice.service.ts
-
-
-Process:
-
-1 file
-
-Parallel Processing
-
-Example:
-
-Parser Worker 1
-
-Files 1-100
-
-
-Parser Worker 2
-
-Files 101-200
-
-Cache AST Results
-
-Store:
-
-File Hash
-
-+
-
-Parsed Result
-
-
-If hash unchanged:
-
-Reuse Previous Result
-
-16. Module Structure
-
-NestJS:
-
-src/modules/parser/
-
-
-├── controllers/
-
-├── services/
-
-├── interfaces/
-
-├── adapters/
-
-│
-├── typescript/
-
-│
-├── java/
-
-│
-└── python/
-
-
-├── ast/
-
-├── extractors/
-
-├── entities/
-
-├── events/
-
-└── parser.module.ts
-
-17. Dependencies
-
-Parser Module depends on:
-
-Indexing Module
-
-Storage Module
-
-Queue Module
-
-
-Parser Module should NOT depend on:
-
-AI Module
-
-Search Module
-
-Business Engine
-
-18. Future Enhancements
-Multi Language Support
-
-Add:
-
-Java
-Python
-C#
-Go
-PHP
-Ruby
-Semantic Parsing
-
-Understand:
-
-Controller
-
-Service
-
-Repository
-
-Entity
-
-Framework Detection
-
-Examples:
-
-NestJS
-
-Spring Boot
-
-Laravel
-
-Django
-
-Summary
-
-The Parser Module transforms source code into structured information.
-
-Its responsibility:
-
-"Understand what exists inside the code."
-
-It creates the foundation for:
-
-Dependency analysis
-Knowledge graphs
-Business understanding
-AI context generation
+Current mapping:
+
+| Language | Extensions | Script mode |
+|---|---|---|
+| `typescript` | `ts` | TypeScript |
+| `typescript` | `tsx` | TypeScript with JSX |
+| `javascript` | `js` | JavaScript |
+| `javascript` | `jsx` | JavaScript with JSX |
+
+An unsupported language/extension pair produces the stable
+`unsupported_language` parser error. JSON, Markdown, and YAML remain valid
+inventory formats, but are not sent to a parser.
+
+## Normalized symbols
+
+The first adapter extracts:
+
+- Classes
+- Interfaces
+- Named function declarations
+- Arrow functions and function expressions assigned to named variables
+- Methods, method signatures, constructors, getters, and setters
+- Enums
+- Type aliases
+
+Each symbol includes:
+
+- Name
+- Qualified name based on containing declarations
+- Normalized kind
+- Public, protected, private, or non-applicable visibility
+- Export and default-export flags
+- Bounded declaration signature
+- Bounded JSDoc summary when present
+- One-based start/end line and column plus zero-based source offsets
+
+Imports capture module specifier, default import, namespace import, named
+bindings, aliases, and type-only state. Exports capture declarations, named
+exports, namespace exports, star exports, default exports, and export
+assignments.
+
+Milestone 3.7 persists these declaration facts against an immutable file hash.
+Inheritance, calls, and resolved target identities remain later metadata and
+analysis work.
+
+## Diagnostics
+
+The adapter creates a single-file TypeScript program with resolution, library
+loading, type checking, and emission disabled. Only syntactic diagnostics are
+normalized.
+
+Each diagnostic includes:
+
+- Compiler diagnostic code
+- `warning`, `error`, `suggestion`, or `message` category
+- Flattened message text
+- Source range when the compiler supplies one
+
+A malformed file can still return partial syntax metadata together with
+`hasSyntaxErrors: true`. The future worker decides whether a per-file error
+counts toward a repository-level failure threshold.
+
+## Source safety and resource limits
+
+Repository source is untrusted. Parsing follows these rules:
+
+1. A caller supplies trusted persisted file/version metadata, not an arbitrary
+   filesystem path.
+2. `GitService` reads the blob from the job's immutable target commit.
+3. Binary output is capped by `INDEXING_MAX_FILE_SIZE_BYTES`.
+4. The blob byte length must match persisted file-hash metadata.
+5. The blob must be valid UTF-8.
+6. Only one blob is retained by `SourceParsingService` for one parse call.
+7. The compiler parses syntax only; it does not resolve modules, emit code,
+   load project configuration, execute hooks, or run repository programs.
+8. Source content is not stored in errors or parser results.
+
+The configured default per-file limit is 2 MiB. Discovery and hashing enforce
+the same limit before parsing. `INDEXING_MAX_SYMBOLS_PER_FILE` additionally
+caps normalized symbols from one file; its default is 10,000.
+
+## Error ownership
+
+| Error | Owner | Meaning |
+|---|---|---|
+| `invalid_metadata` | Indexing source bridge | Persisted parse identity or size is invalid |
+| `blob_size_mismatch` | Indexing source bridge | Git bytes disagree with persisted content metadata |
+| `unsupported_encoding` | Indexing source bridge | Blob is not valid UTF-8 |
+| `unsupported_language` | Parser module | No adapter supports the language/extension pair |
+| `invalid_input` | Parser adapter | Parser identity, path, or content contract is invalid |
+
+Operational exceptions are converted into sanitized `indexing_errors` by the
+future worker. Raw source and compiler AST data must never be included in API
+error responses.
+
+## Adding another language
+
+Adding a parser requires:
+
+1. Add the language/extension capability to the centralized indexing language
+   registry.
+2. Implement `SourceParser` inside the parser module.
+3. Convert library-specific nodes into existing or intentionally extended
+   CodeMind parser types.
+4. Register the adapter in `ParserService`.
+5. Keep filesystem, database, and orchestration logic outside the adapter.
+6. Add adapter and cross-boundary tests before declaring that language
+   supported.
+
+Tree-sitter or a language-native parser may be used internally for future
+languages. Its node types must not leak through `ParseSourceResult`.
+
+## Persistence integration
+
+`SymbolExtractionService` maps parser-owned kinds and visibility into the
+indexing persistence model. `CodeSymbolsRepository` reconciles one immutable
+file version in bounded batches. Matching symbols retain their auto-increment
+IDs, new symbols are inserted, and stale output is removed atomically.
+
+The write is accepted only while the same running job owns the organization,
+repository, branch, target commit, current file hash, Git blob, and byte size.
+This prevents stale parsing work from replacing newer metadata.
+
+## Next milestone
+
+Milestone 3.8 will consume normalized imports, exports, and declaration
+relationships to create version-scoped dependencies without coupling compiler
+internals to database entities.

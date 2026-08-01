@@ -14,4 +14,5 @@ export default registerAs('indexing', () => ({
   maxTotalBytes: readInteger('INDEXING_MAX_TOTAL_BYTES', 536_870_912),
   maxPathLength: readInteger('INDEXING_MAX_PATH_LENGTH', 1_024),
   maxPathDepth: readInteger('INDEXING_MAX_PATH_DEPTH', 64),
+  maxSymbolsPerFile: readInteger('INDEXING_MAX_SYMBOLS_PER_FILE', 10_000),
 }));
