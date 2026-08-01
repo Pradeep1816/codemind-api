@@ -3,9 +3,13 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { FileDiscoveryStatistics } from './discovery/file-discovery.types';
+import {
+  DiscoveredFile,
+  FileDiscoveryStatistics,
+} from './discovery/file-discovery.types';
 import { FileDiscoveryService } from './discovery/file-discovery.service';
 import { IndexJobStatus } from './enums/index-job-status.enum';
+import { IndexingMode } from './enums/indexing-mode.enum';
 import { IndexingRepository } from './indexing.repository';
 import { IndexingWorkspaceService } from './workspace/indexing-workspace.service';
 
@@ -14,6 +18,8 @@ export interface FileInventoryResult {
   repositoryId: number;
   branchId: number;
   targetCommitSha: string;
+  mode: IndexingMode;
+  files: readonly DiscoveredFile[];
   activeFiles: number;
   newlyDeletedFiles: number;
   discovery: FileDiscoveryStatistics;
@@ -89,6 +95,8 @@ export class FileInventoryService {
       repositoryId: job.repositoryId,
       branchId: job.branchId,
       targetCommitSha: job.targetCommitSha,
+      mode: job.mode,
+      files: manifest.files,
       activeFiles: persistenceResult.activeFiles,
       newlyDeletedFiles: persistenceResult.newlyDeletedFiles,
       discovery: manifest.statistics,

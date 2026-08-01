@@ -64,6 +64,7 @@ Implemented:
 - Branch commit snapshotting and active indexing-job concurrency protection
 - Isolated per-job indexing workspace preparation and targeted cleanup
 - Bounded Git-tree file discovery with transactional active/deleted inventory
+- Incremental Git-blob detection and immutable SHA-256 content versions
 - Database-aware `GET /health` endpoint
 - URI API versioning under `/api/v1`
 - Global request validation

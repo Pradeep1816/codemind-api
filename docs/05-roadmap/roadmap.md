@@ -49,8 +49,9 @@ creates an immutable branch/commit request and exposes status/history.
 Phase 3.2 prepares isolated job workspaces and verifies the immutable commit in
 the hardened Git object cache. Phase 3.3 scans that Git tree with centralized
 ignore and resource policies and transactionally reconciles file inventory.
-Jobs currently remain `queued`; hashing, parsers, graph construction, and the
-background worker are delivered in the remaining milestones.
+Phase 3.4 skips unchanged Git blobs and persists SHA-256 content versions for
+changed files. Jobs currently remain `queued`; language detection, parsers,
+graph construction, and the background worker remain.
 
 Architecture decisions:
 
@@ -118,8 +119,8 @@ flowchart TD
 | 3.1 | Indexing foundation | Implemented; E2E regression deferred |
 | 3.2 | Git workspace manager | Implemented; tests deferred |
 | 3.3 | File discovery | Implemented; tests deferred |
-| 3.4 | Incremental indexing | Next |
-| 3.5 | Language detection | Planned |
+| 3.4 | Incremental indexing | Implemented; tests and migration execution deferred |
+| 3.5 | Language detection | Next |
 | 3.6 | Parser engine | Planned |
 | 3.7 | Symbol extraction | Planned |
 | 3.8 | Dependency graph | Planned |

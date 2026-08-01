@@ -10,11 +10,13 @@
 | Phases 4–7 | Planned |
 | Phase 8 | Future |
 
-Milestones 3.1 through 3.3 are implemented. They define the indexing data model,
+Milestones 3.1 through 3.4 are implemented. They define the indexing data model,
 durable queued-job API, immutable commit verification, and isolated job
 workspace lifecycle, plus bounded Git-tree discovery and transactional file
-inventory. The E2E and new Phase 3 test passes are explicitly deferred.
-Milestone 3.4 incremental hashing is next.
+inventory. Incremental mode skips unchanged Git blobs and persists SHA-256
+content versions in bounded batches. The E2E, new Phase 3 tests, and the latest
+migration execution are explicitly deferred. Milestone 3.5 language detection
+is next.
 
 ## Phase 1 — Platform & Identity
 
@@ -96,6 +98,10 @@ Implemented structure:
 
 ```text
 src/modules/indexing/
+├── content/
+│   ├── content-hash.errors.ts
+│   ├── content-hash.service.ts
+│   └── content-hash.types.ts
 ├── discovery/
 │   ├── file-discovery.constants.ts
 │   ├── file-discovery.errors.ts
@@ -169,7 +175,7 @@ Deliver:
 
 ### 3.4 Incremental indexing
 
-Status: Next
+Status: Implemented; tests and migration execution deferred
 
 Deliver the ADR-012 hybrid strategy:
 
@@ -182,7 +188,7 @@ Deliver the ADR-012 hybrid strategy:
 
 ### 3.5 Language detection
 
-Status: Planned
+Status: Next
 
 Initial parsed languages:
 

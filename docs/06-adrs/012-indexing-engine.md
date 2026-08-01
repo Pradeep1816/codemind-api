@@ -235,7 +235,8 @@ timestamps.
 
 Represents the stable normalized path inside a repository branch. It stores
 repository/branch ownership, path, extension, detected language, current
-lifecycle (`active` or `deleted`), last-seen job/commit, and timestamps.
+lifecycle (`active` or `deleted`), current immutable file-hash identity,
+last-seen job/commit, and timestamps.
 
 Uniqueness:
 

@@ -210,7 +210,7 @@ class EnvironmentVariables {
   @Type(() => Number)
   @IsInt()
   @Min(1_024)
-  @Max(1_073_741_824)
+  @Max(16_777_216)
   INDEXING_MAX_FILE_SIZE_BYTES = 2_097_152;
 
   @Type(() => Number)

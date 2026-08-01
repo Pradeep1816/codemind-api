@@ -40,9 +40,19 @@ export interface GitTreeFileEntry {
   path: string;
 }
 
+export interface GitBlobContent {
+  objectId: string;
+  content: Buffer;
+}
+
 export interface GitCommandResult {
   stdout: string;
   stderr: string;
+}
+
+export interface GitBinaryCommandResult {
+  stdout: Buffer;
+  stderr: Buffer;
 }
 
 export interface GitCommandOptions {

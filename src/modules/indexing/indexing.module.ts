@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import indexingConfig from '../../config/indexing.config';
 import { RepositoriesModule } from '../repositories/repositories.module';
+import { ContentHashService } from './content/content-hash.service';
 import { FileHashEntity } from './entities/file-hash.entity';
 import { IndexJobEntity } from './entities/index-job.entity';
 import { IndexedFileEntity } from './entities/indexed-file.entity';
@@ -32,12 +33,14 @@ import { IndexingRepository } from './indexing.repository';
     IndexingWorkspaceService,
     FileDiscoveryService,
     FileInventoryService,
+    ContentHashService,
   ],
   exports: [
     IndexingService,
     IndexingWorkspaceService,
     FileDiscoveryService,
     FileInventoryService,
+    ContentHashService,
   ],
 })
 export class IndexingModule {}

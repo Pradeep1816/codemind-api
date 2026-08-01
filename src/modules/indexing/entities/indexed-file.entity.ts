@@ -13,6 +13,7 @@ import { OrganizationEntity } from '../../organizations/entities/organization.en
 import { RepositoryBranchEntity } from '../../repositories/entities/repository-branch.entity';
 import { RepositoryEntity } from '../../repositories/entities/repository.entity';
 import { IndexedFileStatus } from '../enums/indexed-file-status.enum';
+import { FileHashEntity } from './file-hash.entity';
 import { IndexJobEntity } from './index-job.entity';
 
 @Entity({ name: 'indexed_files' })
@@ -24,6 +25,7 @@ import { IndexJobEntity } from './index-job.entity';
 ])
 @Index('idx_indexed_files_branch_status', ['branchId', 'status'])
 @Index('idx_indexed_files_last_seen_job_id', ['lastSeenJobId'])
+@Index('idx_indexed_files_current_file_hash_id', ['currentFileHashId'])
 @Check('CHK_indexed_files_size_bytes', '"size_bytes" >= 0')
 export class IndexedFileEntity {
   @PrimaryGeneratedColumn('increment', {
@@ -43,6 +45,9 @@ export class IndexedFileEntity {
 
   @Column({ name: 'last_seen_job_id', type: 'integer', nullable: true })
   lastSeenJobId!: number | null;
+
+  @Column({ name: 'current_file_hash_id', type: 'integer', nullable: true })
+  currentFileHashId!: number | null;
 
   @Column({ type: 'varchar', length: 1024 })
   path!: string;
@@ -109,4 +114,14 @@ export class IndexedFileEntity {
     foreignKeyConstraintName: 'FK_indexed_files_last_seen_job_id',
   })
   lastSeenJob!: IndexJobEntity | null;
+
+  @ManyToOne(() => FileHashEntity, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({
+    name: 'current_file_hash_id',
+    foreignKeyConstraintName: 'FK_indexed_files_current_file_hash_id',
+  })
+  currentFileHash!: FileHashEntity | null;
 }

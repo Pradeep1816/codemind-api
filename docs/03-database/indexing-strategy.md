@@ -108,6 +108,7 @@ branch. Content changes create `file_hashes`; they do not replace the file ID.
 | `repository_id` | integer | No | Parent repository |
 | `branch_id` | integer | No | Parent branch |
 | `last_seen_job_id` | integer | Yes | Most recent job that observed this path |
+| `current_file_hash_id` | integer | Yes | Current immutable content version after hashing |
 | `path` | varchar(1024) | No | Repository-relative normalized path |
 | `extension` | varchar(32) | Yes | Lowercase extension without interpretation |
 | `language` | varchar(64) | Yes | Detected language; null until detection |
@@ -132,6 +133,11 @@ removed, allowing downstream symbol and relationship cleanup to be explicit.
 
 `file_hashes` stores immutable content observations. It separates stable path
 identity from content version identity.
+
+`indexed_files.current_file_hash_id` points to the content version currently
+observed at that path. The explicit pointer is required when a path changes and
+later returns to an older hash; creation order alone cannot identify current
+content reliably.
 
 | Column | Type | Null | Purpose |
 |---|---|:---:|---|
@@ -221,6 +227,7 @@ commit was committed. It is more precise than a generic `completed` state.
 | Job | Last-seen file / observed hash | `SET NULL` |
 | Job | Indexing error | `CASCADE` |
 | Indexed file | Hash versions | `CASCADE` |
+| File hash | Indexed-file current pointer | `SET NULL` |
 | Indexed file | Error reference | `SET NULL` |
 
 Branch synchronization marks missing remote branches as `deleted`; it does
@@ -266,10 +273,12 @@ The foundation is introduced in two additive migrations:
 ```text
 1785610000000-AddIndexJobs.ts
 1785620000000-CompleteIndexingFoundation.ts
+1785630000000-AddCurrentFileHash.ts
 ```
 
-The split is intentional: the durable job/API slice landed first, then the ADR
-expanded Phase 3.1 to the complete inventory, hash, error, and mode model.
+The split is intentional: the durable job/API slice landed first, the ADR
+expanded Phase 3.1 to the complete inventory, hash, error, and mode model, and
+incremental processing added the explicit current-content pointer.
 
 Commands:
 

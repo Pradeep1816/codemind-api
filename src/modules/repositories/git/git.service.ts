@@ -27,6 +27,7 @@ import {
 } from './git.errors';
 import {
   GitBranchState,
+  GitBlobContent,
   GitCommitSnapshot,
   GitRemoteInspection,
   GitRepositorySource,
@@ -326,6 +327,51 @@ export class GitService {
       .filter((record) => record.length > 0)
       .map((record) => this.parseTreeFileEntry(record))
       .filter((entry): entry is GitTreeFileEntry => entry !== null);
+  }
+
+  /** Reads one bounded blob after verifying the immutable commit workspace. */
+  async readBlob(
+    organizationId: string,
+    repositoryId: number,
+    commitSha: string,
+    objectId: string,
+    maxContentBytes: number,
+  ): Promise<GitBlobContent> {
+    if (!GIT_OBJECT_ID_PATTERN.test(objectId)) {
+      throw new GitIntegrationError(
+        'Git blob identity is invalid',
+        GitIntegrationErrorCode.InvalidWorkspaceIdentity,
+      );
+    }
+
+    const snapshot = await this.requireCommit(
+      organizationId,
+      repositoryId,
+      commitSha,
+    );
+    const result = await this.gitCommandService.runBinary(
+      [
+        '-C',
+        snapshot.workspacePath,
+        'cat-file',
+        'blob',
+        objectId.toLowerCase(),
+      ],
+      { operation: 'read repository blob' },
+      maxContentBytes,
+    );
+
+    if (result.stdout.length > maxContentBytes) {
+      throw new GitIntegrationError(
+        'Git blob exceeds the configured content limit',
+        GitIntegrationErrorCode.InvalidWorkspaceState,
+      );
+    }
+
+    return {
+      objectId: objectId.toLowerCase(),
+      content: result.stdout,
+    };
   }
 
   async getWorkspacePath(

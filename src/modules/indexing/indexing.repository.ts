@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
+import { FileHashEntity } from './entities/file-hash.entity';
 import { IndexJobEntity } from './entities/index-job.entity';
 import { IndexedFileEntity } from './entities/indexed-file.entity';
+import { FileHashAlgorithm } from './enums/file-hash-algorithm.enum';
 import { IndexJobStatus } from './enums/index-job-status.enum';
 import { IndexJobTrigger } from './enums/index-job-trigger.enum';
 import { IndexedFileStatus } from './enums/indexed-file-status.enum';
@@ -46,6 +48,26 @@ export interface FileInventoryPersistenceResult {
   newlyDeletedFiles: number;
 }
 
+export interface PersistFileHashRecord {
+  indexedFileId: number;
+  sha256: string;
+  gitBlobOid: string;
+  sizeBytes: number;
+}
+
+export interface PersistFileHashBatchRecord {
+  organizationId: string;
+  repositoryId: number;
+  branchId: number;
+  indexJobId: number;
+  hashes: readonly PersistFileHashRecord[];
+}
+
+export interface PersistFileHashBatchResult {
+  createdHashes: number;
+  reusedHashes: number;
+}
+
 @Injectable()
 export class IndexingRepository {
   constructor(
@@ -53,6 +75,8 @@ export class IndexingRepository {
     private readonly indexJobRepository: Repository<IndexJobEntity>,
     @InjectRepository(IndexedFileEntity)
     private readonly indexedFileRepository: Repository<IndexedFileEntity>,
+    @InjectRepository(FileHashEntity)
+    private readonly fileHashRepository: Repository<FileHashEntity>,
   ) {}
 
   create(input: CreateIndexJobRecord): Promise<IndexJobEntity> {
@@ -182,6 +206,7 @@ export class IndexingRepository {
             branchId: input.branchId,
             path: discoveredFile.path,
             language: null,
+            currentFileHashId: null,
           });
 
         file.lastSeenJobId = input.indexJobId;
@@ -212,6 +237,130 @@ export class IndexingRepository {
       return {
         activeFiles: input.files.length,
         newlyDeletedFiles,
+      };
+    });
+  }
+
+  findActiveFilesByBranch(
+    organizationId: string,
+    repositoryId: number,
+    branchId: number,
+  ): Promise<IndexedFileEntity[]> {
+    return this.indexedFileRepository.find({
+      where: {
+        organizationId,
+        repositoryId,
+        branchId,
+        status: IndexedFileStatus.Active,
+      },
+      relations: {
+        currentFileHash: true,
+      },
+      order: {
+        path: 'ASC',
+      },
+    });
+  }
+
+  /**
+   * Persists one bounded hash batch and switches each stable file identity to
+   * its current immutable content version. Every batch rechecks job ownership
+   * so cancellation can stop future writes without invalidating prior batches.
+   */
+  persistFileHashBatch(
+    input: PersistFileHashBatchRecord,
+  ): Promise<PersistFileHashBatchResult | null> {
+    return this.fileHashRepository.manager.transaction(async (manager) => {
+      const job = await manager.getRepository(IndexJobEntity).findOne({
+        where: {
+          id: input.indexJobId,
+          organizationId: input.organizationId,
+          repositoryId: input.repositoryId,
+          branchId: input.branchId,
+          status: IndexJobStatus.Running,
+        },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!job) {
+        return null;
+      }
+
+      const indexedFileIds = input.hashes.map((hash) => hash.indexedFileId);
+      const indexedFileRepository = manager.getRepository(IndexedFileEntity);
+      const indexedFiles = await indexedFileRepository.find({
+        where: {
+          id: In(indexedFileIds),
+          organizationId: input.organizationId,
+          repositoryId: input.repositoryId,
+          branchId: input.branchId,
+          status: IndexedFileStatus.Active,
+        },
+      });
+
+      if (indexedFiles.length !== new Set(indexedFileIds).size) {
+        return null;
+      }
+
+      const fileHashRepository = manager.getRepository(FileHashEntity);
+      const existingHashes = await fileHashRepository.find({
+        where: {
+          indexedFileId: In(indexedFileIds),
+          algorithm: FileHashAlgorithm.Sha256,
+        },
+      });
+      const hashByFileAndValue = new Map(
+        existingHashes.map((hash) => [
+          `${hash.indexedFileId}:${hash.value}`,
+          hash,
+        ]),
+      );
+      const newHashes: FileHashEntity[] = [];
+
+      for (const hashInput of input.hashes) {
+        const key = `${hashInput.indexedFileId}:${hashInput.sha256}`;
+
+        if (!hashByFileAndValue.has(key)) {
+          const hash = fileHashRepository.create({
+            organizationId: input.organizationId,
+            indexedFileId: hashInput.indexedFileId,
+            observedByJobId: input.indexJobId,
+            algorithm: FileHashAlgorithm.Sha256,
+            value: hashInput.sha256,
+            gitBlobOid: hashInput.gitBlobOid,
+            sizeBytes: hashInput.sizeBytes,
+          });
+          hashByFileAndValue.set(key, hash);
+          newHashes.push(hash);
+        }
+      }
+
+      if (newHashes.length > 0) {
+        await fileHashRepository.save(newHashes, { chunk: 250 });
+      }
+
+      const hashInputByFileId = new Map(
+        input.hashes.map((hash) => [hash.indexedFileId, hash]),
+      );
+
+      for (const indexedFile of indexedFiles) {
+        const hashInput = hashInputByFileId.get(indexedFile.id);
+        const fileHash = hashInput
+          ? hashByFileAndValue.get(`${indexedFile.id}:${hashInput.sha256}`)
+          : undefined;
+
+        if (!fileHash?.id) {
+          throw new Error('Persisted file hash identity is unavailable');
+        }
+
+        indexedFile.currentFileHashId = fileHash.id;
+      }
+
+      await indexedFileRepository.save(indexedFiles, { chunk: 250 });
+
+      return {
+        createdHashes: newHashes.length,
+        reusedHashes: input.hashes.length - newHashes.length,
       };
     });
   }

@@ -45,14 +45,17 @@ Implemented:
 - Apply centralized ignored-directory and supported-extension policies
 - Enforce path, depth, file-count, file-size, and total-byte limits
 - Reconcile active/deleted `IndexedFile` rows in a short transaction
+- Skip unchanged Git blobs for incremental jobs
+- Read changed blobs with an absolute binary-output ceiling
+- Compute SHA-256 and reuse immutable content versions
+- Update explicit current-hash pointers in restart-safe batches
 - Paginate and filter repository job history by status
 - Return `404` for cross-organization repository or job identifiers
 
 Deferred to the next slices:
 
 - Language detection
-- Safe Git blob reads, content hashing, and optional source materialization
-- Hash calculation and incremental change planning
+- Optional bounded source materialization for parsers
 - Parser and analysis dispatch
 - Queue transport and worker consumption
 - Job claiming, leases, retries, cancellation, and recovery
@@ -225,6 +228,10 @@ Database and worker internals are not included in API error responses.
 
 ```text
 src/modules/indexing/
+├── content/
+│   ├── content-hash.errors.ts
+│   ├── content-hash.service.ts
+│   └── content-hash.types.ts
 ├── discovery/
 │   ├── file-discovery.constants.ts
 │   ├── file-discovery.errors.ts
@@ -270,9 +277,9 @@ Worker and scanner integration tests will be added with those slices.
 
 ## Next implementation slice
 
-Phase 3.4 implements incremental content processing. It reads selected Git
-blobs within the discovery limits, compares Git object IDs, computes SHA-256
-for changed content, and persists immutable `FileHash` rows.
+Phase 3.5 implements language detection through a centralized registry. The
+initial mapping supports TypeScript, TSX, JavaScript, and JSX for parsing, with
+JSON, Markdown, and YAML retained as inventory-only formats.
 
 Durable worker claiming remains Milestone 3.10. The job API, workspace, and
 discovery boundaries were delivered early because every later indexing

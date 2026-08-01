@@ -4,7 +4,13 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import gitConfig from '../../../config/git.config';
 import { GitCommandError } from './git.errors';
-import { GitCommandOptions, GitCommandResult } from './git.types';
+import {
+  GitBinaryCommandResult,
+  GitCommandOptions,
+  GitCommandResult,
+} from './git.types';
+
+const GIT_MAX_BINARY_OUTPUT_BYTES = 16_777_216;
 
 @Injectable()
 export class GitCommandService {
@@ -56,6 +62,68 @@ export class GitCommandService {
           }
 
           resolve({ stdout, stderr });
+        },
+      );
+    });
+  }
+
+  /**
+   * Executes a Git command with binary stdout for bounded source blobs. The
+   * caller must supply the expected content ceiling; an absolute process-level
+   * cap prevents accidental unbounded buffering.
+   */
+  runBinary(
+    arguments_: readonly string[],
+    options: GitCommandOptions,
+    maxOutputBytes: number,
+  ): Promise<GitBinaryCommandResult> {
+    if (
+      arguments_.some((argument) => argument.includes('\0')) ||
+      !Number.isSafeInteger(maxOutputBytes) ||
+      maxOutputBytes < 1 ||
+      maxOutputBytes > GIT_MAX_BINARY_OUTPUT_BYTES
+    ) {
+      throw new GitCommandError(options.operation, null, null, false);
+    }
+
+    const gitArguments = [
+      '-c',
+      `core.hooksPath=${devNull}`,
+      '-c',
+      'credential.helper=',
+      ...arguments_,
+    ];
+
+    return new Promise((resolve, reject) => {
+      execFile(
+        'git',
+        gitArguments,
+        {
+          cwd: options.cwd,
+          encoding: null,
+          env: this.createProcessEnvironment(),
+          maxBuffer: maxOutputBytes,
+          timeout: this.configuration.commandTimeoutMs,
+          windowsHide: true,
+        },
+        (error, stdout, stderr) => {
+          if (error) {
+            reject(
+              new GitCommandError(
+                options.operation,
+                error.code ?? null,
+                error.signal ?? null,
+                error.killed === true,
+                { cause: error },
+              ),
+            );
+            return;
+          }
+
+          resolve({
+            stdout: Buffer.from(stdout),
+            stderr: Buffer.from(stderr),
+          });
         },
       );
     });
