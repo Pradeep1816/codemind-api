@@ -38,8 +38,8 @@ reading credentials before the guard executes.
 
 ## Implemented policies
 
-The global policy applies to every route. Authentication and invitation routes
-override it with stricter limits.
+The global policy applies to every route. Authentication, invitation, and
+repository synchronization routes override it with stricter limits.
 
 | Scope or endpoint | Default requests | Default window |
 |---|---:|---:|
@@ -49,6 +49,7 @@ override it with stricter limits.
 | `POST /api/v1/auth/refresh` | 20 | 60 seconds |
 | `POST /api/v1/auth/invitations/accept` | 5 | 60 seconds |
 | `POST /api/v1/users/invitations` | 10 | 60 seconds |
+| `POST /api/v1/repositories/:repositoryId/branches/sync` | 5 | 60 seconds |
 
 The guard returns HTTP `429 Too Many Requests` when the applicable limit is
 exceeded.
@@ -64,6 +65,8 @@ AUTH_LOGIN_RATE_LIMIT=5
 AUTH_REFRESH_RATE_LIMIT=20
 AUTH_INVITATION_ACCEPT_RATE_LIMIT=5
 AUTH_INVITATION_CREATE_RATE_LIMIT=10
+REPOSITORY_SYNC_RATE_LIMIT_TTL_MS=60000
+REPOSITORY_SYNC_RATE_LIMIT=5
 ```
 
 Startup validation rejects non-integer, zero, negative, or excessively large
@@ -104,5 +107,6 @@ src/config/env.validation.ts
 src/modules/auth/rate-limit.module.ts
 src/modules/auth/auth.controller.ts
 src/modules/users/users.controller.ts
+src/modules/repositories/repository-branches.controller.ts
 src/main.ts
 ```

@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Repository CRUD and membership implemented
-Version: 1.0
+Status: Repository CRUD, membership, and branch synchronization implemented
+Version: 1.2
 Owner: CodeMind Engineering
 
 ## Base path
@@ -27,6 +27,8 @@ derived from the authenticated user and cannot be supplied by clients.
 | `POST` | `/repositories/:repositoryId/members` | `repository.read`, `repository.member.manage` |
 | `GET` | `/repositories/:repositoryId/members` | `repository.read` |
 | `DELETE` | `/repositories/:repositoryId/members/:userId` | `repository.read`, `repository.member.manage` |
+| `GET` | `/repositories/:repositoryId/branches` | `repository.read` |
+| `POST` | `/repositories/:repositoryId/branches/sync` | `repository.read`, `repository.index` |
 
 Repository IDs are positive integers. User IDs are UUID v4 values.
 
@@ -120,6 +122,55 @@ DELETE /api/v1/repositories/101/members/25d8bd53-047b-42d8-9efa-4ecedfe422d3
 
 A successful removal returns HTTP `204`.
 
+## Synchronize repository branches
+
+```http
+POST /api/v1/repositories/101/branches/sync
+Authorization: Bearer <access-token>
+```
+
+The first request creates an isolated no-checkout clone. Later requests fetch
+and prune remote branches. The client cannot provide a source URL, workspace
+path, organization ID, or branch list; all synchronization inputs come from
+the tenant-scoped repository record.
+
+Response:
+
+```json
+{
+  "repositoryId": 101,
+  "defaultBranch": "main",
+  "branches": [
+    {
+      "id": 301,
+      "name": "main",
+      "commitSha": "6fe725f0c1914fbb4ad1123fc791bca9b40a3bd8",
+      "status": "active",
+      "lastIndexedAt": null,
+      "createdAt": "2026-08-01T10:00:00.000Z",
+      "updatedAt": "2026-08-01T10:00:00.000Z"
+    }
+  ]
+}
+```
+
+Observed branches become `active`; missing branches become `deleted` rather
+than being removed. A restored branch becomes active again. Synchronization
+updates commit SHAs and the detected repository default branch but preserves
+`lastIndexedAt` for the indexing milestone.
+
+The default rate limit is five synchronization requests per IP in 60 seconds.
+
+## List repository branches
+
+```http
+GET /api/v1/repositories/101/branches
+Authorization: Bearer <access-token>
+```
+
+This returns the same response shape from PostgreSQL without cloning or
+fetching. Both active and deleted branch records are included.
+
 ## Error behavior
 
 | Status | Meaning |
@@ -129,6 +180,20 @@ A successful removal returns HTTP `204`.
 | `403` | Required permission is missing |
 | `404` | Tenant-scoped repository, user, or membership was not found |
 | `409` | Repository URL or repository membership already exists |
+| `422` | Registered source is not supported by the Git execution policy |
+| `429` | Repository synchronization rate limit was exceeded |
+| `503` | Git command or managed workspace is temporarily unavailable |
 
 Cross-organization resources intentionally return `404` to avoid disclosing
 their existence.
+
+## Git workflow boundary
+
+Registering a repository does not make an outbound connection or start a
+clone. Only the explicit synchronization endpoint starts Git work, and no Git
+workspace path is accepted from an API client.
+
+Current Git execution supports public, credential-free GitHub HTTPS sources
+and explicitly allow-listed local sources. GitLab, Bitbucket, generic hosts,
+and private repository credentials are not yet supported for synchronization,
+even though those provider types can be registered as metadata.

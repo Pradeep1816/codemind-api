@@ -250,8 +250,9 @@ DELETE /organizations/{id}/members/{userId}
 
 Base path: `/api/v1/repositories`
 
-Repository registration currently stores tenant-scoped metadata. It does not
-clone or index the remote repository.
+Repository registration stores tenant-scoped metadata. Explicit branch
+synchronization clones or fetches the remote repository; it does not index
+source files.
 
 | Method | Path | Permission |
 |---|---|---|
@@ -263,6 +264,8 @@ clone or index the remote repository.
 | `POST` | `/repositories/{repositoryId}/members` | `repository.read`, `repository.member.manage` |
 | `GET` | `/repositories/{repositoryId}/members` | `repository.read` |
 | `DELETE` | `/repositories/{repositoryId}/members/{userId}` | `repository.read`, `repository.member.manage` |
+| `GET` | `/repositories/{repositoryId}/branches` | `repository.read` |
+| `POST` | `/repositories/{repositoryId}/branches/sync` | `repository.read`, `repository.index` |
 
 Registration request:
 
@@ -283,6 +286,11 @@ cross-organization IDs return HTTP `404`.
 
 Membership mutations accept only users belonging to the authenticated
 organization. Adding the same user twice returns HTTP `409`.
+
+Branch synchronization supports credential-free GitHub HTTPS repositories and
+allow-listed local sources. It returns active and deleted persisted branch
+records. Unsupported sources return HTTP `422`; temporary Git/workspace
+failures return `503`; the endpoint-specific rate limit returns `429`.
 
 7. Repository Analysis APIs
 

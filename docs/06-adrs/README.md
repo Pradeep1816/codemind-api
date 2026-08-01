@@ -85,6 +85,7 @@ Benefits and trade-offs.
 | ADR-008 | Authentication Strategy |
 | ADR-009 | Storage Strategy |
 | ADR-010 | Deployment Strategy |
+| ADR-011 | Secure Git Integration |
 
 
 

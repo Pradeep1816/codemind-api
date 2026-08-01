@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Foundation and membership API implemented
-Version: 1.1
+Status: Foundation, membership, and branch synchronization implemented
+Version: 1.2
 Owner: CodeMind Engineering
 
 ## Scope
@@ -12,9 +12,8 @@ The repository data model provides the persistent identity and relationships
 required for repository registration, repository-specific access, and Git
 branch tracking.
 
-This model now supports repository registration and membership APIs. It does
-not clone repositories or synchronize and expose branches; those behaviors
-belong to later repository milestones.
+This model supports repository registration, membership, and synchronized
+Git branch APIs. Repository source indexing remains a later milestone.
 
 ## Entity relationship diagram
 
@@ -139,7 +138,7 @@ authenticated identity rather than request payloads.
 ## Repository branches
 
 The `repository_branches` table stores the last known state of branches
-reported by the future Git adapter.
+reported by the Git adapter.
 
 | Column | Type | Null | Purpose |
 |---|---|---:|---|
@@ -160,7 +159,9 @@ Constraints:
 
 A deleted remote branch is retained with `status = deleted` so indexing
 history can be reconciled safely. A later retention policy may remove old
-deleted branches.
+deleted branches. If the same branch reappears, synchronization restores it to
+`active`, updates its commit SHA, and preserves `last_indexed_at` for later
+incremental-index decisions.
 
 ## Enums
 

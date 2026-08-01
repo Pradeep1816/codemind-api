@@ -159,6 +159,44 @@ class EnvironmentVariables {
   @Max(10_000)
   AUTH_INVITATION_CREATE_RATE_LIMIT = 10;
 
+  @Type(() => Number)
+  @IsInt()
+  @Min(1_000)
+  @Max(3_600_000)
+  REPOSITORY_SYNC_RATE_LIMIT_TTL_MS = 60_000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10_000)
+  REPOSITORY_SYNC_RATE_LIMIT = 5;
+
+  @IsString()
+  @IsNotEmpty()
+  GIT_WORKSPACE_ROOT = '.codemind/repositories';
+
+  @IsOptional()
+  @IsString()
+  GIT_LOCAL_REPOSITORIES_ROOT?: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1_000)
+  @Max(600_000)
+  GIT_COMMAND_TIMEOUT_MS = 120_000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1_024)
+  @Max(16_777_216)
+  GIT_MAX_OUTPUT_BYTES = 1_048_576;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(10_000)
+  GIT_CLONE_DEPTH = 1;
+
   @IsEnum(AiProvider)
   AI_PROVIDER = AiProvider.OpenAi;
 

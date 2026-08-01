@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import {
   RepositoryEntity,
   RepositoryProvider,
@@ -92,8 +92,9 @@ export class RepositoriesRepository {
   findByIdAndOrganization(
     repositoryId: number,
     organizationId: string,
+    manager?: EntityManager,
   ): Promise<RepositoryEntity | null> {
-    return this.repository.findOne({
+    return this.getRepository(manager).findOne({
       where: {
         id: repositoryId,
         organizationId,
@@ -101,8 +102,27 @@ export class RepositoriesRepository {
     });
   }
 
-  save(repository: RepositoryEntity): Promise<RepositoryEntity> {
-    return this.repository.save(repository);
+  findByIdAndOrganizationForUpdate(
+    repositoryId: number,
+    organizationId: string,
+    manager: EntityManager,
+  ): Promise<RepositoryEntity | null> {
+    return manager
+      .getRepository(RepositoryEntity)
+      .createQueryBuilder('repository')
+      .setLock('pessimistic_write')
+      .where('repository.id = :repositoryId', { repositoryId })
+      .andWhere('repository.organizationId = :organizationId', {
+        organizationId,
+      })
+      .getOne();
+  }
+
+  save(
+    repository: RepositoryEntity,
+    manager?: EntityManager,
+  ): Promise<RepositoryEntity> {
+    return this.getRepository(manager).save(repository);
   }
 
   async deleteByIdAndOrganization(
@@ -115,5 +135,9 @@ export class RepositoriesRepository {
     });
 
     return (result.affected ?? 0) > 0;
+  }
+
+  private getRepository(manager?: EntityManager): Repository<RepositoryEntity> {
+    return manager?.getRepository(RepositoryEntity) ?? this.repository;
   }
 }

@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Repository CRUD and membership implemented
-Version: 2.1
+Status: Repository CRUD, membership, Git, and branch APIs implemented
+Version: 2.3
 Owner: CodeMind Engineering
 
 ## Purpose
@@ -13,8 +13,8 @@ CodeMind. It establishes the organization boundary and stable repository
 identity required by future cloning, indexing, parsing, analysis, search, and
 knowledge features.
 
-The current slice manages repository metadata only. Registering a repository
-does not clone it or start indexing.
+Registering a repository stores metadata only. An authorized caller can later
+start explicit branch synchronization; source indexing does not start yet.
 
 ## Responsibilities
 
@@ -31,13 +31,20 @@ Implemented:
 - Add, list, and remove organization-user repository memberships
 - Enforce membership management through `repository.member.manage`
 - Persist branch names, commit SHAs, lifecycle status, and index timestamps
+- Validate GitHub HTTPS and allow-listed local Git sources
+- Clone without checkout and fetch branch updates in isolated workspaces
+- Detect default branches, commit SHAs, and remote branch state
+- List persisted branch state inside the authenticated organization
+- Clone or fetch on an explicit, rate-limited synchronization request
+- Atomically activate observed branches and mark missing branches as deleted
+- Preserve `lastIndexedAt` while Git state changes
+- Coalesce concurrent sync requests for one repository in one API process
 - Return `404` for cross-organization IDs
 
 Next:
 
-- Branch synchronization and listing APIs
+- Repository health and size reporting
 - Git credential references
-- Clone and fetch adapter
 - Durable indexing jobs
 - File inventory and content hashes
 - Incremental indexing
@@ -59,13 +66,13 @@ Authenticated request
 Global JWT and permission guards
     |
     v
-RepositoriesController / RepositoryMembersController
+RepositoriesController / RepositoryMembersController / RepositoryBranchesController
     |
     v
-RepositoriesService / RepositoryMembersService
+RepositoriesService / RepositoryMembersService / RepositoryBranchesService
     |
     v
-RepositoriesRepository / RepositoryMembersRepository
+RepositoriesRepository / RepositoryMembersRepository / RepositoryBranchesRepository
     |
     v
 PostgreSQL
@@ -145,9 +152,41 @@ HTTPS ports are removed by the URL parser. Repository URLs are immutable after
 creation. Changing a remote source requires deleting and registering a new
 repository identity.
 
-This validation prevents credentials from being persisted. The future Git
-adapter must additionally enforce network allow/deny rules before making any
-outbound connection.
+This validation prevents credentials from being persisted. The internal Git
+service initially permits outbound operations only for exact `github.com`
+HTTPS URLs. Although registration recognizes other provider metadata, GitLab,
+Bitbucket, and generic HTTPS execution remain unsupported until explicit
+provider policies are implemented.
+
+## Git service and synchronization
+
+`GitService` remains an internal infrastructure capability. The branch service
+exposes its safe synchronization workflow through a protected endpoint. Git
+supports:
+
+- Source validation without shell interpolation
+- Credential-free GitHub HTTPS repositories
+- Local repositories contained by `GIT_LOCAL_REPOSITORIES_ROOT`
+- Clone into `<workspaceRoot>/<organizationId>/<repositoryId>`
+- Fetch/prune of remote branches
+- Default branch, head commit, and remote branch discovery
+
+Git commands run through `execFile` with argument arrays. Global and system
+Git configuration, credential helpers, terminal prompts, hooks, SSH, HTTP,
+the Git protocol, and external protocol helpers are disabled. A validated
+local source enables the file protocol only for that operation.
+
+Clones use `--no-checkout` and never execute repository code. A temporary
+directory is atomically renamed after a successful clone and safely removed
+after failure. Command timeout, output size, clone depth, workspace root, and
+the optional local-source root are environment controlled.
+
+The first synchronization clones the remote; later requests fetch and prune
+remote refs. Same-repository requests share one in-flight operation inside a
+single Node.js process. Database persistence then locks the tenant-scoped
+repository row and updates its default branch and all branch lifecycle changes
+in one transaction. The Git operation intentionally occurs before the short
+database transaction.
 
 ## API contract
 
@@ -167,6 +206,8 @@ Base path:
 | `POST` | `/repositories/:repositoryId/members` | `repository.read`, `repository.member.manage` | Add member |
 | `GET` | `/repositories/:repositoryId/members` | `repository.read` | List members |
 | `DELETE` | `/repositories/:repositoryId/members/:userId` | `repository.read`, `repository.member.manage` | Remove member |
+| `GET` | `/repositories/:repositoryId/branches` | `repository.read` | List persisted branches |
+| `POST` | `/repositories/:repositoryId/branches/sync` | `repository.read`, `repository.index` | Clone/fetch and persist branches |
 
 ### Register
 
@@ -262,6 +303,39 @@ The membership table records repository-specific sharing. Repository CRUD is
 still controlled by organization roles and permissions; using membership to
 filter repository reads is a separate authorization policy decision.
 
+### Branches
+
+```http
+POST /api/v1/repositories/101/branches/sync
+```
+
+The endpoint returns the complete persisted branch state:
+
+```json
+{
+  "repositoryId": 101,
+  "defaultBranch": "main",
+  "branches": [
+    {
+      "id": 301,
+      "name": "main",
+      "commitSha": "6fe725f0c1914fbb4ad1123fc791bca9b40a3bd8",
+      "status": "active",
+      "lastIndexedAt": null,
+      "createdAt": "2026-08-01T10:00:00.000Z",
+      "updatedAt": "2026-08-01T10:00:00.000Z"
+    }
+  ]
+}
+```
+
+`GET /repositories/:repositoryId/branches` returns the same shape without
+performing Git I/O. Deleted remote branches remain visible with
+`status: "deleted"`; a later reappearance restores them to `active`.
+Disabled repositories return `409` on sync. Unsupported Git sources return
+`422`, transient Git/workspace failures return `503`, and rate-limit excess
+returns `429`.
+
 ## Module structure
 
 ```text
@@ -271,26 +345,36 @@ src/modules/repositories/
 │   ├── repository.entity.ts
 │   ├── repository-member.entity.ts
 │   └── repository-branch.entity.ts
+├── git/
+│   ├── git-command.service.ts
+│   ├── git.constants.ts
+│   ├── git.errors.ts
+│   ├── git.service.ts
+│   └── git.types.ts
 ├── repositories/
 │   ├── repositories.repository.ts
-│   └── repository-members.repository.ts
+│   ├── repository-members.repository.ts
+│   └── repository-branches.repository.ts
 ├── repositories.controller.ts
 ├── repository-members.controller.ts
+├── repository-branches.controller.ts
 ├── repositories.service.ts
 ├── repository-members.service.ts
+├── repository-branches.service.ts
 └── repositories.module.ts
 ```
 
 ## Next implementation slice
 
-Milestone 2.4 should place Git operations behind a dedicated adapter:
+Milestone 2.6 should provide repository health without performing a Git sync:
 
 ```text
-Registered repository
-    -> validate source and outbound destination
-    -> clone or fetch into an isolated workspace
-    -> resolve the default branch and commit
-    -> synchronize repository branch records
+GET /repositories/:repositoryId/status
+    -> last successful sync signal
+    -> last indexed timestamp
+    -> active/deleted branch counts
+    -> repository workspace size
 ```
 
-Git operations must never execute repository code.
+The health slice needs an explicit persisted sync timestamp before it can
+report a durable `lastSync` value across processes.

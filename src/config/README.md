@@ -17,6 +17,7 @@ application startup, and exposes namespaced configuration through NestJS.
 | `jwt.config.ts`        | JWT signing and expiration settings                               | `jwt`        |
 | `invitation.config.ts` | User-invitation expiration settings                               | `invitation` |
 | `rate-limit.config.ts` | Global and authentication endpoint request limits                 | `rateLimit`  |
+| `git.config.ts`        | Git workspace, local-source, timeout, and clone settings           | `git`        |
 | `ai.config.ts`         | AI provider connection settings                                   | `ai`         |
 
 ## Environment Setup
@@ -151,6 +152,8 @@ SHA-256 hashes are persisted.
 | `AUTH_REFRESH_RATE_LIMIT`           |       No |    `20` | Refresh attempts per IP and auth window           |
 | `AUTH_INVITATION_ACCEPT_RATE_LIMIT` |       No |     `5` | Invitation acceptance attempts per IP and window  |
 | `AUTH_INVITATION_CREATE_RATE_LIMIT` |       No |    `10` | Invitation creation attempts per IP and window    |
+| `REPOSITORY_SYNC_RATE_LIMIT_TTL_MS` |       No | `60000` | Window for repository synchronization requests    |
+| `REPOSITORY_SYNC_RATE_LIMIT`        |       No |     `5` | Repository synchronization requests per IP/window |
 
 The `rateLimit` namespace exposes the global policy:
 
@@ -165,6 +168,34 @@ Endpoint-specific limits are applied through `@Throttle`. A rejected request
 returns HTTP `429`. The default throttler storage is local to one Node.js
 process; production deployments with multiple instances require a shared
 storage provider.
+
+### Git
+
+| Variable                      | Required | Default                 | Description                                      |
+| ----------------------------- | -------: | ----------------------- | ------------------------------------------------ |
+| `GIT_WORKSPACE_ROOT`          |       No | `.codemind/repositories` | Root for internally managed repository clones    |
+| `GIT_LOCAL_REPOSITORIES_ROOT` |       No | —                       | Allow-listed root that enables local Git sources |
+| `GIT_COMMAND_TIMEOUT_MS`      |       No | `120000`                | Git command timeout from 1–600 seconds            |
+| `GIT_MAX_OUTPUT_BYTES`        |       No | `1048576`               | Maximum captured output per command               |
+| `GIT_CLONE_DEPTH`             |       No | `1`                     | Shallow depth; `0` requests complete history      |
+
+The `git` namespace exposes:
+
+```typescript
+{
+  workspaceRoot: string;
+  localRepositoriesRoot: string | undefined;
+  commandTimeoutMs: number;
+  maxOutputBytes: number;
+  cloneDepth: number;
+}
+```
+
+Local repositories are disabled when `GIT_LOCAL_REPOSITORIES_ROOT` is empty.
+When enabled, both the configured root and requested repository are resolved
+through the filesystem before the containment check, preventing symlink
+escapes. Production environments should normally leave local sources
+disabled.
 
 ### AI
 
@@ -249,6 +280,7 @@ Startup fails when:
 - `JWT_REFRESH_EXPIRES_IN` is not a positive duration with a unit.
 - `INVITATION_TTL_HOURS` is outside the allowed 1–720 hour range.
 - A rate-limit duration or request count is outside its documented range.
+- A Git timeout, output limit, or clone depth is outside its documented range.
 
 This prevents the application from running with incomplete or unsafe
 configuration.

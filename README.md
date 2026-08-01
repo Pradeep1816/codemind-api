@@ -57,6 +57,8 @@ Implemented:
 - Tenant-scoped user status and role management APIs
 - Active-OWNER continuity protection
 - Tenant-scoped repository registration and metadata management
+- Tenant-scoped repository membership and branch synchronization APIs
+- Internal GitHub HTTPS and allow-listed local Git clone/fetch service
 - Database-aware `GET /health` endpoint
 - URI API versioning under `/api/v1`
 - Global request validation
@@ -69,7 +71,7 @@ Not implemented yet:
 - Invitation email delivery and invitation resend/revoke APIs
 - Password reset, verified email, and MFA
 - Organization settings APIs
-- Git clone/fetch integration and repository indexing
+- Repository health reporting and repository indexing
 - Indexing, parsing, and static analysis
 - Knowledge generation and search
 - AI provider integration
@@ -614,10 +616,32 @@ requires both `repository.read` and `repository.member.manage`; the default
 and target user must belong to the authenticated organization.
 
 Organization ownership always comes from the authenticated identity.
-Cross-organization IDs return HTTP `404`. This foundation stores metadata
-only; repository membership is now manageable and branch persistence is ready
-for its upcoming API. Git clone/fetch and indexing jobs remain later
-implementation slices. See the
+Cross-organization IDs return HTTP `404`.
+
+The internal Git layer can validate and clone credential-free GitHub HTTPS
+repositories or allow-listed local repositories. It uses isolated,
+organization/repository-derived workspaces, disables hooks and interactive
+credentials, enforces protocol and output limits, and fetches branches without
+checking out or executing repository code.
+
+Synchronize the registered repository and persist its remote branches:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/repositories/101/branches/sync \
+  -H 'Authorization: Bearer <access-token>'
+```
+
+Synchronization requires `repository.read` and `repository.index`. The first
+request clones the repository without a checkout; later requests fetch and
+prune remote refs. Concurrent requests for the same repository are coalesced
+inside one API process. List persisted active and deleted branch records with:
+
+```bash
+curl http://localhost:3000/api/v1/repositories/101/branches \
+  -H 'Authorization: Bearer <access-token>'
+```
+
+See the
 [repository data model](docs/03-database/repository-model.md) for its ER
 diagram and database constraints.
 

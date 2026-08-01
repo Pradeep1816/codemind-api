@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Foundation implemented
-Version: 2.0
+Status: Foundation and branch lifecycle implemented
+Version: 2.1
 Owner: CodeMind Engineering
 
 ## Purpose
@@ -72,6 +72,10 @@ Indexes:
 - Unique `(repository_id, name)`
 - `(repository_id, status)`
 - `(last_indexed_at)`
+
+Synchronization upserts observed branches as `active`, updates changed commit
+SHAs, and marks missing remote branches as `deleted`. It never hard-deletes a
+branch during synchronization and does not change `last_indexed_at`.
 
 ## PostgreSQL enums
 

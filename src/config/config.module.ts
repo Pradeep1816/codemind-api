@@ -4,6 +4,7 @@ import aiConfig from './ai.config';
 import appConfig from './app.config';
 import databaseConfig from './database.config';
 import { validateEnvironment } from './env.validation';
+import gitConfig from './git.config';
 import invitationConfig from './invitation.config';
 import jwtConfig from './jwt.config';
 import rateLimitConfig from './rate-limit.config';
@@ -17,6 +18,7 @@ import rateLimitConfig from './rate-limit.config';
       load: [
         appConfig,
         databaseConfig,
+        gitConfig,
         jwtConfig,
         invitationConfig,
         rateLimitConfig,

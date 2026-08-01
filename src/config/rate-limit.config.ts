@@ -27,6 +27,13 @@ export const AUTH_RATE_LIMIT_POLICIES = {
   },
 } as const;
 
+export const REPOSITORY_RATE_LIMIT_POLICIES = {
+  sync: {
+    limit: (): number => readInteger('REPOSITORY_SYNC_RATE_LIMIT', 5),
+    ttl: (): number => readInteger('REPOSITORY_SYNC_RATE_LIMIT_TTL_MS', 60_000),
+  },
+} as const;
+
 export default registerAs('rateLimit', () => ({
   ttlMs: readInteger('RATE_LIMIT_TTL_MS', 60_000),
   defaultLimit: readInteger('RATE_LIMIT_DEFAULT_LIMIT', 120),
