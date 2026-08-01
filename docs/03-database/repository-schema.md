@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Foundation and branch lifecycle implemented
-Version: 2.1
+Status: Foundation, branch lifecycle, and repository health implemented
+Version: 2.2
 Owner: CodeMind Engineering
 
 ## Purpose
@@ -34,6 +34,17 @@ Indexes:
 - Unique `(organization_id, remote_url)`
 - `(organization_id, status, created_at)`
 - `(created_by_user_id)`
+- `(organization_id, last_sync_status)`
+
+Health columns:
+
+- `last_sync_status` — durable `never`, `succeeded`, or `failed` state
+- `last_sync_attempted_at` — latest completed attempt start
+- `last_synced_at` — latest successful completion
+- `repository_size_bytes` — last successful Git object-storage measurement
+
+`repository_size_bytes` has a named check constraint limiting it to a
+non-negative JavaScript-safe integer.
 
 ### `repository_members`
 
@@ -88,6 +99,9 @@ repository_status:
 
 repository_branch_status:
   active | deleted
+
+repository_sync_status:
+  never | succeeded | failed
 ```
 
 ## Migration
@@ -96,6 +110,7 @@ The schema is managed by:
 
 ```text
 src/database/migrations/1785510000000-AddRepositories.ts
+src/database/migrations/1785600000000-AddRepositoryHealth.ts
 ```
 
 TypeORM schema synchronization remains disabled. Apply reviewed changes only

@@ -113,4 +113,64 @@ describe('RepositoryBranchesRepository', () => {
 
     expect(save).not.toHaveBeenCalled();
   });
+
+  it('aggregates branch lifecycle and latest indexing health', async () => {
+    const queryBuilder = {
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      setParameters: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue({
+        total: '4',
+        active: '3',
+        deleted: '1',
+        lastIndexedAt: '2026-08-01T08:00:00.000Z',
+      }),
+    };
+    const typeormRepository = {
+      createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
+    } as unknown as Repository<RepositoryBranchEntity>;
+    const repository = new RepositoryBranchesRepository(typeormRepository);
+
+    await expect(repository.getHealthSummary(repositoryId)).resolves.toEqual({
+      total: 4,
+      active: 3,
+      deleted: 1,
+      lastIndexedAt: indexedAt,
+    });
+    expect(queryBuilder.where).toHaveBeenCalledWith(
+      'branch.repositoryId = :repositoryId',
+      { repositoryId },
+    );
+    expect(queryBuilder.setParameters).toHaveBeenCalledWith({
+      activeStatus: BranchStatus.Active,
+      deletedStatus: BranchStatus.Deleted,
+    });
+  });
+
+  it('returns empty health for a repository without branches', async () => {
+    const queryBuilder = {
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      setParameters: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue({
+        total: '0',
+        active: '0',
+        deleted: '0',
+        lastIndexedAt: null,
+      }),
+    };
+    const typeormRepository = {
+      createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
+    } as unknown as Repository<RepositoryBranchEntity>;
+    const repository = new RepositoryBranchesRepository(typeormRepository);
+
+    await expect(repository.getHealthSummary(repositoryId)).resolves.toEqual({
+      total: 0,
+      active: 0,
+      deleted: 0,
+      lastIndexedAt: null,
+    });
+  });
 });

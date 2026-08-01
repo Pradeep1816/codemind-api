@@ -24,6 +24,7 @@ export interface GitRepositoryState {
   workspacePath: string;
   defaultBranch: string | null;
   headCommitSha: string | null;
+  sizeBytes: number;
   branches: GitBranchState[];
 }
 

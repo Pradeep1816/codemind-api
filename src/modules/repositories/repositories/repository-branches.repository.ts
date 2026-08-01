@@ -7,6 +7,20 @@ import {
 } from '../entities/repository-branch.entity';
 import type { GitBranchState } from '../git/git.types';
 
+export interface RepositoryBranchHealthSummary {
+  total: number;
+  active: number;
+  deleted: number;
+  lastIndexedAt: Date | null;
+}
+
+interface RepositoryBranchHealthRawResult {
+  total: string;
+  active: string;
+  deleted: string;
+  lastIndexedAt: Date | string | null;
+}
+
 @Injectable()
 export class RepositoryBranchesRepository {
   constructor(
@@ -26,6 +40,36 @@ export class RepositoryBranchesRepository {
         id: 'ASC',
       },
     });
+  }
+
+  async getHealthSummary(
+    repositoryId: number,
+  ): Promise<RepositoryBranchHealthSummary> {
+    const result = await this.repository
+      .createQueryBuilder('branch')
+      .select('COUNT(branch.id)', 'total')
+      .addSelect(
+        'COUNT(branch.id) FILTER (WHERE branch.status = :activeStatus)',
+        'active',
+      )
+      .addSelect(
+        'COUNT(branch.id) FILTER (WHERE branch.status = :deletedStatus)',
+        'deleted',
+      )
+      .addSelect('MAX(branch.lastIndexedAt)', 'lastIndexedAt')
+      .where('branch.repositoryId = :repositoryId', { repositoryId })
+      .setParameters({
+        activeStatus: BranchStatus.Active,
+        deletedStatus: BranchStatus.Deleted,
+      })
+      .getRawOne<RepositoryBranchHealthRawResult>();
+
+    return {
+      total: this.parseCount(result?.total),
+      active: this.parseCount(result?.active),
+      deleted: this.parseCount(result?.deleted),
+      lastIndexedAt: this.parseDate(result?.lastIndexedAt),
+    };
   }
 
   async synchronize(
@@ -92,5 +136,29 @@ export class RepositoryBranchesRepository {
     manager?: EntityManager,
   ): Repository<RepositoryBranchEntity> {
     return manager?.getRepository(RepositoryBranchEntity) ?? this.repository;
+  }
+
+  private parseCount(value: string | undefined): number {
+    const count = Number.parseInt(value ?? '0', 10);
+
+    if (!Number.isSafeInteger(count) || count < 0) {
+      throw new Error('Repository branch count is invalid');
+    }
+
+    return count;
+  }
+
+  private parseDate(value: Date | string | null | undefined): Date | null {
+    if (value === null || value === undefined) {
+      return null;
+    }
+
+    const date = value instanceof Date ? value : new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+      throw new Error('Repository branch index timestamp is invalid');
+    }
+
+    return date;
   }
 }

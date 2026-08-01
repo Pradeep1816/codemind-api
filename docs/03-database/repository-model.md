@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Foundation, membership, and branch synchronization implemented
-Version: 1.2
+Status: Foundation, membership, branch synchronization, and health implemented
+Version: 1.3
 Owner: CodeMind Engineering
 
 ## Scope
@@ -44,6 +44,10 @@ erDiagram
         varchar remote_url
         varchar default_branch
         repository_status status
+        repository_sync_status last_sync_status
+        timestamptz last_sync_attempted_at
+        timestamptz last_synced_at
+        bigint repository_size_bytes
         timestamptz created_at
         timestamptz updated_at
     }
@@ -100,6 +104,10 @@ The `repositories` table stores tenant-owned repository metadata.
 | `remote_url` | varchar(2048) | No | Normalized clone URL |
 | `default_branch` | varchar(255) | Yes | Configured default branch |
 | `status` | `repository_status` | No | Active/disabled lifecycle |
+| `last_sync_status` | `repository_sync_status` | No | `never`, `succeeded`, or `failed` |
+| `last_sync_attempted_at` | timestamptz | Yes | Start of latest completed attempt |
+| `last_synced_at` | timestamptz | Yes | Latest successful completion |
+| `repository_size_bytes` | bigint | Yes | Git object-storage size after latest success |
 | `created_at` | timestamptz | No | Creation time |
 | `updated_at` | timestamptz | No | Last metadata update |
 
@@ -108,6 +116,11 @@ Constraints:
 - Unique `(organization_id, remote_url)`
 - Organization deletion is restricted while repositories exist
 - Deleting the creating user sets `created_by_user_id` to null
+- Repository size is null or between zero and JavaScript's maximum safe integer
+
+Failed synchronization changes the status and attempted timestamp but retains
+the last successful timestamp and size. This makes a recent failure visible
+without losing the last known successful health state.
 
 ## Repository members
 
@@ -181,6 +194,12 @@ incremental-index decisions.
 
 - `active`
 - `deleted`
+
+### `repository_sync_status`
+
+- `never`
+- `succeeded`
+- `failed`
 
 ## Ownership and deletion rules
 

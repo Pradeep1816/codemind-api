@@ -266,6 +266,7 @@ source files.
 | `DELETE` | `/repositories/{repositoryId}/members/{userId}` | `repository.read`, `repository.member.manage` |
 | `GET` | `/repositories/{repositoryId}/branches` | `repository.read` |
 | `POST` | `/repositories/{repositoryId}/branches/sync` | `repository.read`, `repository.index` |
+| `GET` | `/repositories/{repositoryId}/status` | `repository.read` |
 
 Registration request:
 
@@ -291,6 +292,10 @@ Branch synchronization supports credential-free GitHub HTTPS repositories and
 allow-listed local sources. It returns active and deleted persisted branch
 records. Unsupported sources return HTTP `422`; temporary Git/workspace
 failures return `503`; the endpoint-specific rate limit returns `429`.
+
+Repository status reads persisted synchronization state, latest branch index
+time, active/deleted branch counts, and Git object-storage size. It does not
+perform Git or indexing work.
 
 7. Repository Analysis APIs
 

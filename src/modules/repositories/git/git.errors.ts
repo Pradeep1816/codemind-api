@@ -5,6 +5,7 @@ export enum GitIntegrationErrorCode {
   InvalidWorkspaceIdentity = 'invalid_workspace_identity',
   WorkspaceExists = 'workspace_exists',
   WorkspaceNotFound = 'workspace_not_found',
+  InvalidWorkspaceState = 'invalid_workspace_state',
 }
 
 export class GitIntegrationError extends Error {

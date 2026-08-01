@@ -33,6 +33,7 @@ The first implementation supports:
 - Clone without checkout
 - Fetch/prune updates
 - Default branch, commit SHA, and remote branch discovery
+- Git object-storage size measurement through `git count-objects`
 
 Every command:
 
@@ -60,6 +61,11 @@ Requests for the same repository are coalesced within one Node.js process. The
 resulting branch changes and detected default branch are persisted in one
 short database transaction while holding a tenant-scoped repository row lock.
 Git network and filesystem work happens before that transaction.
+
+Successful synchronization persists the object-storage size and success
+timestamps. Failed Git operations persist the failed attempt while retaining
+the last successful timestamp and size. Health reads use these durable values
+and do not touch the Git workspace.
 
 ## Alternatives considered
 

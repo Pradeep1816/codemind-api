@@ -13,6 +13,7 @@ import {
   RepositoryEntity,
   RepositoryProvider,
   RepositoryStatus,
+  RepositorySyncStatus,
 } from './entities/repository.entity';
 import {
   GitCommandError,
@@ -44,6 +45,10 @@ describe('RepositoryBranchesService', () => {
       remoteUrl: 'https://github.com/codemind/codemind-api.git',
       defaultBranch: null,
       status: RepositoryStatus.Active,
+      lastSyncStatus: RepositorySyncStatus.Never,
+      lastSyncAttemptedAt: null,
+      lastSyncedAt: null,
+      repositorySizeBytes: null,
       createdAt,
       updatedAt,
       ...overrides,
@@ -80,6 +85,7 @@ describe('RepositoryBranchesService', () => {
       synchronize: jest.Mock;
     };
     gitService: { synchronizeRepository: jest.Mock };
+    lockedRepository: RepositoryEntity | null;
   } {
     const repository =
       options && 'repository' in options
@@ -94,6 +100,7 @@ describe('RepositoryBranchesService', () => {
       workspacePath: '/tmp/workspace',
       defaultBranch: 'main',
       headCommitSha: branch.commitSha,
+      sizeBytes: 4_096,
       branches: [
         { name: 'main', commitSha: branch.commitSha!, isDefault: true },
       ],
@@ -139,6 +146,7 @@ describe('RepositoryBranchesService', () => {
       repositoriesRepository,
       branchesRepository,
       gitService,
+      lockedRepository,
     };
   }
 
@@ -187,9 +195,15 @@ describe('RepositoryBranchesService', () => {
       context.repositoriesRepository.findByIdAndOrganizationForUpdate,
     ).toHaveBeenCalledWith(repositoryId, organizationId, manager);
     expect(context.repositoriesRepository.save).toHaveBeenCalledWith(
-      expect.objectContaining({ defaultBranch: 'main' }),
+      expect.objectContaining({
+        defaultBranch: 'main',
+        lastSyncStatus: RepositorySyncStatus.Succeeded,
+        repositorySizeBytes: 4_096,
+      }),
       manager,
     );
+    expect(context.lockedRepository?.lastSyncAttemptedAt).toBeInstanceOf(Date);
+    expect(context.lockedRepository?.lastSyncedAt).toBeInstanceOf(Date);
     expect(context.branchesRepository.synchronize).toHaveBeenCalledWith(
       repositoryId,
       expect.arrayContaining([expect.objectContaining({ name: 'main' })]),
@@ -242,7 +256,15 @@ describe('RepositoryBranchesService', () => {
     await expect(
       context.service.synchronize(organizationId, repositoryId),
     ).rejects.toThrow(UnprocessableEntityException);
-    expect(context.dataSource.transaction).not.toHaveBeenCalled();
+    expect(context.repositoriesRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lastSyncStatus: RepositorySyncStatus.Failed,
+        lastSyncedAt: null,
+        repositorySizeBytes: null,
+      }),
+      manager,
+    );
+    expect(context.lockedRepository?.lastSyncAttemptedAt).toBeInstanceOf(Date);
   });
 
   it('maps command failures to a safe temporary failure response', async () => {
@@ -253,7 +275,12 @@ describe('RepositoryBranchesService', () => {
     await expect(
       context.service.synchronize(organizationId, repositoryId),
     ).rejects.toThrow(ServiceUnavailableException);
-    expect(context.dataSource.transaction).not.toHaveBeenCalled();
+    expect(context.repositoriesRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lastSyncStatus: RepositorySyncStatus.Failed,
+      }),
+      manager,
+    );
   });
 
   it('maps workspace failures to a safe temporary failure response', async () => {
@@ -267,6 +294,36 @@ describe('RepositoryBranchesService', () => {
     await expect(
       context.service.synchronize(organizationId, repositoryId),
     ).rejects.toThrow(ServiceUnavailableException);
-    expect(context.dataSource.transaction).not.toHaveBeenCalled();
+    expect(context.repositoriesRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lastSyncStatus: RepositorySyncStatus.Failed,
+      }),
+      manager,
+    );
+  });
+
+  it('preserves the last successful health data after a failed attempt', async () => {
+    const lastSyncedAt = new Date('2026-08-01T07:00:00.000Z');
+    const lockedRepository = createRepository({
+      lastSyncStatus: RepositorySyncStatus.Succeeded,
+      lastSyncAttemptedAt: lastSyncedAt,
+      lastSyncedAt,
+      repositorySizeBytes: 2_048,
+    });
+    const context = createContext({
+      lockedRepository,
+      gitError: new GitCommandError('fetch repository', 128, null, false),
+    });
+
+    await expect(
+      context.service.synchronize(organizationId, repositoryId),
+    ).rejects.toThrow(ServiceUnavailableException);
+
+    expect(lockedRepository).toMatchObject({
+      lastSyncStatus: RepositorySyncStatus.Failed,
+      lastSyncedAt,
+      repositorySizeBytes: 2_048,
+    });
+    expect(lockedRepository.lastSyncAttemptedAt).toBeInstanceOf(Date);
   });
 });

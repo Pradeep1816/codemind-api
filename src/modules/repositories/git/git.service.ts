@@ -512,13 +512,61 @@ export class GitService {
       .sort((left, right) => left.name.localeCompare(right.name));
     const headCommitSha =
       branches.find((branch) => branch.isDefault)?.commitSha ?? null;
+    const sizeBytes = await this.getRepositorySizeBytesByPath(workspacePath);
 
     return {
       workspacePath,
       defaultBranch,
       headCommitSha,
+      sizeBytes,
       branches,
     };
+  }
+
+  private async getRepositorySizeBytesByPath(
+    workspacePath: string,
+  ): Promise<number> {
+    const result = await this.gitCommandService.run(
+      ['-C', workspacePath, 'count-objects', '-v'],
+      { operation: 'measure repository object storage' },
+    );
+    const values = new Map<string, number>();
+
+    for (const line of result.stdout.split('\n')) {
+      const match = line.trim().match(/^([a-z-]+):\s+(\d+)$/u);
+
+      if (!match) {
+        continue;
+      }
+
+      values.set(match[1], Number.parseInt(match[2], 10));
+    }
+
+    const looseObjectKibibytes = values.get('size');
+    const packedObjectKibibytes = values.get('size-pack');
+    const garbageKibibytes = values.get('size-garbage') ?? 0;
+
+    if (
+      looseObjectKibibytes === undefined ||
+      packedObjectKibibytes === undefined
+    ) {
+      throw new GitIntegrationError(
+        'Repository object size could not be determined',
+        GitIntegrationErrorCode.InvalidWorkspaceState,
+      );
+    }
+
+    const sizeBytes =
+      (looseObjectKibibytes + packedObjectKibibytes + garbageKibibytes) * 1_024;
+
+    if (!Number.isSafeInteger(sizeBytes) || sizeBytes < 0) {
+      throw new GitIntegrationError(
+        'Repository object size is outside the supported range',
+        GitIntegrationErrorCode.InvalidWorkspaceState,
+      );
+    }
+
+    return sizeBytes;
   }
 
   private getProtocolArguments(source: GitRepositorySource): string[] {

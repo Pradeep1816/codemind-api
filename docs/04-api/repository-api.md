@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Repository CRUD, membership, and branch synchronization implemented
-Version: 1.2
+Status: Repository CRUD, membership, branch synchronization, and health implemented
+Version: 1.3
 Owner: CodeMind Engineering
 
 ## Base path
@@ -29,6 +29,7 @@ derived from the authenticated user and cannot be supplied by clients.
 | `DELETE` | `/repositories/:repositoryId/members/:userId` | `repository.read`, `repository.member.manage` |
 | `GET` | `/repositories/:repositoryId/branches` | `repository.read` |
 | `POST` | `/repositories/:repositoryId/branches/sync` | `repository.read`, `repository.index` |
+| `GET` | `/repositories/:repositoryId/status` | `repository.read` |
 
 Repository IDs are positive integers. User IDs are UUID v4 values.
 
@@ -170,6 +171,43 @@ Authorization: Bearer <access-token>
 
 This returns the same response shape from PostgreSQL without cloning or
 fetching. Both active and deleted branch records are included.
+
+## Get repository status
+
+```http
+GET /api/v1/repositories/101/status
+Authorization: Bearer <access-token>
+```
+
+```json
+{
+  "repositoryId": 101,
+  "status": "active",
+  "sync": {
+    "status": "succeeded",
+    "lastAttemptedAt": "2026-08-01T10:00:00.000Z",
+    "lastSyncedAt": "2026-08-01T10:00:01.000Z"
+  },
+  "indexing": {
+    "lastIndexedAt": null
+  },
+  "branches": {
+    "total": 2,
+    "active": 2,
+    "deleted": 0
+  },
+  "repositorySizeBytes": 16384
+}
+```
+
+This endpoint reads persisted health only and never triggers Git activity.
+Before the first synchronization, sync status is `never` and the timestamps
+and size are null. After a failed attempt, status is `failed`, while
+`lastSyncedAt` and size continue to represent the previous success.
+
+`lastIndexedAt` is the latest successful index timestamp among all persisted
+branches. It remains null until the indexing milestone updates branch records.
+Repository size represents Git object storage, not a checked-out working tree.
 
 ## Error behavior
 

@@ -14,6 +14,7 @@ import { RepositoryBranchEntity } from './entities/repository-branch.entity';
 import {
   RepositoryEntity,
   RepositoryStatus,
+  RepositorySyncStatus,
 } from './entities/repository.entity';
 import {
   GitCommandError,
@@ -61,6 +62,7 @@ export class RepositoryBranchesService {
 
     this.ensureRepositoryIsActive(repository);
 
+    const attemptedAt = new Date();
     let gitState: GitRepositoryState;
 
     try {
@@ -70,6 +72,11 @@ export class RepositoryBranchesService {
         repositoryId,
       );
     } catch (error: unknown) {
+      await this.recordSynchronizationFailure(
+        organizationId,
+        repositoryId,
+        attemptedAt,
+      );
       this.throwSynchronizationError(error);
     }
 
@@ -79,6 +86,7 @@ export class RepositoryBranchesService {
         organizationId,
         repositoryId,
         gitState,
+        attemptedAt,
       ),
     );
   }
@@ -88,6 +96,7 @@ export class RepositoryBranchesService {
     organizationId: string,
     repositoryId: number,
     gitState: GitRepositoryState,
+    attemptedAt: Date,
   ): Promise<RepositoryBranchesResponseDto> {
     const repository =
       await this.repositoriesRepository.findByIdAndOrganizationForUpdate(
@@ -102,13 +111,15 @@ export class RepositoryBranchesService {
 
     this.ensureRepositoryIsActive(repository);
 
-    if (
-      gitState.defaultBranch !== null &&
-      repository.defaultBranch !== gitState.defaultBranch
-    ) {
+    if (gitState.defaultBranch !== null) {
       repository.defaultBranch = gitState.defaultBranch;
-      await this.repositoriesRepository.save(repository, manager);
     }
+
+    repository.lastSyncStatus = RepositorySyncStatus.Succeeded;
+    repository.lastSyncAttemptedAt = attemptedAt;
+    repository.lastSyncedAt = new Date();
+    repository.repositorySizeBytes = gitState.sizeBytes;
+    await this.repositoriesRepository.save(repository, manager);
 
     const branches = await this.repositoryBranchesRepository.synchronize(
       repositoryId,
@@ -117,6 +128,29 @@ export class RepositoryBranchesService {
     );
 
     return this.toResponse(repository, branches);
+  }
+
+  private recordSynchronizationFailure(
+    organizationId: string,
+    repositoryId: number,
+    attemptedAt: Date,
+  ): Promise<void> {
+    return this.dataSource.transaction(async (manager) => {
+      const repository =
+        await this.repositoriesRepository.findByIdAndOrganizationForUpdate(
+          repositoryId,
+          organizationId,
+          manager,
+        );
+
+      if (!repository) {
+        return;
+      }
+
+      repository.lastSyncStatus = RepositorySyncStatus.Failed;
+      repository.lastSyncAttemptedAt = attemptedAt;
+      await this.repositoriesRepository.save(repository, manager);
+    });
   }
 
   private async getRequiredRepository(

@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Repository CRUD, membership, Git, and branch APIs implemented
-Version: 2.3
+Status: Repository CRUD, membership, Git, branch, and health APIs implemented
+Version: 2.4
 Owner: CodeMind Engineering
 
 ## Purpose
@@ -39,11 +39,13 @@ Implemented:
 - Atomically activate observed branches and mark missing branches as deleted
 - Preserve `lastIndexedAt` while Git state changes
 - Coalesce concurrent sync requests for one repository in one API process
+- Record successful and failed synchronization attempts durably
+- Measure and persist Git object-storage size after successful synchronization
+- Report synchronization, indexing, branch, and storage health without Git I/O
 - Return `404` for cross-organization IDs
 
 Next:
 
-- Repository health and size reporting
 - Git credential references
 - Durable indexing jobs
 - File inventory and content hashes
@@ -66,10 +68,10 @@ Authenticated request
 Global JWT and permission guards
     |
     v
-RepositoriesController / RepositoryMembersController / RepositoryBranchesController
+RepositoriesController / RepositoryMembersController / RepositoryBranchesController / RepositoryStatusController
     |
     v
-RepositoriesService / RepositoryMembersService / RepositoryBranchesService
+RepositoriesService / RepositoryMembersService / RepositoryBranchesService / RepositoryStatusService
     |
     v
 RepositoriesRepository / RepositoryMembersRepository / RepositoryBranchesRepository
@@ -95,6 +97,10 @@ Controllers obtain `organizationId` and the creating user ID from
 | `remoteUrl` | varchar(2048) | Normalized credential-free HTTPS Git URL |
 | `defaultBranch` | varchar(255) or null | Configured branch, if known |
 | `status` | enum | `active` or `disabled` |
+| `lastSyncStatus` | enum | `never`, `succeeded`, or `failed` |
+| `lastSyncAttemptedAt` | timestamptz or null | Most recent completed sync attempt start |
+| `lastSyncedAt` | timestamptz or null | Most recent successful sync completion |
+| `repositorySizeBytes` | bigint or null | Git object-storage size after the last success |
 | `createdAt` | timestamptz | Creation time |
 | `updatedAt` | timestamptz | Last metadata change |
 
@@ -130,6 +136,7 @@ Controllers obtain `organizationId` and the creating user ID from
 - Creating-user foreign key uses `ON DELETE SET NULL`
 - Repository deletion cascades to memberships and branches
 - Organization, status, and creation time are indexed for tenant lists
+- Organization and synchronization status are indexed for health operations
 
 The same remote URL may be registered in different organizations because each
 tenant owns its own future index and knowledge.
@@ -170,6 +177,7 @@ supports:
 - Clone into `<workspaceRoot>/<organizationId>/<repositoryId>`
 - Fetch/prune of remote branches
 - Default branch, head commit, and remote branch discovery
+- Git object-storage measurement through `git count-objects`
 
 Git commands run through `execFile` with argument arrays. Global and system
 Git configuration, credential helpers, terminal prompts, hooks, SSH, HTTP,
@@ -187,6 +195,11 @@ single Node.js process. Database persistence then locks the tenant-scoped
 repository row and updates its default branch and all branch lifecycle changes
 in one transaction. The Git operation intentionally occurs before the short
 database transaction.
+
+A successful synchronization records its attempted and completion timestamps,
+`succeeded` status, and Git object-storage size. A failed Git operation records
+`failed` and the new attempt timestamp while preserving the last successful
+timestamp and size.
 
 ## API contract
 
@@ -208,6 +221,7 @@ Base path:
 | `DELETE` | `/repositories/:repositoryId/members/:userId` | `repository.read`, `repository.member.manage` | Remove member |
 | `GET` | `/repositories/:repositoryId/branches` | `repository.read` | List persisted branches |
 | `POST` | `/repositories/:repositoryId/branches/sync` | `repository.read`, `repository.index` | Clone/fetch and persist branches |
+| `GET` | `/repositories/:repositoryId/status` | `repository.read` | Read repository health |
 
 ### Register
 
@@ -336,6 +350,38 @@ Disabled repositories return `409` on sync. Unsupported Git sources return
 `422`, transient Git/workspace failures return `503`, and rate-limit excess
 returns `429`.
 
+### Repository health
+
+```http
+GET /api/v1/repositories/101/status
+```
+
+```json
+{
+  "repositoryId": 101,
+  "status": "active",
+  "sync": {
+    "status": "succeeded",
+    "lastAttemptedAt": "2026-08-01T10:00:00.000Z",
+    "lastSyncedAt": "2026-08-01T10:00:01.000Z"
+  },
+  "indexing": {
+    "lastIndexedAt": null
+  },
+  "branches": {
+    "total": 2,
+    "active": 2,
+    "deleted": 0
+  },
+  "repositorySizeBytes": 16384
+}
+```
+
+Health reads PostgreSQL only and never triggers a fetch. `lastIndexedAt` is the
+latest value across active and deleted branch records. Size covers loose,
+packed, and garbage Git objects reported by `git count-objects`; it is not a
+working-tree size because CodeMind clones without checkout.
+
 ## Module structure
 
 ```text
@@ -358,23 +404,23 @@ src/modules/repositories/
 ├── repositories.controller.ts
 ├── repository-members.controller.ts
 ├── repository-branches.controller.ts
+├── repository-status.controller.ts
 ├── repositories.service.ts
 ├── repository-members.service.ts
 ├── repository-branches.service.ts
+├── repository-status.service.ts
 └── repositories.module.ts
 ```
 
 ## Next implementation slice
 
-Milestone 2.6 should provide repository health without performing a Git sync:
+Milestone 2.7 should harden repository workflows with integration and
+authorization tests:
 
 ```text
-GET /repositories/:repositoryId/status
-    -> last successful sync signal
-    -> last indexed timestamp
-    -> active/deleted branch counts
-    -> repository workspace size
+Repository API
+    -> real PostgreSQL integration coverage
+    -> cross-organization authorization coverage
+    -> permission matrix coverage
+    -> synchronization lifecycle coverage
 ```
-
-The health slice needs an explicit persisted sync timestamp before it can
-report a durable `lastSync` value across processes.

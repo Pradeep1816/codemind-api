@@ -169,6 +169,7 @@ describe('GitService', () => {
     );
     expect(state.defaultBranch).toBe('main');
     expect(state.headCommitSha).toMatch(/^[0-9a-f]{40}$/u);
+    expect(state.sizeBytes).toBeGreaterThan(0);
     expect(state.branches).toEqual([
       expect.objectContaining({ name: 'main', isDefault: true }),
     ]);
@@ -260,6 +261,7 @@ describe('GitService', () => {
       workspacePath: join(workspaceRoot, organizationId, '103'),
       defaultBranch: 'main',
       headCommitSha: 'a'.repeat(40),
+      sizeBytes: 1_024,
       branches: [],
     } satisfies GitRepositoryState;
     let resolveClone!: (value: GitRepositoryState) => void;

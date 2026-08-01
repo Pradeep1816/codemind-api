@@ -12,6 +12,8 @@ import { RepositoryBranchesController } from './repository-branches.controller';
 import { RepositoryBranchesService } from './repository-branches.service';
 import { RepositoryMembersController } from './repository-members.controller';
 import { RepositoryMembersService } from './repository-members.service';
+import { RepositoryStatusController } from './repository-status.controller';
+import { RepositoryStatusService } from './repository-status.service';
 import { RepositoriesController } from './repositories.controller';
 import { RepositoriesService } from './repositories.service';
 import { RepositoryMembersRepository } from './repositories/repository-members.repository';
@@ -32,11 +34,13 @@ import { RepositoriesRepository } from './repositories/repositories.repository';
     RepositoriesController,
     RepositoryMembersController,
     RepositoryBranchesController,
+    RepositoryStatusController,
   ],
   providers: [
     RepositoriesService,
     RepositoryMembersService,
     RepositoryBranchesService,
+    RepositoryStatusService,
     RepositoriesRepository,
     RepositoryMembersRepository,
     RepositoryBranchesRepository,
@@ -47,6 +51,7 @@ import { RepositoriesRepository } from './repositories/repositories.repository';
     RepositoriesService,
     RepositoryMembersService,
     RepositoryBranchesService,
+    RepositoryStatusService,
     GitService,
   ],
 })

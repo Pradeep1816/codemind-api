@@ -58,6 +58,7 @@ Implemented:
 - Active-OWNER continuity protection
 - Tenant-scoped repository registration and metadata management
 - Tenant-scoped repository membership and branch synchronization APIs
+- Persistent repository synchronization and branch health reporting
 - Internal GitHub HTTPS and allow-listed local Git clone/fetch service
 - Database-aware `GET /health` endpoint
 - URI API versioning under `/api/v1`
@@ -71,7 +72,7 @@ Not implemented yet:
 - Invitation email delivery and invitation resend/revoke APIs
 - Password reset, verified email, and MFA
 - Organization settings APIs
-- Repository health reporting and repository indexing
+- Repository indexing
 - Indexing, parsing, and static analysis
 - Knowledge generation and search
 - AI provider integration
@@ -640,6 +641,17 @@ inside one API process. List persisted active and deleted branch records with:
 curl http://localhost:3000/api/v1/repositories/101/branches \
   -H 'Authorization: Bearer <access-token>'
 ```
+
+Inspect synchronization, indexing, branch, and Git object-storage health
+without performing Git I/O:
+
+```bash
+curl http://localhost:3000/api/v1/repositories/101/status \
+  -H 'Authorization: Bearer <access-token>'
+```
+
+Successful and failed synchronization attempts are recorded. A failed attempt
+does not erase the previous successful timestamp or repository size.
 
 See the
 [repository data model](docs/03-database/repository-model.md) for its ER

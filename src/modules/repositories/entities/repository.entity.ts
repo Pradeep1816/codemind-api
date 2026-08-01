@@ -1,4 +1,5 @@
 import {
+  Check,
   Column,
   CreateDateColumn,
   Entity,
@@ -8,6 +9,7 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
+  ValueTransformer,
 } from 'typeorm';
 import { OrganizationEntity } from '../../../database/entities/organization.entity';
 import { UserEntity } from '../../../database/entities/user.entity';
@@ -26,6 +28,29 @@ export enum RepositoryStatus {
   Disabled = 'disabled',
 }
 
+export enum RepositorySyncStatus {
+  Never = 'never',
+  Succeeded = 'succeeded',
+  Failed = 'failed',
+}
+
+const nullableBigintNumberTransformer: ValueTransformer = {
+  to: (value: number | null): number | null => value,
+  from: (value: string | number | null): number | null => {
+    if (value === null) {
+      return null;
+    }
+
+    const parsedValue = Number(value);
+
+    if (!Number.isSafeInteger(parsedValue) || parsedValue < 0) {
+      throw new Error('Repository size is outside the supported integer range');
+    }
+
+    return parsedValue;
+  },
+};
+
 @Entity({ name: 'repositories' })
 @Index(
   'uq_repositories_organization_remote_url',
@@ -38,6 +63,14 @@ export enum RepositoryStatus {
   'createdAt',
 ])
 @Index('idx_repositories_created_by_user_id', ['createdByUserId'])
+@Index('idx_repositories_organization_sync_status', [
+  'organizationId',
+  'lastSyncStatus',
+])
+@Check(
+  'CHK_repositories_repository_size_bytes',
+  '"repository_size_bytes" IS NULL OR "repository_size_bytes" BETWEEN 0 AND 9007199254740991',
+)
 export class RepositoryEntity {
   @PrimaryGeneratedColumn('increment', {
     type: 'integer',
@@ -79,6 +112,33 @@ export class RepositoryEntity {
     default: RepositoryStatus.Active,
   })
   status!: RepositoryStatus;
+
+  @Column({
+    name: 'last_sync_status',
+    type: 'enum',
+    enum: RepositorySyncStatus,
+    enumName: 'repository_sync_status',
+    default: RepositorySyncStatus.Never,
+  })
+  lastSyncStatus!: RepositorySyncStatus;
+
+  @Column({
+    name: 'last_sync_attempted_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  lastSyncAttemptedAt!: Date | null;
+
+  @Column({ name: 'last_synced_at', type: 'timestamptz', nullable: true })
+  lastSyncedAt!: Date | null;
+
+  @Column({
+    name: 'repository_size_bytes',
+    type: 'bigint',
+    nullable: true,
+    transformer: nullableBigintNumberTransformer,
+  })
+  repositorySizeBytes!: number | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
