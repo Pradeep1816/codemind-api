@@ -111,7 +111,7 @@ branch. Content changes create `file_hashes`; they do not replace the file ID.
 | `current_file_hash_id` | integer | Yes | Current immutable content version after hashing |
 | `path` | varchar(1024) | No | Repository-relative normalized path |
 | `extension` | varchar(32) | Yes | Lowercase extension without interpretation |
-| `language` | varchar(64) | Yes | Detected language; null until detection |
+| `language` | varchar(64) | Yes | `typescript`, `javascript`, `json`, `markdown`, or `yaml`; null before detection |
 | `size_bytes` | integer | No | Current observed content size |
 | `status` | `indexed_file_status` | No | `active` or `deleted` |
 | `last_seen_commit_sha` | varchar(64) | No | Commit that last observed the current path state |

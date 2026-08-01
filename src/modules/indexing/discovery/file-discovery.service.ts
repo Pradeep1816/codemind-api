@@ -3,9 +3,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import indexingConfig from '../../../config/indexing.config';
 import { GitService } from '../../repositories/git/git.service';
+import { INDEXABLE_EXTENSIONS } from '../language/language-registry.constants';
 import {
   IGNORED_DIRECTORY_NAMES,
-  INDEXABLE_EXTENSIONS,
   REGULAR_GIT_FILE_MODES,
 } from './file-discovery.constants';
 import {

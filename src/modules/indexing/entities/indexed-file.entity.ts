@@ -13,6 +13,7 @@ import { OrganizationEntity } from '../../organizations/entities/organization.en
 import { RepositoryBranchEntity } from '../../repositories/entities/repository-branch.entity';
 import { RepositoryEntity } from '../../repositories/entities/repository.entity';
 import { IndexedFileStatus } from '../enums/indexed-file-status.enum';
+import { SourceLanguage } from '../enums/source-language.enum';
 import { FileHashEntity } from './file-hash.entity';
 import { IndexJobEntity } from './index-job.entity';
 
@@ -56,7 +57,7 @@ export class IndexedFileEntity {
   extension!: string | null;
 
   @Column({ type: 'varchar', length: 64, nullable: true })
-  language!: string | null;
+  language!: SourceLanguage | null;
 
   @Column({ name: 'size_bytes', type: 'integer' })
   sizeBytes!: number;

@@ -14,6 +14,7 @@ import { IndexingController } from './indexing.controller';
 import { IndexingService } from './indexing.service';
 import { IndexingWorkspaceService } from './workspace/indexing-workspace.service';
 import { IndexingRepository } from './indexing.repository';
+import { LanguageDetectionService } from './language/language-detection.service';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { IndexingRepository } from './indexing.repository';
     FileDiscoveryService,
     FileInventoryService,
     ContentHashService,
+    LanguageDetectionService,
   ],
   exports: [
     IndexingService,
@@ -41,6 +43,7 @@ import { IndexingRepository } from './indexing.repository';
     FileDiscoveryService,
     FileInventoryService,
     ContentHashService,
+    LanguageDetectionService,
   ],
 })
 export class IndexingModule {}

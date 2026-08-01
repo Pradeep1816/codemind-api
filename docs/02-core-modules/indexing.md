@@ -49,12 +49,14 @@ Implemented:
 - Read changed blobs with an absolute binary-output ceiling
 - Compute SHA-256 and reuse immutable content versions
 - Update explicit current-hash pointers in restart-safe batches
+- Detect languages through one extension registry shared with discovery
+- Persist language on every active indexed file
+- Separate parser-supported TS/JS files from inventory-only documents
 - Paginate and filter repository job history by status
 - Return `404` for cross-organization repository or job identifiers
 
 Deferred to the next slices:
 
-- Language detection
 - Optional bounded source materialization for parsers
 - Parser and analysis dispatch
 - Queue transport and worker consumption
@@ -208,6 +210,24 @@ Database checks require non-negative values and ensure processed, skipped, and
 failed files never exceed the total. Counters remain zero until a worker owns
 the job.
 
+## Language detection
+
+Language detection is deterministic and extension-based in Milestone 3.5:
+
+| Extensions | Persisted language | Capability |
+|---|---|---|
+| `.ts`, `.tsx` | `typescript` | Parser supported |
+| `.js`, `.jsx` | `javascript` | Parser supported |
+| `.json` | `json` | Inventory only |
+| `.md` | `markdown` | Inventory only |
+| `.yaml`, `.yml` | `yaml` | Inventory only |
+
+The discovery service derives its supported-extension set from the same
+registry used by `LanguageDetectionService`. Adding a new extension therefore
+requires one registry change instead of coordinating duplicated allow lists.
+The file extension remains stored separately so the parser can distinguish
+TSX/JSX syntax while using the broader TypeScript/JavaScript language family.
+
 ## Error behavior
 
 | Condition | HTTP result |
@@ -252,7 +272,14 @@ src/modules/indexing/
 │   ├── index-job-trigger.enum.ts
 │   ├── indexed-file-status.enum.ts
 │   ├── indexing-error-phase.enum.ts
-│   └── indexing-mode.enum.ts
+│   ├── indexing-mode.enum.ts
+│   ├── language-capability.enum.ts
+│   └── source-language.enum.ts
+├── language/
+│   ├── language-detection.errors.ts
+│   ├── language-detection.service.ts
+│   ├── language-detection.types.ts
+│   └── language-registry.constants.ts
 ├── indexing.controller.ts
 ├── file-inventory.service.ts
 ├── indexing.module.ts
@@ -277,9 +304,9 @@ Worker and scanner integration tests will be added with those slices.
 
 ## Next implementation slice
 
-Phase 3.5 implements language detection through a centralized registry. The
-initial mapping supports TypeScript, TSX, JavaScript, and JSX for parsing, with
-JSON, Markdown, and YAML retained as inventory-only formats.
+Phase 3.6 implements the parser engine through the `SourceParser` abstraction
+defined by ADR-012. The first adapter uses the TypeScript Compiler API for
+TypeScript, TSX, JavaScript, and JSX without executing repository source.
 
 Durable worker claiming remains Milestone 3.10. The job API, workspace, and
 discovery boundaries were delivered early because every later indexing

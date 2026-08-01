@@ -10,13 +10,13 @@
 | Phases 4–7 | Planned |
 | Phase 8 | Future |
 
-Milestones 3.1 through 3.4 are implemented. They define the indexing data model,
+Milestones 3.1 through 3.5 are implemented. They define the indexing data model,
 durable queued-job API, immutable commit verification, and isolated job
 workspace lifecycle, plus bounded Git-tree discovery and transactional file
 inventory. Incremental mode skips unchanged Git blobs and persists SHA-256
-content versions in bounded batches. The E2E, new Phase 3 tests, and the latest
-migration execution are explicitly deferred. Milestone 3.5 language detection
-is next.
+content versions in bounded batches. A centralized registry now persists
+language and parser capability. The E2E and new Phase 3 tests are explicitly
+deferred. Milestone 3.6 parser architecture is next.
 
 ## Phase 1 — Platform & Identity
 
@@ -117,6 +117,11 @@ src/modules/indexing/
 │   ├── indexed-file.entity.ts
 │   └── indexing-error.entity.ts
 ├── enums/
+├── language/
+│   ├── language-detection.errors.ts
+│   ├── language-detection.service.ts
+│   ├── language-detection.types.ts
+│   └── language-registry.constants.ts
 ├── indexing.controller.ts
 ├── file-inventory.service.ts
 ├── indexing.module.ts
@@ -188,7 +193,7 @@ Deliver the ADR-012 hybrid strategy:
 
 ### 3.5 Language detection
 
-Status: Next
+Status: Implemented; tests deferred
 
 Initial parsed languages:
 
@@ -202,7 +207,7 @@ files. Future adapters add Python, Java, Go, PHP, and C#.
 
 ### 3.6 Parser engine
 
-Status: Planned
+Status: Next
 
 Deliver:
 

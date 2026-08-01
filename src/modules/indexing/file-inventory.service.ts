@@ -9,8 +9,11 @@ import {
 } from './discovery/file-discovery.types';
 import { FileDiscoveryService } from './discovery/file-discovery.service';
 import { IndexJobStatus } from './enums/index-job-status.enum';
+import { LanguageCapability } from './enums/language-capability.enum';
 import { IndexingMode } from './enums/indexing-mode.enum';
 import { IndexingRepository } from './indexing.repository';
+import { LanguageDetectionService } from './language/language-detection.service';
+import { LanguageDistribution } from './language/language-detection.types';
 import { IndexingWorkspaceService } from './workspace/indexing-workspace.service';
 
 export interface FileInventoryResult {
@@ -22,6 +25,9 @@ export interface FileInventoryResult {
   files: readonly DiscoveredFile[];
   activeFiles: number;
   newlyDeletedFiles: number;
+  parserSupportedFiles: number;
+  inventoryOnlyFiles: number;
+  languages: LanguageDistribution;
   discovery: FileDiscoveryStatistics;
 }
 
@@ -31,6 +37,7 @@ export class FileInventoryService {
     private readonly indexingRepository: IndexingRepository,
     private readonly indexingWorkspaceService: IndexingWorkspaceService,
     private readonly fileDiscoveryService: FileDiscoveryService,
+    private readonly languageDetectionService: LanguageDetectionService,
   ) {}
 
   /**
@@ -70,6 +77,25 @@ export class FileInventoryService {
       repositoryId,
       job.targetCommitSha,
     );
+    const languageDistribution: LanguageDistribution = {};
+    let parserSupportedFiles = 0;
+    let inventoryOnlyFiles = 0;
+    const detectedFiles = manifest.files.map((file) => {
+      const detection = this.languageDetectionService.detect(file.extension);
+      languageDistribution[detection.language] =
+        (languageDistribution[detection.language] ?? 0) + 1;
+
+      if (detection.capability === LanguageCapability.ParserSupported) {
+        parserSupportedFiles += 1;
+      } else {
+        inventoryOnlyFiles += 1;
+      }
+
+      return {
+        file,
+        language: detection.language,
+      };
+    });
     const persistenceResult =
       await this.indexingRepository.synchronizeFileInventory({
         organizationId,
@@ -77,9 +103,10 @@ export class FileInventoryService {
         branchId: job.branchId,
         indexJobId: job.id,
         targetCommitSha: job.targetCommitSha,
-        files: manifest.files.map((file) => ({
+        files: detectedFiles.map(({ file, language }) => ({
           path: file.path,
           extension: file.extension,
+          language,
           sizeBytes: file.sizeBytes,
         })),
       });
@@ -99,6 +126,9 @@ export class FileInventoryService {
       files: manifest.files,
       activeFiles: persistenceResult.activeFiles,
       newlyDeletedFiles: persistenceResult.newlyDeletedFiles,
+      parserSupportedFiles,
+      inventoryOnlyFiles,
+      languages: languageDistribution,
       discovery: manifest.statistics,
     };
   }

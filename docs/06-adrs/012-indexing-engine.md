@@ -180,6 +180,11 @@ JavaScript, and JSX. It provides mature syntax handling and precise source
 positions without executing code. The `typescript` package must be a runtime
 dependency when this adapter is implemented.
 
+Language detection is extension-based and centralized. TypeScript/TSX and
+JavaScript/JSX are parser-supported; JSON, Markdown, and YAML are retained as
+inventory-only content until dedicated adapters exist. The stored extension
+preserves JSX/TSX dialect selection within the broader language family.
+
 Future Python, Java, Go, PHP, and C# adapters implement the same contract.
 Tree-sitter may be used inside those adapters, but its node types must not leak
 into CodeMind's normalized domain model.

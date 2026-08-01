@@ -9,6 +9,7 @@ import { IndexJobStatus } from './enums/index-job-status.enum';
 import { IndexJobTrigger } from './enums/index-job-trigger.enum';
 import { IndexedFileStatus } from './enums/indexed-file-status.enum';
 import { IndexingMode } from './enums/indexing-mode.enum';
+import { SourceLanguage } from './enums/source-language.enum';
 
 export interface CreateIndexJobRecord {
   organizationId: string;
@@ -31,6 +32,7 @@ export interface FindIndexJobsOptions {
 export interface FileInventoryRecord {
   path: string;
   extension: string;
+  language: SourceLanguage;
   sizeBytes: number;
 }
 
@@ -211,6 +213,7 @@ export class IndexingRepository {
 
         file.lastSeenJobId = input.indexJobId;
         file.extension = discoveredFile.extension;
+        file.language = discoveredFile.language;
         file.sizeBytes = discoveredFile.sizeBytes;
         file.status = IndexedFileStatus.Active;
         file.lastSeenCommitSha = input.targetCommitSha;
