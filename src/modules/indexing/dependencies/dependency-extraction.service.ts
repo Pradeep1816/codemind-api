@@ -85,6 +85,7 @@ export class DependencyExtractionService {
         repositoryId: input.repositoryId,
         branchId: input.branchId,
         indexJobId: input.indexJobId,
+        leaseToken: input.leaseToken,
         targetCommitSha: input.targetCommitSha,
         sourceIndexedFileId: input.indexedFileId,
         sourceFileHashId: input.fileHashId,

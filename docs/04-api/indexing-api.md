@@ -2,8 +2,9 @@
 
 ## Status
 
-Phase 3.1 implemented. These endpoints create and inspect durable jobs. They do
-not execute indexing yet; jobs remain `queued` until the worker slice lands.
+Milestone 3.9 implemented; background worker execution is Milestone 3.10. The
+API creates durable jobs, exposes lifecycle progress and history, accepts
+cancellation, and creates traceable manual retries.
 
 ## Base path
 
@@ -12,15 +13,57 @@ not execute indexing yet; jobs remain `queued` until the worker slice lands.
 ```
 
 All requests require a bearer access token. The organization scope comes from
-the authenticated session and cannot be supplied in the request.
+the authenticated session and cannot be supplied by a client.
 
 ## Endpoints
 
-| Method | Path | Permissions | Purpose |
-|---|---|---|---|
-| `POST` | `/repositories/:repositoryId/index-jobs` | `repository.read`, `repository.index` | Queue a branch snapshot |
-| `GET` | `/repositories/:repositoryId/index-jobs` | `repository.read` | List repository jobs |
-| `GET` | `/repositories/:repositoryId/index-jobs/:jobId` | `repository.read` | Get one job |
+| Method | Path                                                   | Permissions                           | Purpose                      |
+| ------ | ------------------------------------------------------ | ------------------------------------- | ---------------------------- |
+| `POST` | `/repositories/:repositoryId/index-jobs`               | `repository.read`, `repository.index` | Queue a branch snapshot      |
+| `GET`  | `/repositories/:repositoryId/index-jobs`               | `repository.read`                     | List repository job history  |
+| `GET`  | `/repositories/:repositoryId/index-jobs/:jobId`        | `repository.read`                     | Get one job and its progress |
+| `POST` | `/repositories/:repositoryId/index-jobs/:jobId/cancel` | `repository.read`, `repository.index` | Request cancellation         |
+| `POST` | `/repositories/:repositoryId/index-jobs/:jobId/retry`  | `repository.read`, `repository.index` | Retry a failed/cancelled job |
+
+## Job representation
+
+```json
+{
+  "id": 12,
+  "repositoryId": 2,
+  "branchId": 1,
+  "requestedByUserId": "25d8bd53-047b-42d8-9efa-4ecedfe422d3",
+  "trigger": "manual",
+  "mode": "incremental",
+  "status": "running",
+  "phase": "analyzing",
+  "targetCommitSha": "8e008e725d9e411c5bff3a713b91afeaf4613f13",
+  "retryOfJobId": null,
+  "progress": {
+    "totalFiles": 1200,
+    "processedFiles": 500,
+    "skippedFiles": 120,
+    "failedFiles": 0,
+    "processedSymbols": 4500,
+    "processedDependencies": 3800
+  },
+  "attemptCount": 1,
+  "maxAttempts": 3,
+  "failure": null,
+  "startedAt": "2026-08-07T10:30:00.000Z",
+  "completedAt": null,
+  "lastHeartbeatAt": "2026-08-07T10:31:00.000Z",
+  "nextAttemptAt": null,
+  "cancellationRequestedAt": null,
+  "createdAt": "2026-08-07T10:29:58.000Z",
+  "updatedAt": "2026-08-07T10:31:00.000Z"
+}
+```
+
+`status` describes the durable lifecycle: `queued`, `running`, `succeeded`,
+`failed`, or `cancelled`. The more detailed `phase` is one of `queued`,
+`preparing`, `discovering`, `hashing`, `analyzing`, `finalizing`, or `finished`.
+The API never exposes the internal worker identity or lease token.
 
 ## Queue a job
 
@@ -37,124 +80,82 @@ Content-Type: application/json
 }
 ```
 
-The branch must be active and must have a commit SHA from a successful branch
-synchronization. `mode` is optional and defaults to `incremental`; use `full`
-to request a future complete rebuild once workers are implemented.
-
-Successful response (`201 Created`):
-
-```json
-{
-  "id": 1,
-  "repositoryId": 2,
-  "branchId": 1,
-  "requestedByUserId": "25d8bd53-047b-42d8-9efa-4ecedfe422d3",
-  "trigger": "manual",
-  "mode": "incremental",
-  "status": "queued",
-  "targetCommitSha": "8e008e725d9e411c5bff3a713b91afeaf4613f13",
-  "progress": {
-    "totalFiles": 0,
-    "processedFiles": 0,
-    "skippedFiles": 0,
-    "failedFiles": 0
-  },
-  "attemptCount": 0,
-  "failure": null,
-  "startedAt": null,
-  "completedAt": null,
-  "createdAt": "2026-08-01T12:00:00.000Z",
-  "updatedAt": "2026-08-01T12:00:00.000Z"
-}
-```
-
-The server copies `targetCommitSha` from the branch. A client cannot select an
-arbitrary commit or set job lifecycle fields.
+The branch must be active and have a commit SHA from successful branch
+synchronization. `mode` defaults to `incremental`; `full` requests a complete
+rebuild. The server copies the target commit from trusted branch state.
 
 Only one `queued` or `running` job can exist for a repository branch. A second
-request returns `409 Conflict` until the current job reaches a terminal state.
+request returns `409 Conflict` until the active job becomes terminal.
 
 ## List jobs
 
 ```http
-GET /api/v1/repositories/2/index-jobs?page=1&limit=20&status=queued
+GET /api/v1/repositories/2/index-jobs?page=1&limit=20&status=running
 Authorization: Bearer <access-token>
 ```
 
-Query parameters:
+| Parameter | Required | Default | Rules                        |
+| --------- | :------: | ------: | ---------------------------- |
+| `page`    |    No    |     `1` | Positive integer             |
+| `limit`   |    No    |    `20` | Integer from 1 to 100        |
+| `status`  |    No    |     All | Any durable lifecycle status |
 
-| Parameter | Required | Default | Rules |
-|---|:---:|---:|---|
-| `page` | No | `1` | Positive integer |
-| `limit` | No | `20` | Integer from 1 to 100 |
-| `status` | No | All | `queued`, `running`, `succeeded`, `failed`, or `cancelled` |
-
-Response:
-
-```json
-{
-  "data": [
-    {
-      "id": 1,
-      "repositoryId": 2,
-      "branchId": 1,
-      "requestedByUserId": "25d8bd53-047b-42d8-9efa-4ecedfe422d3",
-      "trigger": "manual",
-      "mode": "incremental",
-      "status": "queued",
-      "targetCommitSha": "8e008e725d9e411c5bff3a713b91afeaf4613f13",
-      "progress": {
-        "totalFiles": 0,
-        "processedFiles": 0,
-        "skippedFiles": 0,
-        "failedFiles": 0
-      },
-      "attemptCount": 0,
-      "failure": null,
-      "startedAt": null,
-      "completedAt": null,
-      "createdAt": "2026-08-01T12:00:00.000Z",
-      "updatedAt": "2026-08-01T12:00:00.000Z"
-    }
-  ],
-  "pagination": {
-    "page": 1,
-    "limit": 20,
-    "total": 1,
-    "totalPages": 1
-  }
-}
-```
+The response contains `data` and pagination metadata: `page`, `limit`, `total`,
+and `totalPages`.
 
 ## Get one job
 
 ```http
-GET /api/v1/repositories/2/index-jobs/1
+GET /api/v1/repositories/2/index-jobs/12
 Authorization: Bearer <access-token>
 ```
 
-The response uses the same job object as create and list.
+The response uses the job representation above and is suitable for progress
+polling. `lastHeartbeatAt` shows worker liveness when the job is running.
+
+## Cancel a job
+
+```http
+POST /api/v1/repositories/2/index-jobs/12/cancel
+Authorization: Bearer <access-token>
+```
+
+A queued job becomes `cancelled` immediately. A running job records
+`cancellationRequestedAt` and remains `running` until its worker acknowledges
+the request. Expired-lease recovery also finalizes pending cancellation.
+Repeating cancellation for an already cancelled job is safe. Succeeded and
+failed jobs return `409 Conflict`.
+
+## Retry a job
+
+```http
+POST /api/v1/repositories/2/index-jobs/12/retry
+Authorization: Bearer <access-token>
+```
+
+Only failed or cancelled jobs can be manually retried. Retry creates a new
+queued row with `retryOfJobId` pointing to the original job and preserves the
+same branch, mode, and immutable target commit. Historical rows are never
+rewritten. The repository and branch must still be active, and no active job
+may already exist for that branch.
+
+## Retry and lease behavior
+
+Workers claim jobs atomically and receive a private lease token. Heartbeats
+extend the lease. A retryable failure returns the same job to `queued` until
+`maxAttempts` is reached; `nextAttemptAt` exposes the retry delay. Expired
+leases are recovered in bounded batches and either requeued, failed, or
+cancelled. All file, hash, symbol, and dependency writes recheck the lease.
 
 ## Error responses
 
-| Status | Meaning |
-|---:|---|
-| `400` | Invalid repository/job/branch ID, query, or body |
-| `401` | Access token missing, invalid, or expired |
-| `403` | Authenticated role lacks a required permission |
-| `404` | Repository, branch, or job is missing or outside the organization |
-| `409` | Repository disabled, branch deleted/unsynchronized, or active job exists |
+| Status | Meaning                                                                        |
+| -----: | ------------------------------------------------------------------------------ |
+|  `400` | Invalid repository/job/branch ID, query, or body                               |
+|  `401` | Access token missing, invalid, or expired                                      |
+|  `403` | Authenticated role lacks a required permission                                 |
+|  `404` | Repository, branch, or job is missing or outside the organization              |
+|  `409` | Lifecycle transition is invalid, resource is disabled, or an active job exists |
 
-Cross-organization IDs are intentionally returned as `404` to avoid resource
+Cross-organization IDs intentionally return `404` to avoid resource
 disclosure.
-
-## Test sequence
-
-1. Register a repository.
-2. Synchronize branches with
-   `POST /api/v1/repositories/:repositoryId/branches/sync`.
-3. Copy an active branch `id` from the response.
-4. Queue a job with the `POST` endpoint above.
-5. List and retrieve the job.
-
-Until Phase 3.2, seeing `status: "queued"` is the expected behavior.

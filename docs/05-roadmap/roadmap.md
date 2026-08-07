@@ -53,10 +53,11 @@ Phase 3.4 skips unchanged Git blobs and persists SHA-256 content versions for
 changed files. Phase 3.5 classifies TypeScript/JavaScript as parser-supported
 and JSON/Markdown/YAML as inventory-only. Phase 3.6 parses bounded TS/TSX/JS/JSX
 content into normalized syntax metadata without executing it. Phase 3.7 stores
-version-scoped symbols with tenant-aware, retry-safe reconciliation. Jobs
-currently remain `queued`. Phase 3.8 stores imports, exports, inheritance, and
-reliably resolved local targets; job lifecycle execution and the background
-worker remain.
+version-scoped symbols with tenant-aware, retry-safe reconciliation. Phase 3.8
+stores imports, exports, inheritance, and reliably resolved local targets.
+Phase 3.9 adds the durable job state machine, atomic claims, lease fencing,
+heartbeats, progress, retry, cancellation, recovery, and terminal health
+updates. Background worker execution remains Milestone 3.10.
 
 Architecture decisions:
 
@@ -128,8 +129,8 @@ flowchart TD
 | 3.5 | Language detection | Implemented; tests deferred |
 | 3.6 | Parser engine | Implemented; tests deferred |
 | 3.7 | Symbol extraction | Implemented; tests deferred |
-| 3.8 | Dependency graph | Implemented; migration and tests deferred |
-| 3.9 | Index job system | API foundation delivered early; lifecycle expansion planned |
+| 3.8 | Dependency graph | Implemented; tests deferred |
+| 3.9 | Index job system | Implemented; migration and tests deferred |
 | 3.10 | Background processing | Planned |
 | 3.11 | Tests | Continuous; phase-level suite planned |
 | 3.12 | Documentation | Continuous; completion review planned |

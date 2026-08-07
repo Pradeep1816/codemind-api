@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, IsNull, Not, Repository } from 'typeorm';
+import { In, IsNull, MoreThan, Not, Repository } from 'typeorm';
 import { CodeDependencyEntity } from '../entities/code-dependency.entity';
 import { CodeSymbolEntity } from '../entities/code-symbol.entity';
 import { FileHashEntity } from '../entities/file-hash.entity';
@@ -40,6 +40,7 @@ export interface PersistCodeDependenciesInput {
   repositoryId: number;
   branchId: number;
   indexJobId: number;
+  leaseToken: string;
   targetCommitSha: string;
   sourceIndexedFileId: number;
   sourceFileHashId: number;
@@ -152,6 +153,9 @@ export class CodeDependenciesRepository {
           branchId: input.branchId,
           targetCommitSha: input.targetCommitSha,
           status: IndexJobStatus.Running,
+          leaseToken: input.leaseToken,
+          leaseExpiresAt: MoreThan(new Date()),
+          cancellationRequestedAt: IsNull(),
         },
         lock: { mode: 'pessimistic_write' },
       });

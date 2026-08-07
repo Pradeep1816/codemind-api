@@ -131,6 +131,8 @@ The initial API contract is repository-scoped:
 POST /api/v1/repositories/:repositoryId/index-jobs
 GET  /api/v1/repositories/:repositoryId/index-jobs
 GET  /api/v1/repositories/:repositoryId/index-jobs/:jobId
+POST /api/v1/repositories/:repositoryId/index-jobs/:jobId/cancel
+POST /api/v1/repositories/:repositoryId/index-jobs/:jobId/retry
 ```
 
 This differs intentionally from a global `/index-jobs` collection: including
@@ -148,10 +150,18 @@ Workers provide at-least-once delivery:
 - Claim a queued row atomically in a short transaction.
 - Use row locking with `SKIP LOCKED` when multiple workers exist.
 - Record attempt number, worker lease, and heartbeat.
+- Keep the lease token private and require it at every metadata write boundary.
 - Perform Git and parsing work outside the claim transaction.
 - Recheck ownership before progress or terminal updates.
 - Recover expired leases according to a bounded retry policy.
 - Make persisted file/version writes idempotent.
+
+Status and processing phase are separate. Status carries the durable state
+machine, while phase reports `queued`, `preparing`, `discovering`, `hashing`,
+`analyzing`, `finalizing`, or `finished`. Manual retry creates a new job linked
+through `retry_of_job_id`; terminal history is never reset in place. Successful
+completion updates branch health only if the branch still references the
+job's target commit.
 
 The partial unique index on repository and branch prevents duplicate active
 jobs across API replicas. It does not prevent terminal history.
@@ -233,8 +243,9 @@ target commit. Incremental mode is the default.
 ### `index_jobs`
 
 Owns durable orchestration state: organization, repository, branch, target
-commit, trigger, indexing mode, lifecycle, counters, attempts, errors, and
-timestamps.
+commit, retry ancestry, trigger, indexing mode, status, processing phase,
+file/symbol/dependency counters, attempts, cancellation, lease ownership,
+errors, and timestamps.
 
 ### `indexed_files`
 

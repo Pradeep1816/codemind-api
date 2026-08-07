@@ -21,6 +21,8 @@ import { IndexingService } from './indexing.service';
 import { IndexingWorkspaceService } from './workspace/indexing-workspace.service';
 import { IndexingRepository } from './indexing.repository';
 import { LanguageDetectionService } from './language/language-detection.service';
+import { IndexJobLifecycleRepository } from './lifecycle/index-job-lifecycle.repository';
+import { IndexJobLifecycleService } from './lifecycle/index-job-lifecycle.service';
 import { SourceParsingService } from './parsing/source-parsing.service';
 import { CodeSymbolsRepository } from './symbols/code-symbols.repository';
 import { SymbolExtractionService } from './symbols/symbol-extraction.service';
@@ -43,6 +45,8 @@ import { SymbolExtractionService } from './symbols/symbol-extraction.service';
   providers: [
     IndexingService,
     IndexingRepository,
+    IndexJobLifecycleRepository,
+    IndexJobLifecycleService,
     IndexingWorkspaceService,
     FileDiscoveryService,
     FileInventoryService,
@@ -57,6 +61,7 @@ import { SymbolExtractionService } from './symbols/symbol-extraction.service';
   ],
   exports: [
     IndexingService,
+    IndexJobLifecycleService,
     IndexingWorkspaceService,
     FileDiscoveryService,
     FileInventoryService,

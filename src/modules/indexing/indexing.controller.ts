@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseIntPipe,
   Post,
@@ -62,6 +64,36 @@ export class IndexingController {
   ): Promise<IndexStatusDto> {
     return this.indexingService.findJob(
       currentUser.organization.id,
+      repositoryId,
+      jobId,
+    );
+  }
+
+  @RequirePermissions('repository.read', 'repository.index')
+  @Post(':jobId/cancel')
+  @HttpCode(HttpStatus.OK)
+  cancel(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param('repositoryId', ParseIntPipe) repositoryId: number,
+    @Param('jobId', ParseIntPipe) jobId: number,
+  ): Promise<IndexStatusDto> {
+    return this.indexingService.cancelJob(
+      currentUser.organization.id,
+      repositoryId,
+      jobId,
+    );
+  }
+
+  @RequirePermissions('repository.read', 'repository.index')
+  @Post(':jobId/retry')
+  retry(
+    @CurrentUser() currentUser: AuthenticatedUser,
+    @Param('repositoryId', ParseIntPipe) repositoryId: number,
+    @Param('jobId', ParseIntPipe) jobId: number,
+  ): Promise<IndexStatusDto> {
+    return this.indexingService.retryJob(
+      currentUser.organization.id,
+      currentUser.id,
       repositoryId,
       jobId,
     );

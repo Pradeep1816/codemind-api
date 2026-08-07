@@ -3,6 +3,7 @@ import { ParseIndexedFileInput } from '../parsing/source-parsing.types';
 export interface ExtractAndPersistSymbolsInput extends ParseIndexedFileInput {
   branchId: number;
   indexJobId: number;
+  leaseToken: string;
 }
 
 export interface SymbolExtractionResult {

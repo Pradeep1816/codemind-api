@@ -18,7 +18,7 @@ application startup, and exposes namespaced configuration through NestJS.
 | `invitation.config.ts` | User-invitation expiration settings                               | `invitation` |
 | `rate-limit.config.ts` | Global and authentication endpoint request limits                 | `rateLimit`  |
 | `git.config.ts`        | Git workspace, local-source, timeout, and clone settings           | `git`        |
-| `indexing.config.ts`   | Disposable indexing-job workspace root                            | `indexing`   |
+| `indexing.config.ts`   | Indexing workspace, limits, leases, and retry policy               | `indexing`   |
 | `ai.config.ts`         | AI provider connection settings                                   | `ai`         |
 
 ## Environment Setup
@@ -210,6 +210,10 @@ disabled.
 | `INDEXING_MAX_PATH_DEPTH`      |       No | `64`                 | Maximum path segment depth                         |
 | `INDEXING_MAX_SYMBOLS_PER_FILE` |      No | `10000`              | Maximum normalized symbols persisted per file      |
 | `INDEXING_MAX_DEPENDENCIES_PER_FILE` | No | `20000`           | Maximum normalized dependencies persisted per file |
+| `INDEXING_JOB_LEASE_MS` | No | `60000` | Worker lease duration; heartbeats renew it |
+| `INDEXING_JOB_RETRY_DELAY_MS` | No | `30000` | Delay before an automatic retry is claimable |
+| `INDEXING_JOB_MAX_ATTEMPTS` | No | `3` | Maximum automatic attempts for a job |
+| `INDEXING_JOB_RECOVERY_BATCH_SIZE` | No | `100` | Maximum expired leases recovered per call |
 
 The `indexing` namespace exposes:
 
@@ -223,6 +227,10 @@ The `indexing` namespace exposes:
   maxPathDepth: number;
   maxSymbolsPerFile: number;
   maxDependenciesPerFile: number;
+  jobLeaseMs: number;
+  jobRetryDelayMs: number;
+  jobMaxAttempts: number;
+  jobRecoveryBatchSize: number;
 }
 ```
 

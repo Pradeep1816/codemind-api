@@ -19,4 +19,8 @@ export default registerAs('indexing', () => ({
     'INDEXING_MAX_DEPENDENCIES_PER_FILE',
     20_000,
   ),
+  jobLeaseMs: readInteger('INDEXING_JOB_LEASE_MS', 60_000),
+  jobRetryDelayMs: readInteger('INDEXING_JOB_RETRY_DELAY_MS', 30_000),
+  jobMaxAttempts: readInteger('INDEXING_JOB_MAX_ATTEMPTS', 3),
+  jobRecoveryBatchSize: readInteger('INDEXING_JOB_RECOVERY_BATCH_SIZE', 100),
 }));

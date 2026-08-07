@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Milestone 3.8 schema implemented; dependency migration pending
-Version: 2.3
+Status: Milestone 3.9 schema implemented; lifecycle migration pending
+Version: 2.4
 Owner: CodeMind Engineering
 Architecture decision: [ADR-012](../06-adrs/012-indexing-engine.md)
 
@@ -34,6 +34,7 @@ erDiagram
     USERS o|--o{ INDEX_JOBS : requests
     REPOSITORIES ||--o{ INDEX_JOBS : contains
     REPOSITORY_BRANCHES ||--o{ INDEX_JOBS : targets
+    INDEX_JOBS o|--o{ INDEX_JOBS : retries
 
     ORGANIZATIONS ||--o{ INDEXED_FILES : owns
     REPOSITORIES ||--o{ INDEXED_FILES : contains
@@ -81,19 +82,30 @@ referenced repository, branch, job, and file.
 | `repository_id` | integer | No | Parent repository |
 | `branch_id` | integer | No | Target branch |
 | `requested_by_user_id` | UUID | Yes | Requesting user; null after user deletion or for future system work |
+| `retry_of_job_id` | integer | Yes | Terminal job that a manual retry was created from |
 | `trigger` | `index_job_trigger` | No | `manual` or future `repository_sync` |
 | `mode` | `indexing_mode` | No | `incremental` or `full` |
 | `status` | `index_job_status` | No | Durable lifecycle state |
+| `phase` | `index_job_phase` | No | Detailed pipeline phase |
 | `target_commit_sha` | varchar(64) | No | Immutable Git commit selected at creation |
 | `total_files` | integer | No | Planned files |
 | `processed_files` | integer | No | Successful files |
 | `skipped_files` | integer | No | Reused, ignored, or unsupported files |
 | `failed_files` | integer | No | Files with processing failures |
+| `processed_symbols` | integer | No | Symbols persisted by the current attempt |
+| `processed_dependencies` | integer | No | Relationships persisted by the current attempt |
 | `attempt_count` | integer | No | Worker attempts |
+| `max_attempts` | integer | No | Automatic attempt ceiling |
+| `claimed_by` | varchar(200) | Yes | Internal worker identity while running |
+| `lease_token` | UUID | Yes | Private fencing token while running |
 | `failure_code` | varchar(100) | Yes | Stable terminal error code |
 | `failure_message` | varchar(1000) | Yes | Sanitized terminal summary |
 | `started_at` | timestamptz | Yes | Latest processing start |
 | `completed_at` | timestamptz | Yes | Terminal completion time |
+| `last_heartbeat_at` | timestamptz | Yes | Last accepted lease heartbeat |
+| `lease_expires_at` | timestamptz | Yes | Time after which recovery may reclaim the job |
+| `next_attempt_at` | timestamptz | Yes | Earliest automatic retry time |
+| `cancellation_requested_at` | timestamptz | Yes | Cooperative cancellation request time |
 | `created_at` | timestamptz | No | Queue time |
 | `updated_at` | timestamptz | No | Last lifecycle update |
 
@@ -115,6 +127,15 @@ Counters must be non-negative and obey:
 ```text
 processed_files + skipped_files + failed_files <= total_files
 ```
+
+`attempt_count` cannot exceed `max_attempts`. A `running` row must have
+`claimed_by`, `lease_token`, `last_heartbeat_at`, and `lease_expires_at`; every
+non-running row must have all four cleared. Partial indexes support oldest-job
+claims and expired-lease recovery, and a unique partial index fences lease
+tokens. Every worker persistence boundary verifies the token, unexpired lease,
+and absence of a cancellation request before writing metadata. A status/phase
+check requires queued jobs to use `queued`, running jobs to use an active
+pipeline phase, and terminal jobs to use `finished`.
 
 ## `indexed_files`
 
@@ -396,7 +417,7 @@ The API creates a queued job with one short database write after tenant and
 branch validation. No clone, fetch, filesystem, parser, or AI work occurs in
 that request transaction.
 
-Future workers will:
+Workers will:
 
 1. Claim a job in a short atomic transaction.
 2. Scan/hash/parse outside a transaction.
@@ -416,13 +437,16 @@ The indexing schema is introduced through additive migrations:
 1785630000000-AddCurrentFileHash.ts
 1785640000000-AddCodeSymbols.ts
 1785650000000-AddCodeDependencies.ts
+1785660000000-ExpandIndexJobLifecycle.ts
 ```
 
 The split is intentional: the durable job/API slice landed first, the ADR
 expanded Phase 3.1 to the complete inventory, hash, error, and mode model,
 incremental processing added the explicit current-content pointer, Milestone
 3.7 added immutable version-scoped symbol metadata, and Milestone 3.8 added
-retry-safe directed dependency relationships.
+retry-safe directed dependency relationships. Milestone 3.9 adds phases,
+metadata counters, retry ancestry, cancellation, claim ownership, lease
+fencing, heartbeat timestamps, and recovery indexes.
 
 Commands:
 

@@ -10,10 +10,12 @@ import {
 import { ListIndexJobsQueryDto } from './dto/list-index-jobs-query.dto';
 import { IndexJobEntity } from './entities/index-job.entity';
 import { IndexJobStatus } from './enums/index-job-status.enum';
+import { IndexJobPhase } from './enums/index-job-phase.enum';
 import { IndexJobTrigger } from './enums/index-job-trigger.enum';
 import { IndexingMode } from './enums/indexing-mode.enum';
 import { IndexingService } from './indexing.service';
 import { IndexingRepository } from './indexing.repository';
+import { IndexJobLifecycleService } from './lifecycle/index-job-lifecycle.service';
 
 describe('IndexingService', () => {
   const createdAt = new Date('2026-08-01T10:00:00.000Z');
@@ -65,19 +67,30 @@ describe('IndexingService', () => {
       repositoryId: 101,
       branchId: 201,
       requestedByUserId: 'user-id',
+      retryOfJobId: null,
       trigger: IndexJobTrigger.Manual,
       mode: IndexingMode.Incremental,
       status: IndexJobStatus.Queued,
+      phase: IndexJobPhase.Queued,
       targetCommitSha: commitSha,
       totalFiles: 0,
       processedFiles: 0,
       skippedFiles: 0,
       failedFiles: 0,
+      processedSymbols: 0,
+      processedDependencies: 0,
       attemptCount: 0,
+      maxAttempts: 3,
+      claimedBy: null,
+      leaseToken: null,
       failureCode: null,
       failureMessage: null,
       startedAt: null,
       completedAt: null,
+      lastHeartbeatAt: null,
+      leaseExpiresAt: null,
+      nextAttemptAt: null,
+      cancellationRequestedAt: null,
       createdAt,
       updatedAt,
       ...overrides,
@@ -117,9 +130,13 @@ describe('IndexingService', () => {
 
     return {
       service: new IndexingService(
+        { jobMaxAttempts: 3 } as never,
         { findOne } as unknown as RepositoriesService,
         { list } as unknown as RepositoryBranchesService,
         indexJobsRepository as unknown as IndexingRepository,
+        {
+          requestCancellation: jest.fn(),
+        } as unknown as IndexJobLifecycleService,
       ),
       findOne,
       list,
@@ -147,6 +164,7 @@ describe('IndexingService', () => {
       trigger: IndexJobTrigger.Manual,
       mode: IndexingMode.Incremental,
       targetCommitSha: commitSha,
+      maxAttempts: 3,
     });
     expect(result).toMatchObject({
       id: 301,

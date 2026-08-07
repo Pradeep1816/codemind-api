@@ -10,15 +10,17 @@
 | Phases 4–7 | Planned |
 | Phase 8 | Future |
 
-Milestones 3.1 through 3.8 are implemented. They define the indexing data model,
+Milestones 3.1 through 3.9 are implemented. They define the indexing data model,
 durable queued-job API, immutable commit verification, and isolated job
 workspace lifecycle, plus bounded Git-tree discovery and transactional file
 inventory. Incremental mode skips unchanged Git blobs and persists SHA-256
 content versions in bounded batches. A centralized registry now persists
 language and parser capability, normalized TS/JS parsing through the
 TypeScript Compiler API, version-scoped symbol persistence, and the initial
-dependency graph. The E2E and new Phase 3 tests are explicitly deferred.
-Milestone 3.9 durable job lifecycle expansion is next.
+dependency graph. Milestone 3.9 adds atomic claims, leases, phase/progress
+tracking, bounded automatic retries, cancellation, recovery, and manual retry
+history. The E2E and new Phase 3 tests are explicitly deferred. Milestone 3.10
+background execution is next.
 
 ## Phase 1 — Platform & Identity
 
@@ -241,7 +243,7 @@ output after verifying running-job and tenant ownership.
 
 ### 3.8 Dependency graph
 
-Status: Implemented; migration execution and tests deferred
+Status: Implemented; tests deferred
 
 Create directed relationships for:
 
@@ -257,7 +259,7 @@ deferred until semantic resolution is reliable.
 
 ### 3.9 Index job system
 
-Status: API foundation delivered early; lifecycle expansion planned
+Status: Implemented; migration execution and tests deferred
 
 Current endpoints:
 
@@ -265,27 +267,30 @@ Current endpoints:
 POST /api/v1/repositories/:repositoryId/index-jobs
 GET  /api/v1/repositories/:repositoryId/index-jobs
 GET  /api/v1/repositories/:repositoryId/index-jobs/:jobId
+POST /api/v1/repositories/:repositoryId/index-jobs/:jobId/cancel
+POST /api/v1/repositories/:repositoryId/index-jobs/:jobId/retry
 ```
 
-Remaining work:
+Delivered:
 
-- Cancellation and retry use cases
-- Atomic lifecycle transitions
-- Lease/heartbeat ownership fields
-- Repository health integration
+- Separate durable status and detailed processing phase
+- Atomic `SKIP LOCKED` claims with private lease-token fencing
+- Heartbeats, monotonic progress, terminal transitions, and attempt ceilings
+- Cooperative cancellation and bounded expired-lease recovery
+- Automatic retry scheduling and manual retry ancestry
+- Branch `lastIndexedAt` update after current-commit success
 
 ### 3.10 Background processing
 
 Status: Planned
 
-Deliver:
+Deliver next:
 
-- PostgreSQL-authoritative job claiming
-- `SKIP LOCKED` for multiple workers
-- At-least-once, idempotent processing
-- Bounded retries and expired-lease recovery
+- Worker polling and end-to-end pipeline orchestration
+- Periodic heartbeats and cooperative cancellation checks between batches
+- At-least-once, idempotent processing through the lifecycle contract
 - BullMQ/Redis only as an optional delivery notification layer
-- Progress, error, and terminal-state updates
+- Startup and scheduled expired-lease recovery invocation
 
 ### 3.11 Tests
 

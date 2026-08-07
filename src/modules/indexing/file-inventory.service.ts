@@ -48,6 +48,7 @@ export class FileInventoryService {
     organizationId: string,
     repositoryId: number,
     jobId: number,
+    leaseToken: string,
   ): Promise<FileInventoryResult> {
     const job = await this.indexingRepository.findByIdAndRepository(
       organizationId,
@@ -59,7 +60,13 @@ export class FileInventoryService {
       throw new NotFoundException('Indexing job was not found');
     }
 
-    if (job.status !== IndexJobStatus.Running) {
+    if (
+      job.status !== IndexJobStatus.Running ||
+      job.leaseToken !== leaseToken ||
+      !job.leaseExpiresAt ||
+      job.leaseExpiresAt <= new Date() ||
+      job.cancellationRequestedAt !== null
+    ) {
       throw new ConflictException(
         'File discovery requires a running indexing job',
       );
@@ -102,6 +109,7 @@ export class FileInventoryService {
         repositoryId,
         branchId: job.branchId,
         indexJobId: job.id,
+        leaseToken,
         targetCommitSha: job.targetCommitSha,
         files: detectedFiles.map(({ file, language }) => ({
           path: file.path,

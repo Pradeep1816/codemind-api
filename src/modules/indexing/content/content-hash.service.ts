@@ -33,11 +33,13 @@ export class ContentHashService {
     organizationId: string,
     repositoryId: number,
     jobId: number,
+    leaseToken: string,
   ): Promise<ContentHashResult> {
     const inventory = await this.fileInventoryService.discoverAndPersist(
       organizationId,
       repositoryId,
       jobId,
+      leaseToken,
     );
     const indexedFiles = await this.indexingRepository.findActiveFilesByBranch(
       organizationId,
@@ -64,6 +66,7 @@ export class ContentHashService {
         repositoryId,
         branchId: inventory.branchId,
         indexJobId: inventory.jobId,
+        leaseToken,
         hashes: hashBatch,
       });
 

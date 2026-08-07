@@ -32,7 +32,7 @@ MCP and developer tools
 
 ## Current Status
 
-CodeMind is entering the repository-ingestion milestone.
+CodeMind is implementing Phase 3 indexing and code intelligence.
 
 Implemented:
 
@@ -69,6 +69,8 @@ Implemented:
 - Bounded TypeScript/JavaScript parsing with normalized syntax metadata
 - Version-scoped, tenant-aware code symbol persistence
 - Version-scoped import, export, and inheritance dependency graph
+- Durable indexing lifecycle with atomic claims, leases, progress, cancellation,
+  retries, and expired-job recovery
 - Database-aware `GET /health` endpoint
 - URI API versioning under `/api/v1`
 - Global request validation

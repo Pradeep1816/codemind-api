@@ -329,6 +329,8 @@ Base path:
 | `POST` | `/repositories/{repositoryId}/index-jobs` | Queue one synchronized branch snapshot |
 | `GET` | `/repositories/{repositoryId}/index-jobs` | List repository jobs |
 | `GET` | `/repositories/{repositoryId}/index-jobs/{jobId}` | Read one job |
+| `POST` | `/repositories/{repositoryId}/index-jobs/{jobId}/cancel` | Request cancellation |
+| `POST` | `/repositories/{repositoryId}/index-jobs/{jobId}/retry` | Retry failed/cancelled work as a new job |
 
 Create body:
 
@@ -339,9 +341,10 @@ Create body:
 }
 ```
 
-New jobs are durably stored with `status: "queued"`. Worker execution,
-cancellation, and retries are planned for the next indexing slice and are not
-currently exposed as APIs.
+New jobs are durably stored with `status: "queued"`. Milestone 3.9 provides
+atomic claim/lease ownership, detailed phase and progress state, cancellation,
+automatic recovery/retry, and manual retry history. Background worker
+execution is the next indexing slice.
 
 See [Indexing Job API](indexing-api.md) for the complete contract.
 

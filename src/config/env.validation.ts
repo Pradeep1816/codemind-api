@@ -243,6 +243,30 @@ class EnvironmentVariables {
   @Max(100_000)
   INDEXING_MAX_DEPENDENCIES_PER_FILE = 20_000;
 
+  @Type(() => Number)
+  @IsInt()
+  @Min(10_000)
+  @Max(3_600_000)
+  INDEXING_JOB_LEASE_MS = 60_000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(3_600_000)
+  INDEXING_JOB_RETRY_DELAY_MS = 30_000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  INDEXING_JOB_MAX_ATTEMPTS = 3;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(1_000)
+  INDEXING_JOB_RECOVERY_BATCH_SIZE = 100;
+
   @IsEnum(AiProvider)
   AI_PROVIDER = AiProvider.OpenAi;
 

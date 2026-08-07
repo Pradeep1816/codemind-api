@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, IsNull, MoreThan, Repository } from 'typeorm';
 import { CodeSymbolEntity } from '../entities/code-symbol.entity';
 import { FileHashEntity } from '../entities/file-hash.entity';
 import { IndexJobEntity } from '../entities/index-job.entity';
@@ -31,6 +31,7 @@ export interface PersistCodeSymbolsInput {
   repositoryId: number;
   branchId: number;
   indexJobId: number;
+  leaseToken: string;
   targetCommitSha: string;
   indexedFileId: number;
   fileHashId: number;
@@ -69,6 +70,9 @@ export class CodeSymbolsRepository {
           branchId: input.branchId,
           targetCommitSha: input.targetCommitSha,
           status: IndexJobStatus.Running,
+          leaseToken: input.leaseToken,
+          leaseExpiresAt: MoreThan(new Date()),
+          cancellationRequestedAt: IsNull(),
         },
         lock: { mode: 'pessimistic_write' },
       });

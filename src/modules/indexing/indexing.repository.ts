@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, IsNull, MoreThan, Repository } from 'typeorm';
 import { FileHashEntity } from './entities/file-hash.entity';
 import { IndexJobEntity } from './entities/index-job.entity';
 import { IndexedFileEntity } from './entities/indexed-file.entity';
 import { FileHashAlgorithm } from './enums/file-hash-algorithm.enum';
+import { IndexJobPhase } from './enums/index-job-phase.enum';
 import { IndexJobStatus } from './enums/index-job-status.enum';
 import { IndexJobTrigger } from './enums/index-job-trigger.enum';
 import { IndexedFileStatus } from './enums/indexed-file-status.enum';
@@ -19,6 +20,8 @@ export interface CreateIndexJobRecord {
   trigger: IndexJobTrigger;
   mode: IndexingMode;
   targetCommitSha: string;
+  retryOfJobId?: number | null;
+  maxAttempts: number;
 }
 
 export interface FindIndexJobsOptions {
@@ -41,6 +44,7 @@ export interface SynchronizeFileInventoryRecord {
   repositoryId: number;
   branchId: number;
   indexJobId: number;
+  leaseToken: string;
   targetCommitSha: string;
   files: readonly FileInventoryRecord[];
 }
@@ -62,6 +66,7 @@ export interface PersistFileHashBatchRecord {
   repositoryId: number;
   branchId: number;
   indexJobId: number;
+  leaseToken: string;
   hashes: readonly PersistFileHashRecord[];
 }
 
@@ -85,16 +90,26 @@ export class IndexingRepository {
     return this.indexJobRepository.save(
       this.indexJobRepository.create({
         ...input,
+        retryOfJobId: input.retryOfJobId ?? null,
         status: IndexJobStatus.Queued,
+        phase: IndexJobPhase.Queued,
         totalFiles: 0,
         processedFiles: 0,
         skippedFiles: 0,
         failedFiles: 0,
+        processedSymbols: 0,
+        processedDependencies: 0,
         attemptCount: 0,
+        claimedBy: null,
+        leaseToken: null,
         failureCode: null,
         failureMessage: null,
         startedAt: null,
         completedAt: null,
+        lastHeartbeatAt: null,
+        leaseExpiresAt: null,
+        nextAttemptAt: null,
+        cancellationRequestedAt: null,
       }),
     );
   }
@@ -172,6 +187,9 @@ export class IndexingRepository {
           repositoryId: input.repositoryId,
           branchId: input.branchId,
           status: IndexJobStatus.Running,
+          leaseToken: input.leaseToken,
+          leaseExpiresAt: MoreThan(new Date()),
+          cancellationRequestedAt: IsNull(),
         },
         lock: { mode: 'pessimistic_write' },
       });
@@ -281,6 +299,9 @@ export class IndexingRepository {
           repositoryId: input.repositoryId,
           branchId: input.branchId,
           status: IndexJobStatus.Running,
+          leaseToken: input.leaseToken,
+          leaseExpiresAt: MoreThan(new Date()),
+          cancellationRequestedAt: IsNull(),
         },
         lock: { mode: 'pessimistic_write' },
       });

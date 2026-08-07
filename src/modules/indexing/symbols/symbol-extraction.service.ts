@@ -86,6 +86,7 @@ export class SymbolExtractionService {
       repositoryId: input.repositoryId,
       branchId: input.branchId,
       indexJobId: input.indexJobId,
+      leaseToken: input.leaseToken,
       targetCommitSha: input.targetCommitSha,
       indexedFileId: input.indexedFileId,
       fileHashId: input.fileHashId,
