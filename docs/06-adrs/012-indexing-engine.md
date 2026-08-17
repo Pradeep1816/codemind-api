@@ -142,7 +142,7 @@ repositories.
 
 ### Queue and worker semantics
 
-The initial worker may poll PostgreSQL. BullMQ/Redis can later reduce dispatch
+The initial worker polls PostgreSQL. BullMQ/Redis can later reduce dispatch
 latency, but a Redis message is a notification, not the durable job record.
 
 Workers provide at-least-once delivery:
@@ -158,13 +158,21 @@ Workers provide at-least-once delivery:
 
 Status and processing phase are separate. Status carries the durable state
 machine, while phase reports `queued`, `preparing`, `discovering`, `hashing`,
-`analyzing`, `finalizing`, or `finished`. Manual retry creates a new job linked
-through `retry_of_job_id`; terminal history is never reset in place. Successful
-completion updates branch health only if the branch still references the
-job's target commit.
+`extracting_symbols`, `building_graph`, `finalizing`, or `finished`. The legacy
+`analyzing` phase remains compatible with earlier lifecycle rows. Manual retry
+creates a new job linked through `retry_of_job_id`; terminal history is never
+reset in place. Successful completion updates branch health only if the branch
+still references the job's target commit.
 
 The partial unique index on repository and branch prevents duplicate active
 jobs across API replicas. It does not prevent terminal history.
+
+The API returns `202 Accepted` after the durable row is committed. The worker
+then advances through discovery, hashing, analysis, and finalization. A
+per-file-hash completion marker is written only after both symbols and
+dependencies commit, allowing retries to distinguish incomplete work from a
+truly unchanged analyzed version. Worker polling can be disabled for API-only
+instances without changing the durable queue contract.
 
 ## 3. Parser architecture
 
@@ -395,6 +403,6 @@ without forcing a lowest-common-denominator parser.
 | 3.7 Symbols | Version-scoped normalized symbol records |
 | 3.8 Dependencies | Directed, optionally unresolved relationships |
 | 3.9 Job system | Repository-scoped API and durable lifecycle |
-| 3.10 Background processing | PostgreSQL claims; optional BullMQ notification |
+| 3.10 Background processing | PostgreSQL polling, processor orchestration, heartbeats, cancellation, and graceful shutdown |
 | 3.11 Tests | Scanner, parser, Git boundary, job, and integration coverage |
 | 3.12 Documentation | Module, schema, API, and ADR maintained together |

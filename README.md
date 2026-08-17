@@ -71,6 +71,8 @@ Implemented:
 - Version-scoped import, export, and inheritance dependency graph
 - Durable indexing lifecycle with atomic claims, leases, progress, cancellation,
   retries, and expired-job recovery
+- PostgreSQL-backed background indexing worker with incremental completion
+  markers and graceful shutdown
 - Database-aware `GET /health` endpoint
 - URI API versioning under `/api/v1`
 - Global request validation
@@ -83,7 +85,6 @@ Not implemented yet:
 - Invitation email delivery and invitation resend/revoke APIs
 - Password reset, verified email, and MFA
 - Organization settings APIs
-- Indexing worker execution
 - Function-call resolution and advanced static analysis
 - Knowledge generation and search
 - AI provider integration

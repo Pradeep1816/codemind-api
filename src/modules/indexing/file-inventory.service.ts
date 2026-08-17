@@ -18,6 +18,7 @@ import { IndexingWorkspaceService } from './workspace/indexing-workspace.service
 
 export interface FileInventoryResult {
   jobId: number;
+  organizationId: string;
   repositoryId: number;
   branchId: number;
   targetCommitSha: string;
@@ -72,7 +73,7 @@ export class FileInventoryService {
       );
     }
 
-    await this.indexingWorkspaceService.prepare({
+    await this.indexingWorkspaceService.reset({
       organizationId,
       repositoryId,
       jobId,
@@ -127,6 +128,7 @@ export class FileInventoryService {
 
     return {
       jobId: job.id,
+      organizationId: job.organizationId,
       repositoryId: job.repositoryId,
       branchId: job.branchId,
       targetCommitSha: job.targetCommitSha,

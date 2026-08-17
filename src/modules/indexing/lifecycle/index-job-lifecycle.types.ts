@@ -27,6 +27,7 @@ export interface IndexJobProgress {
 
 export interface UpdateIndexJobProgressInput extends OwnedIndexJobInput {
   progress: IndexJobProgress;
+  currentFile: string | null;
 }
 
 export interface AdvanceIndexJobPhaseInput extends OwnedIndexJobInput {

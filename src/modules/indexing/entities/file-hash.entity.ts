@@ -25,8 +25,18 @@ import { IndexedFileEntity } from './indexed-file.entity';
   'value',
 ])
 @Index('idx_file_hashes_observed_by_job_id', ['observedByJobId'])
+@Index('idx_file_hashes_analyzed_by_job_id', ['analyzedByJobId'])
+@Index('idx_file_hashes_analysis_completed_at', ['analysisCompletedAt'])
 @Index('idx_file_hashes_git_blob_oid', ['gitBlobOid'])
 @Check('CHK_file_hashes_size_bytes', '"size_bytes" >= 0')
+@Check(
+  'CHK_file_hashes_analysis_state',
+  `(
+     "analyzed_by_job_id" IS NULL AND "analysis_completed_at" IS NULL
+   ) OR (
+     "analyzed_by_job_id" IS NOT NULL AND "analysis_completed_at" IS NOT NULL
+   )`,
+)
 export class FileHashEntity {
   @PrimaryGeneratedColumn('increment', {
     type: 'integer',
@@ -42,6 +52,9 @@ export class FileHashEntity {
 
   @Column({ name: 'observed_by_job_id', type: 'integer', nullable: true })
   observedByJobId!: number | null;
+
+  @Column({ name: 'analyzed_by_job_id', type: 'integer', nullable: true })
+  analyzedByJobId!: number | null;
 
   @Column({
     type: 'enum',
@@ -59,6 +72,13 @@ export class FileHashEntity {
 
   @Column({ name: 'size_bytes', type: 'integer' })
   sizeBytes!: number;
+
+  @Column({
+    name: 'analysis_completed_at',
+    type: 'timestamptz',
+    nullable: true,
+  })
+  analysisCompletedAt!: Date | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;
@@ -90,4 +110,14 @@ export class FileHashEntity {
     foreignKeyConstraintName: 'FK_file_hashes_observed_by_job_id',
   })
   observedByJob!: IndexJobEntity | null;
+
+  @ManyToOne(() => IndexJobEntity, {
+    nullable: true,
+    onDelete: 'NO ACTION',
+  })
+  @JoinColumn({
+    name: 'analyzed_by_job_id',
+    foreignKeyConstraintName: 'FK_file_hashes_analyzed_by_job_id',
+  })
+  analyzedByJob!: IndexJobEntity | null;
 }

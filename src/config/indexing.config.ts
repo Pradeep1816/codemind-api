@@ -23,4 +23,15 @@ export default registerAs('indexing', () => ({
   jobRetryDelayMs: readInteger('INDEXING_JOB_RETRY_DELAY_MS', 30_000),
   jobMaxAttempts: readInteger('INDEXING_JOB_MAX_ATTEMPTS', 3),
   jobRecoveryBatchSize: readInteger('INDEXING_JOB_RECOVERY_BATCH_SIZE', 100),
+  jobHeartbeatIntervalMs: readInteger(
+    'INDEXING_JOB_HEARTBEAT_INTERVAL_MS',
+    15_000,
+  ),
+  workerEnabled: process.env.INDEXING_WORKER_ENABLED !== 'false',
+  workerId: process.env.INDEXING_WORKER_ID?.trim() || undefined,
+  workerPollIntervalMs: readInteger('INDEXING_WORKER_POLL_INTERVAL_MS', 2_000),
+  workerRecoveryIntervalMs: readInteger(
+    'INDEXING_WORKER_RECOVERY_INTERVAL_MS',
+    30_000,
+  ),
 }));

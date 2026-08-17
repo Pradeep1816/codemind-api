@@ -57,7 +57,9 @@ version-scoped symbols with tenant-aware, retry-safe reconciliation. Phase 3.8
 stores imports, exports, inheritance, and reliably resolved local targets.
 Phase 3.9 adds the durable job state machine, atomic claims, lease fencing,
 heartbeats, progress, retry, cancellation, recovery, and terminal health
-updates. Background worker execution remains Milestone 3.10.
+updates. Phase 3.10 executes that lifecycle through a PostgreSQL-backed worker,
+including current-file progress, incremental completion markers, heartbeats,
+cancellation checks, failure recording, and graceful shutdown.
 
 Architecture decisions:
 
@@ -130,8 +132,8 @@ flowchart TD
 | 3.6 | Parser engine | Implemented; tests deferred |
 | 3.7 | Symbol extraction | Implemented; tests deferred |
 | 3.8 | Dependency graph | Implemented; tests deferred |
-| 3.9 | Index job system | Implemented; migration and tests deferred |
-| 3.10 | Background processing | Planned |
+| 3.9 | Index job system | Implemented; tests deferred |
+| 3.10 | Background processing | Implemented; migration and tests deferred |
 | 3.11 | Tests | Continuous; phase-level suite planned |
 | 3.12 | Documentation | Continuous; completion review planned |
 

@@ -4,6 +4,8 @@ import type { ConfigType } from '@nestjs/config';
 import indexingConfig from '../../../config/indexing.config';
 import { GitService } from '../../repositories/git/git.service';
 import { FileInventoryService } from '../file-inventory.service';
+import type { FileInventoryResult } from '../file-inventory.service';
+import { LanguageCapability } from '../enums/language-capability.enum';
 import { IndexingMode } from '../enums/indexing-mode.enum';
 import {
   IndexingRepository,
@@ -11,6 +13,7 @@ import {
 } from '../indexing.repository';
 import { ContentHashError, ContentHashErrorCode } from './content-hash.errors';
 import { ContentHashResult } from './content-hash.types';
+import { LanguageDetectionService } from '../language/language-detection.service';
 
 const HASH_PERSISTENCE_BATCH_SIZE = 250;
 
@@ -22,6 +25,7 @@ export class ContentHashService {
     private readonly fileInventoryService: FileInventoryService,
     private readonly indexingRepository: IndexingRepository,
     private readonly gitService: GitService,
+    private readonly languageDetectionService: LanguageDetectionService,
   ) {}
 
   /**
@@ -41,9 +45,18 @@ export class ContentHashService {
       jobId,
       leaseToken,
     );
+
+    return this.hashInventory(inventory, leaseToken);
+  }
+
+  /** Hashes one already persisted inventory and selects incomplete analysis. */
+  async hashInventory(
+    inventory: FileInventoryResult,
+    leaseToken: string,
+  ): Promise<ContentHashResult> {
     const indexedFiles = await this.indexingRepository.findActiveFilesByBranch(
-      organizationId,
-      repositoryId,
+      inventory.organizationId,
+      inventory.repositoryId,
       inventory.branchId,
     );
     const indexedFileByPath = new Map(
@@ -62,8 +75,8 @@ export class ContentHashService {
       }
 
       const result = await this.indexingRepository.persistFileHashBatch({
-        organizationId,
-        repositoryId,
+        organizationId: inventory.organizationId,
+        repositoryId: inventory.repositoryId,
         branchId: inventory.branchId,
         indexJobId: inventory.jobId,
         leaseToken,
@@ -101,8 +114,8 @@ export class ContentHashService {
       }
 
       const blob = await this.gitService.readBlob(
-        organizationId,
-        repositoryId,
+        inventory.organizationId,
+        inventory.repositoryId,
         inventory.targetCommitSha,
         discoveredFile.gitBlobOid,
         this.configuration.maxFileSizeBytes,
@@ -131,6 +144,40 @@ export class ContentHashService {
 
     await persistBatch();
 
+    const persistedFiles =
+      await this.indexingRepository.findActiveFilesByBranch(
+        inventory.organizationId,
+        inventory.repositoryId,
+        inventory.branchId,
+      );
+    const analysisFiles = persistedFiles.flatMap((file) => {
+      if (!file.extension || !file.language || !file.currentFileHash) {
+        return [];
+      }
+
+      const detection = this.languageDetectionService.detect(file.extension);
+
+      if (
+        detection.capability !== LanguageCapability.ParserSupported ||
+        (inventory.mode === IndexingMode.Incremental &&
+          file.currentFileHash.analysisCompletedAt !== null)
+      ) {
+        return [];
+      }
+
+      return [
+        {
+          indexedFileId: file.id,
+          fileHashId: file.currentFileHash.id,
+          path: file.path,
+          extension: file.extension,
+          language: file.language,
+          gitBlobOid: file.currentFileHash.gitBlobOid,
+          sizeBytes: file.currentFileHash.sizeBytes,
+        },
+      ];
+    });
+
     return {
       jobId: inventory.jobId,
       repositoryId: inventory.repositoryId,
@@ -143,6 +190,7 @@ export class ContentHashService {
       createdHashes,
       reusedHashes,
       hashedBytes,
+      analysisFiles,
     };
   }
 }

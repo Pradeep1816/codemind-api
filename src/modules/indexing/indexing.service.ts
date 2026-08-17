@@ -332,6 +332,14 @@ export class IndexingService {
 
   private toResponse(job: IndexJobEntity): IndexStatusDto {
     const hasFailure = job.failureCode !== null || job.failureMessage !== null;
+    const accountedFiles =
+      job.processedFiles + job.skippedFiles + job.failedFiles;
+    const percentage =
+      job.status === IndexJobStatus.Succeeded
+        ? 100
+        : job.totalFiles === 0
+          ? 0
+          : Math.min(100, Math.floor((accountedFiles / job.totalFiles) * 100));
 
     return {
       id: job.id,
@@ -345,12 +353,14 @@ export class IndexingService {
       targetCommitSha: job.targetCommitSha,
       retryOfJobId: job.retryOfJobId,
       progress: {
+        percentage,
         totalFiles: job.totalFiles,
         processedFiles: job.processedFiles,
         skippedFiles: job.skippedFiles,
         failedFiles: job.failedFiles,
         processedSymbols: job.processedSymbols,
         processedDependencies: job.processedDependencies,
+        currentFile: job.currentFile,
       },
       attemptCount: job.attemptCount,
       maxAttempts: job.maxAttempts,

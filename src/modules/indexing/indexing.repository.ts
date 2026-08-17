@@ -4,12 +4,14 @@ import { In, IsNull, MoreThan, Repository } from 'typeorm';
 import { FileHashEntity } from './entities/file-hash.entity';
 import { IndexJobEntity } from './entities/index-job.entity';
 import { IndexedFileEntity } from './entities/indexed-file.entity';
+import { IndexingErrorEntity } from './entities/indexing-error.entity';
 import { FileHashAlgorithm } from './enums/file-hash-algorithm.enum';
 import { IndexJobPhase } from './enums/index-job-phase.enum';
 import { IndexJobStatus } from './enums/index-job-status.enum';
 import { IndexJobTrigger } from './enums/index-job-trigger.enum';
 import { IndexedFileStatus } from './enums/indexed-file-status.enum';
 import { IndexingMode } from './enums/indexing-mode.enum';
+import { IndexingErrorPhase } from './enums/indexing-error-phase.enum';
 import { SourceLanguage } from './enums/source-language.enum';
 
 export interface CreateIndexJobRecord {
@@ -75,6 +77,30 @@ export interface PersistFileHashBatchResult {
   reusedHashes: number;
 }
 
+export interface MarkFileAnalysisCompleteRecord {
+  organizationId: string;
+  repositoryId: number;
+  branchId: number;
+  indexJobId: number;
+  leaseToken: string;
+  indexedFileId: number;
+  fileHashId: number;
+  targetCommitSha: string;
+}
+
+export interface PersistIndexingErrorRecord {
+  organizationId: string;
+  repositoryId: number;
+  indexJobId: number;
+  leaseToken: string;
+  indexedFileId: number | null;
+  phase: IndexingErrorPhase;
+  code: string;
+  message: string;
+  retryable: boolean;
+  attemptNumber: number;
+}
+
 @Injectable()
 export class IndexingRepository {
   constructor(
@@ -84,6 +110,8 @@ export class IndexingRepository {
     private readonly indexedFileRepository: Repository<IndexedFileEntity>,
     @InjectRepository(FileHashEntity)
     private readonly fileHashRepository: Repository<FileHashEntity>,
+    @InjectRepository(IndexingErrorEntity)
+    private readonly indexingErrorRepository: Repository<IndexingErrorEntity>,
   ) {}
 
   create(input: CreateIndexJobRecord): Promise<IndexJobEntity> {
@@ -110,6 +138,7 @@ export class IndexingRepository {
         leaseExpiresAt: null,
         nextAttemptAt: null,
         cancellationRequestedAt: null,
+        currentFile: null,
       }),
     );
   }
@@ -386,6 +415,96 @@ export class IndexingRepository {
         createdHashes: newHashes.length,
         reusedHashes: input.hashes.length - newHashes.length,
       };
+    });
+  }
+
+  /** Marks one immutable hash reusable only after all analysis is persisted. */
+  markFileAnalysisComplete(
+    input: MarkFileAnalysisCompleteRecord,
+  ): Promise<boolean> {
+    return this.fileHashRepository.manager.transaction(async (manager) => {
+      const job = await manager.getRepository(IndexJobEntity).findOne({
+        where: {
+          id: input.indexJobId,
+          organizationId: input.organizationId,
+          repositoryId: input.repositoryId,
+          branchId: input.branchId,
+          targetCommitSha: input.targetCommitSha,
+          status: IndexJobStatus.Running,
+          leaseToken: input.leaseToken,
+          leaseExpiresAt: MoreThan(new Date()),
+          cancellationRequestedAt: IsNull(),
+        },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!job) {
+        return false;
+      }
+
+      const repository = manager.getRepository(FileHashEntity);
+      const fileHash = await repository.findOne({
+        where: {
+          id: input.fileHashId,
+          organizationId: input.organizationId,
+          indexedFileId: input.indexedFileId,
+          indexedFile: {
+            id: input.indexedFileId,
+            organizationId: input.organizationId,
+            repositoryId: input.repositoryId,
+            branchId: input.branchId,
+            currentFileHashId: input.fileHashId,
+            lastSeenCommitSha: input.targetCommitSha,
+            status: IndexedFileStatus.Active,
+          },
+        },
+      });
+
+      if (!fileHash) {
+        return false;
+      }
+
+      fileHash.analyzedByJobId = input.indexJobId;
+      fileHash.analysisCompletedAt = new Date();
+      await repository.save(fileHash);
+
+      return true;
+    });
+  }
+
+  /** Persists a sanitized operational failure while the worker owns the job. */
+  persistError(input: PersistIndexingErrorRecord): Promise<boolean> {
+    return this.indexingErrorRepository.manager.transaction(async (manager) => {
+      const job = await manager.getRepository(IndexJobEntity).findOne({
+        where: {
+          id: input.indexJobId,
+          organizationId: input.organizationId,
+          repositoryId: input.repositoryId,
+          status: IndexJobStatus.Running,
+          leaseToken: input.leaseToken,
+          leaseExpiresAt: MoreThan(new Date()),
+        },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!job) {
+        return false;
+      }
+
+      await manager.getRepository(IndexingErrorEntity).save(
+        manager.getRepository(IndexingErrorEntity).create({
+          organizationId: input.organizationId,
+          indexJobId: input.indexJobId,
+          indexedFileId: input.indexedFileId,
+          phase: input.phase,
+          code: input.code,
+          message: input.message,
+          retryable: input.retryable,
+          attemptNumber: input.attemptNumber,
+        }),
+      );
+
+      return true;
     });
   }
 }

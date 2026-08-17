@@ -91,6 +91,7 @@ describe('IndexingService', () => {
       leaseExpiresAt: null,
       nextAttemptAt: null,
       cancellationRequestedAt: null,
+      currentFile: null,
       createdAt,
       updatedAt,
       ...overrides,

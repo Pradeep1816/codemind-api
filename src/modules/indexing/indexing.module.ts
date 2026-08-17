@@ -26,6 +26,10 @@ import { IndexJobLifecycleService } from './lifecycle/index-job-lifecycle.servic
 import { SourceParsingService } from './parsing/source-parsing.service';
 import { CodeSymbolsRepository } from './symbols/code-symbols.repository';
 import { SymbolExtractionService } from './symbols/symbol-extraction.service';
+import { IndexingProcessor } from './queue/indexing.processor';
+import { IndexingQueue } from './queue/indexing.queue';
+import { IndexingJobService } from './services/indexing-job.service';
+import { IndexingWorker } from './workers/indexing.worker';
 
 @Module({
   imports: [
@@ -47,6 +51,10 @@ import { SymbolExtractionService } from './symbols/symbol-extraction.service';
     IndexingRepository,
     IndexJobLifecycleRepository,
     IndexJobLifecycleService,
+    IndexingJobService,
+    IndexingQueue,
+    IndexingProcessor,
+    IndexingWorker,
     IndexingWorkspaceService,
     FileDiscoveryService,
     FileInventoryService,

@@ -85,10 +85,22 @@ import { IndexingMode } from '../enums/indexing-mode.enum';
      "status" = 'queued' AND "phase" = 'queued'
    ) OR (
      "status" = 'running' AND
-     "phase" IN ('preparing', 'discovering', 'hashing', 'analyzing', 'finalizing')
+     "phase" IN (
+       'preparing',
+       'discovering',
+       'hashing',
+       'analyzing',
+       'extracting_symbols',
+       'building_graph',
+       'finalizing'
+     )
    ) OR (
      "status" IN ('succeeded', 'failed', 'cancelled') AND "phase" = 'finished'
-   )`,
+  )`,
+)
+@Check(
+  'CHK_index_jobs_current_file_state',
+  `"status" = 'running' OR "current_file" IS NULL`,
 )
 export class IndexJobEntity {
   @PrimaryGeneratedColumn('increment', {
@@ -214,6 +226,14 @@ export class IndexJobEntity {
     nullable: true,
   })
   cancellationRequestedAt!: Date | null;
+
+  @Column({
+    name: 'current_file',
+    type: 'varchar',
+    length: 1024,
+    nullable: true,
+  })
+  currentFile!: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt!: Date;

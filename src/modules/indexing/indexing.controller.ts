@@ -30,6 +30,7 @@ export class IndexingController {
 
   @RequirePermissions('repository.read', 'repository.index')
   @Post()
+  @HttpCode(HttpStatus.ACCEPTED)
   create(
     @CurrentUser() currentUser: AuthenticatedUser,
     @Param('repositoryId', ParseIntPipe) repositoryId: number,

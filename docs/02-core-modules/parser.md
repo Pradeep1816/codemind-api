@@ -261,6 +261,6 @@ symbols preserve their text without an incorrect target.
 
 ## Next milestone
 
-Milestone 3.9 now provides lease-fenced indexing-job ownership and lifecycle
-transitions. Milestone 3.10 will use that contract to coordinate inventory,
-parsing, symbols, and dependencies in a background worker.
+Milestone 3.10 now coordinates inventory, parsing, symbols, and dependencies in
+a lease-owned background worker. Milestone 3.11 adds parser and end-to-end
+pipeline coverage before Phase 3 completion.

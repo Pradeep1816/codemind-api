@@ -15,12 +15,14 @@ export interface IndexStatusDto {
   targetCommitSha: string;
   retryOfJobId: number | null;
   progress: {
+    percentage: number;
     totalFiles: number;
     processedFiles: number;
     skippedFiles: number;
     failedFiles: number;
     processedSymbols: number;
     processedDependencies: number;
+    currentFile: string | null;
   };
   attemptCount: number;
   maxAttempts: number;

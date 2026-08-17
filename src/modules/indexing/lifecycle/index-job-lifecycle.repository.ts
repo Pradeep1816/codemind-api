@@ -59,6 +59,7 @@ export class IndexJobLifecycleRepository {
       job.completedAt = null;
       job.failureCode = null;
       job.failureMessage = null;
+      job.currentFile = null;
 
       return {
         job: await repository.save(job),
@@ -102,6 +103,7 @@ export class IndexJobLifecycleRepository {
   updateProgress(
     input: OwnedIndexJobInput,
     progress: IndexJobProgress,
+    currentFile: string | null,
     leaseMs: number,
   ): Promise<IndexJobEntity | null> {
     return this.updateOwnedJob(input, leaseMs, (job) => {
@@ -111,6 +113,7 @@ export class IndexJobLifecycleRepository {
       job.failedFiles = progress.failedFiles;
       job.processedSymbols = progress.processedSymbols;
       job.processedDependencies = progress.processedDependencies;
+      job.currentFile = currentFile;
     });
   }
 
@@ -329,6 +332,7 @@ export class IndexJobLifecycleRepository {
     job.processedDependencies = 0;
     job.completedAt = null;
     job.nextAttemptAt = nextAttemptAt;
+    job.currentFile = null;
   }
 
   private clearLease(job: IndexJobEntity): void {
@@ -336,5 +340,6 @@ export class IndexJobLifecycleRepository {
     job.leaseToken = null;
     job.lastHeartbeatAt = null;
     job.leaseExpiresAt = null;
+    job.currentFile = null;
   }
 }

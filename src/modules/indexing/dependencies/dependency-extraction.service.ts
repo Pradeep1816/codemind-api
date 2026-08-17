@@ -64,6 +64,29 @@ export class DependencyExtractionService {
       input,
       parsed,
     );
+
+    return this.persistParsedDependencies(
+      input,
+      parsed,
+      symbolResult.parsedSymbols,
+    );
+  }
+
+  /** Builds graph edges after a repository-wide symbol pass has completed. */
+  async extractDependenciesAndPersist(
+    input: ExtractAndPersistDependenciesInput,
+  ): Promise<DependencyExtractionResult> {
+    const parsed = await this.sourceParsingService.parseFile(input);
+    this.assertParserIdentity(input, parsed);
+
+    return this.persistParsedDependencies(input, parsed, parsed.symbols.length);
+  }
+
+  private async persistParsedDependencies(
+    input: ExtractAndPersistDependenciesInput,
+    parsed: ParseSourceResult,
+    parsedSymbols: number,
+  ): Promise<DependencyExtractionResult> {
     const normalized = this.normalizeDependencies(parsed);
 
     if (normalized.length > this.configuration.maxDependenciesPerFile) {
@@ -120,7 +143,7 @@ export class DependencyExtractionService {
       symbolResolvedDependencies,
       unresolvedDependencies:
         persistedDependencies.length - fileResolvedDependencies,
-      parsedSymbols: symbolResult.parsedSymbols,
+      parsedSymbols,
       diagnostics: parsed.diagnostics.length,
       hasSyntaxErrors: parsed.hasSyntaxErrors,
     };

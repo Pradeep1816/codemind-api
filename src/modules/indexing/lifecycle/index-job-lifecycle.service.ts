@@ -17,7 +17,8 @@ const PHASE_ORDER: readonly IndexJobPhase[] = [
   IndexJobPhase.Preparing,
   IndexJobPhase.Discovering,
   IndexJobPhase.Hashing,
-  IndexJobPhase.Analyzing,
+  IndexJobPhase.ExtractingSymbols,
+  IndexJobPhase.BuildingGraph,
   IndexJobPhase.Finalizing,
 ];
 
@@ -83,6 +84,15 @@ export class IndexJobLifecycleService {
       throw new ConflictException('Indexing progress is invalid');
     }
 
+    if (
+      input.currentFile !== null &&
+      (input.currentFile.length < 1 ||
+        input.currentFile.length > 1_024 ||
+        input.currentFile.includes('\0'))
+    ) {
+      throw new ConflictException('Current indexing file is invalid');
+    }
+
     const heartbeat = await this.heartbeat(input);
     const previous = heartbeat.job;
 
@@ -101,6 +111,7 @@ export class IndexJobLifecycleService {
       await this.repository.updateProgress(
         input,
         input.progress,
+        input.currentFile,
         this.configuration.jobLeaseMs,
       ),
     );

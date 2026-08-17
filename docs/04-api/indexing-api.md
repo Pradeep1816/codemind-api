@@ -2,9 +2,9 @@
 
 ## Status
 
-Milestone 3.9 implemented; background worker execution is Milestone 3.10. The
-API creates durable jobs, exposes lifecycle progress and history, accepts
-cancellation, and creates traceable manual retries.
+Milestone 3.10 implemented; tests are deferred to Milestone 3.11. The API
+returns immediately after creating durable work, while a PostgreSQL-backed
+worker executes the indexing pipeline in the background.
 
 ## Base path
 
@@ -36,16 +36,18 @@ the authenticated session and cannot be supplied by a client.
   "trigger": "manual",
   "mode": "incremental",
   "status": "running",
-  "phase": "analyzing",
+  "phase": "building_graph",
   "targetCommitSha": "8e008e725d9e411c5bff3a713b91afeaf4613f13",
   "retryOfJobId": null,
   "progress": {
+    "percentage": 51,
     "totalFiles": 1200,
     "processedFiles": 500,
     "skippedFiles": 120,
     "failedFiles": 0,
     "processedSymbols": 4500,
-    "processedDependencies": 3800
+    "processedDependencies": 3800,
+    "currentFile": "src/modules/payments/payment.service.ts"
   },
   "attemptCount": 1,
   "maxAttempts": 3,
@@ -62,8 +64,10 @@ the authenticated session and cannot be supplied by a client.
 
 `status` describes the durable lifecycle: `queued`, `running`, `succeeded`,
 `failed`, or `cancelled`. The more detailed `phase` is one of `queued`,
-`preparing`, `discovering`, `hashing`, `analyzing`, `finalizing`, or `finished`.
-The API never exposes the internal worker identity or lease token.
+`preparing`, `discovering`, `hashing`, `extracting_symbols`, `building_graph`,
+`finalizing`, or `finished`. The legacy `analyzing` value remains readable for
+jobs created before the two-pass worker phases. The API never exposes the
+internal worker identity or lease token.
 
 ## Queue a job
 
@@ -83,6 +87,9 @@ Content-Type: application/json
 The branch must be active and have a commit SHA from successful branch
 synchronization. `mode` defaults to `incremental`; `full` requests a complete
 rebuild. The server copies the target commit from trusted branch state.
+
+The successful response is `202 Accepted`. It contains the queued job; Git,
+hashing, parsing, and persistence never run inside the HTTP request.
 
 Only one `queued` or `running` job can exist for a repository branch. A second
 request returns `409 Conflict` until the active job becomes terminal.
@@ -112,6 +119,8 @@ Authorization: Bearer <access-token>
 
 The response uses the job representation above and is suitable for progress
 polling. `lastHeartbeatAt` shows worker liveness when the job is running.
+`progress.percentage` is derived from accounted files and is not stored
+separately. `progress.currentFile` is populated while one file is being parsed.
 
 ## Cancel a job
 
@@ -146,6 +155,24 @@ extend the lease. A retryable failure returns the same job to `queued` until
 `maxAttempts` is reached; `nextAttemptAt` exposes the retry delay. Expired
 leases are recovered in bounded batches and either requeued, failed, or
 cancelled. All file, hash, symbol, and dependency writes recheck the lease.
+
+## Background execution
+
+```mermaid
+flowchart LR
+    API[POST index job] -->|202 Accepted| DB[(PostgreSQL jobs)]
+    DB -->|SKIP LOCKED claim| Worker[Indexing worker]
+    Worker --> Discover[Discover files]
+    Discover --> Hash[Hash changes]
+    Hash --> Analyze[Parse symbols and dependencies]
+    Analyze --> Persist[(Persist metadata)]
+    Persist --> Complete[Succeeded]
+```
+
+The built-in worker polls PostgreSQL. `INDEXING_WORKER_ENABLED=false` disables
+processing in API-only deployments. Multiple application instances may safely
+poll because claims use row locks and private fencing tokens. BullMQ/Redis may
+later reduce polling latency, but PostgreSQL remains the source of truth.
 
 ## Error responses
 

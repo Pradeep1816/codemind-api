@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Milestones 3.1 through 3.9 implemented; tests deferred
-Version: 2.5
+Status: Milestones 3.1 through 3.10 implemented; tests deferred
+Version: 2.6
 Owner: CodeMind Engineering
 
 ## Purpose
@@ -12,14 +12,12 @@ The indexing module coordinates the durable work required to convert a
 synchronized repository branch into searchable code intelligence. It sits
 between repository ingestion and the parser/analysis pipeline.
 
-Milestones 3.1 through 3.9 establish the job and persistence model, immutable
+Milestones 3.1 through 3.10 establish the job and persistence model, immutable
 workspace boundary, file discovery, incremental hashing, language detection,
 bounded parser dispatch, version-scoped symbols, the initial dependency graph,
-and a durable job lifecycle. An authorized caller can queue, inspect, cancel,
-and retry jobs for an active synchronized branch.
-
-A background worker does not consume queued jobs yet. Milestone 3.9 exposes
-the safe internal claim/lease contract that Milestone 3.10 will call.
+and a durable job lifecycle. A background worker now consumes queued work and
+executes discovery, hashing, parsing, symbol extraction, and dependency
+persistence independently of the HTTP request.
 
 ## Current responsibilities
 
@@ -71,13 +69,20 @@ Implemented:
 - Cancel queued work immediately and running work cooperatively
 - Create manual retry rows without rewriting terminal history
 - Update branch indexing health only when the completed commit is still current
+- Return `202 Accepted` as soon as a durable job is created
+- Poll PostgreSQL for eligible work without requiring Redis
+- Heartbeat during long operations and check cancellation between files
+- Execute repository-wide symbol and graph passes to avoid order-dependent links
+- Mark immutable file hashes reusable only after analysis completes
+- Derive progress percentage while persisting the current file path
+- Stop new claims during graceful application shutdown
 - Return `404` for cross-organization repository or job identifiers
 
 Deferred to the next slices:
 
 - Function-call resolution and advanced static analysis
-- Queue transport and worker consumption
 - Repository-health integration for current job state
+- Dedicated worker-process bootstrap and configurable parallelism
 
 Not owned by this module:
 
@@ -146,7 +151,10 @@ persisted state.
 | `DependencyExtractionService` | Normalize parser relationships and resolve reliable targets | Parser results, symbol persistence, relative resolver, `CodeDependenciesRepository` |
 | `RelativeModuleResolverService` | Produce safe ordered candidates for relative modules | POSIX path rules only |
 | `CodeDependenciesRepository` | Resolve tenant-scoped lookup data and reconcile relationships | TypeORM and indexing entities |
-| Future worker service | Execute lease-owned durable jobs | Lifecycle service and scanner/parser ports |
+| `IndexingQueue` | PostgreSQL claim and expired-lease recovery adapter | `IndexingJobService` |
+| `IndexingProcessor` | Execute the complete lease-owned indexing pipeline | Inventory, hashing, dependency extraction, job service |
+| `IndexingWorker` | Poll, recover, process, and stop gracefully with Nest lifecycle | Typed configuration, queue, processor |
+| `IndexingJobService` | Worker-facing orchestration facade over lifecycle and persistence | Lifecycle service, `IndexingRepository` |
 
 The indexing module uses exported repository application services instead of
 querying repository tables directly. Its TypeORM persistence adapter is not
@@ -168,18 +176,23 @@ stateDiagram-v2
     cancelled --> [*]
 ```
 
-Milestone 3.9 implements these transitions through explicit lifecycle methods.
-Milestone 3.10 supplies the process that repeatedly claims and executes work;
-workers must never update job entities directly.
+Milestone 3.10 repeatedly claims and executes work through explicit lifecycle
+methods. Workers never update job entities directly.
 
 Lifecycle status is intentionally separate from processing phase:
 
 ```text
-queued -> preparing -> discovering -> hashing -> analyzing -> finalizing -> finished
+queued -> preparing -> discovering -> hashing
+       -> extracting_symbols -> building_graph -> finalizing -> finished
 ```
 
 Only a private lease token can advance a running job. A heartbeat renews the
 lease and reports whether cooperative cancellation was requested.
+
+The worker completes the symbol pass for every changed file before building
+graph edges. This currently reads and parses bounded source again during the
+graph pass, trading some CPU for deterministic cross-file symbol resolution
+without retaining an entire repository AST in memory.
 
 ## Creation rules
 
@@ -214,6 +227,11 @@ This makes a job reproducible. The worker must use `targetCommitSha`, not the
 branch's current SHA. A later request may queue a new job for commit B after
 the first job reaches a terminal state.
 
+Repository synchronization owns clone/fetch before a job can be created. The
+worker verifies and reads the captured commit from that managed Git cache; it
+does not pull a moving branch after job creation, because doing so would weaken
+snapshot reproducibility.
+
 ## Authorization and tenant isolation
 
 | Operation | Permissions |
@@ -242,12 +260,15 @@ Each job stores:
 - `failedFiles`: files that failed processing
 - `processedSymbols`: normalized symbols persisted
 - `processedDependencies`: normalized relationships persisted
+- `currentFile`: repository-relative path currently being analyzed
 - `attemptCount`: worker attempts
 - `maxAttempts`: terminal retry ceiling
 
 Database checks require non-negative values and ensure processed, skipped, and
 failed files never exceed the total. Counters remain zero until a worker owns
 the job, and absolute progress snapshots cannot move backwards in an attempt.
+The API derives `percentage` from accounted files to avoid storing redundant
+state that could disagree with the counters.
 
 ## Language detection
 
@@ -335,6 +356,13 @@ src/modules/indexing/
 │   ├── index-job-lifecycle.repository.ts
 │   ├── index-job-lifecycle.service.ts
 │   └── index-job-lifecycle.types.ts
+├── queue/
+│   ├── indexing.processor.ts
+│   └── indexing.queue.ts
+├── services/
+│   └── indexing-job.service.ts
+├── workers/
+│   └── indexing.worker.ts
 ├── indexing.controller.ts
 ├── file-inventory.service.ts
 ├── indexing.module.ts
@@ -369,8 +397,6 @@ explicitly deferred until the planned phase-level test slice.
 
 ## Next implementation slice
 
-Milestone 3.10 adds the background worker that invokes the lifecycle contract,
-prepares the immutable workspace, scans and hashes files, parses supported
-content, persists symbols/dependencies, heartbeats between bounded batches,
-and commits the terminal state. PostgreSQL remains authoritative; BullMQ or
-Redis can be added later as a delivery notification layer.
+Milestone 3.11 adds the deferred unit, integration, authorization, failure,
+incremental re-indexing, and performance tests. Milestone 3.12 then performs
+the final Phase 3 documentation and architecture review.

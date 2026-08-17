@@ -10,7 +10,7 @@
 | Phases 4–7 | Planned |
 | Phase 8 | Future |
 
-Milestones 3.1 through 3.9 are implemented. They define the indexing data model,
+Milestones 3.1 through 3.10 are implemented. They define the indexing data model,
 durable queued-job API, immutable commit verification, and isolated job
 workspace lifecycle, plus bounded Git-tree discovery and transactional file
 inventory. Incremental mode skips unchanged Git blobs and persists SHA-256
@@ -19,8 +19,10 @@ language and parser capability, normalized TS/JS parsing through the
 TypeScript Compiler API, version-scoped symbol persistence, and the initial
 dependency graph. Milestone 3.9 adds atomic claims, leases, phase/progress
 tracking, bounded automatic retries, cancellation, recovery, and manual retry
-history. The E2E and new Phase 3 tests are explicitly deferred. Milestone 3.10
-background execution is next.
+history. Milestone 3.10 now executes the complete pipeline through a
+PostgreSQL-backed background worker with heartbeats, cooperative cancellation,
+incremental completion markers, and graceful shutdown. The E2E and new Phase 3
+tests are explicitly deferred to Milestone 3.11.
 
 ## Phase 1 — Platform & Identity
 
@@ -259,7 +261,7 @@ deferred until semantic resolution is reliable.
 
 ### 3.9 Index job system
 
-Status: Implemented; migration execution and tests deferred
+Status: Implemented; tests deferred
 
 Current endpoints:
 
@@ -282,15 +284,19 @@ Delivered:
 
 ### 3.10 Background processing
 
-Status: Planned
+Status: Implemented; migration execution and tests deferred
 
-Deliver next:
+Delivered:
 
 - Worker polling and end-to-end pipeline orchestration
 - Periodic heartbeats and cooperative cancellation checks between batches
 - At-least-once, idempotent processing through the lifecycle contract
 - BullMQ/Redis only as an optional delivery notification layer
 - Startup and scheduled expired-lease recovery invocation
+- `202 Accepted` job creation outside the processing lifecycle
+- Current-file and derived-percentage progress reporting
+- Per-hash analysis completion for restart-safe incremental reuse
+- Environment-controlled polling and graceful shutdown
 
 ### 3.11 Tests
 

@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Milestone 3.9 schema implemented; lifecycle migration pending
-Version: 2.4
+Status: Milestone 3.10 schema implemented; worker-progress migration pending
+Version: 2.5
 Owner: CodeMind Engineering
 Architecture decision: [ADR-012](../06-adrs/012-indexing-engine.md)
 
@@ -106,6 +106,7 @@ referenced repository, branch, job, and file.
 | `lease_expires_at` | timestamptz | Yes | Time after which recovery may reclaim the job |
 | `next_attempt_at` | timestamptz | Yes | Earliest automatic retry time |
 | `cancellation_requested_at` | timestamptz | Yes | Cooperative cancellation request time |
+| `current_file` | varchar(1024) | Yes | Repository-relative file currently being analyzed |
 | `created_at` | timestamptz | No | Queue time |
 | `updated_at` | timestamptz | No | Last lifecycle update |
 
@@ -136,6 +137,8 @@ tokens. Every worker persistence boundary verifies the token, unexpired lease,
 and absence of a cancellation request before writing metadata. A status/phase
 check requires queued jobs to use `queued`, running jobs to use an active
 pipeline phase, and terminal jobs to use `finished`.
+`current_file` must be null outside `running` state. File-hash analysis identity
+and completion time must either both be null or both be populated.
 
 ## `indexed_files`
 
@@ -186,10 +189,12 @@ content reliably.
 | `organization_id` | UUID | No | Tenant boundary |
 | `indexed_file_id` | integer | No | Stable file/path identity |
 | `observed_by_job_id` | integer | Yes | First job that persisted the version |
+| `analyzed_by_job_id` | integer | Yes | Most recent job that completed analysis |
 | `algorithm` | `file_hash_algorithm` | No | Currently `sha256` |
 | `value` | varchar(128) | No | Lowercase digest |
 | `git_blob_oid` | varchar(64) | No | Git object ID used for cheap change detection |
 | `size_bytes` | integer | No | Hashed content size |
+| `analysis_completed_at` | timestamptz | Yes | Symbols and dependencies completed for this immutable version |
 | `created_at` | timestamptz | No | First observation time |
 
 The uniqueness rule is:
@@ -201,6 +206,13 @@ UNIQUE (indexed_file_id, algorithm, value)
 If a file returns to content seen earlier, the existing content version can be
 reused. The tenant/algorithm/value index supports future parser-artifact reuse
 without removing tenant scope.
+
+`analysis_completed_at` is the restart-safe incremental boundary. A matching
+Git blob or SHA-256 is skipped only after this marker exists. A crash after
+hashing but before dependency persistence leaves it null, so the next attempt
+re-analyzes the file. `analyzed_by_job_id` preserves the completing job, and
+its `NO ACTION` foreign key prevents that history row from being removed while
+the completed file version still references it.
 
 ## `code_symbols`
 
@@ -438,6 +450,7 @@ The indexing schema is introduced through additive migrations:
 1785640000000-AddCodeSymbols.ts
 1785650000000-AddCodeDependencies.ts
 1785660000000-ExpandIndexJobLifecycle.ts
+1785670000000-AddIndexWorkerProgress.ts
 ```
 
 The split is intentional: the durable job/API slice landed first, the ADR
@@ -447,6 +460,8 @@ incremental processing added the explicit current-content pointer, Milestone
 retry-safe directed dependency relationships. Milestone 3.9 adds phases,
 metadata counters, retry ancestry, cancellation, claim ownership, lease
 fencing, heartbeat timestamps, and recovery indexes.
+Milestone 3.10 adds current-file progress and explicit immutable-hash analysis
+completion so background retries distinguish unchanged from incomplete work.
 
 Commands:
 

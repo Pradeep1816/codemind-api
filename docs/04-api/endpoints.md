@@ -341,10 +341,9 @@ Create body:
 }
 ```
 
-New jobs are durably stored with `status: "queued"`. Milestone 3.9 provides
-atomic claim/lease ownership, detailed phase and progress state, cancellation,
-automatic recovery/retry, and manual retry history. Background worker
-execution is the next indexing slice.
+New jobs return `202 Accepted` after durable storage with `status: "queued"`.
+The PostgreSQL-backed worker claims and executes them asynchronously with
+phase/current-file progress, heartbeats, cancellation, and bounded retries.
 
 See [Indexing Job API](indexing-api.md) for the complete contract.
 

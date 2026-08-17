@@ -214,6 +214,11 @@ disabled.
 | `INDEXING_JOB_RETRY_DELAY_MS` | No | `30000` | Delay before an automatic retry is claimable |
 | `INDEXING_JOB_MAX_ATTEMPTS` | No | `3` | Maximum automatic attempts for a job |
 | `INDEXING_JOB_RECOVERY_BATCH_SIZE` | No | `100` | Maximum expired leases recovered per call |
+| `INDEXING_JOB_HEARTBEAT_INTERVAL_MS` | No | `15000` | Heartbeat interval; must be shorter than the lease |
+| `INDEXING_WORKER_ENABLED` | No | `true` | Start PostgreSQL polling in this application process |
+| `INDEXING_WORKER_ID` | No | Host and process ID | Optional stable worker identity |
+| `INDEXING_WORKER_POLL_INTERVAL_MS` | No | `2000` | Delay when no queued job is available |
+| `INDEXING_WORKER_RECOVERY_INTERVAL_MS` | No | `30000` | Interval between expired-lease recovery passes |
 
 The `indexing` namespace exposes:
 
@@ -231,6 +236,11 @@ The `indexing` namespace exposes:
   jobRetryDelayMs: number;
   jobMaxAttempts: number;
   jobRecoveryBatchSize: number;
+  jobHeartbeatIntervalMs: number;
+  workerEnabled: boolean;
+  workerId: string | undefined;
+  workerPollIntervalMs: number;
+  workerRecoveryIntervalMs: number;
 }
 ```
 

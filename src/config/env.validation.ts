@@ -267,6 +267,32 @@ class EnvironmentVariables {
   @Max(1_000)
   INDEXING_JOB_RECOVERY_BATCH_SIZE = 100;
 
+  @Type(() => Number)
+  @IsInt()
+  @Min(1_000)
+  @Max(300_000)
+  INDEXING_JOB_HEARTBEAT_INTERVAL_MS = 15_000;
+
+  @IsIn(['true', 'false'])
+  INDEXING_WORKER_ENABLED = 'true';
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^(?:[A-Za-z0-9._:-]{1,200})?$/)
+  INDEXING_WORKER_ID?: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(100)
+  @Max(60_000)
+  INDEXING_WORKER_POLL_INTERVAL_MS = 2_000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1_000)
+  @Max(3_600_000)
+  INDEXING_WORKER_RECOVERY_INTERVAL_MS = 30_000;
+
   @IsEnum(AiProvider)
   AI_PROVIDER = AiProvider.OpenAi;
 
@@ -305,6 +331,15 @@ export function validateEnvironment(
     );
 
     throw new Error(`Environment validation failed: ${messages.join(', ')}`);
+  }
+
+  if (
+    validatedConfiguration.INDEXING_JOB_HEARTBEAT_INTERVAL_MS >=
+    validatedConfiguration.INDEXING_JOB_LEASE_MS
+  ) {
+    throw new Error(
+      'INDEXING_JOB_HEARTBEAT_INTERVAL_MS must be less than INDEXING_JOB_LEASE_MS',
+    );
   }
 
   return validatedConfiguration;
