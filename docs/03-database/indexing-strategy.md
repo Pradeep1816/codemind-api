@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Milestone 3.10 schema implemented; worker-progress migration pending
-Version: 2.5
+Status: Phase 3 schema complete and verified
+Version: 2.7
 Owner: CodeMind Engineering
 Architecture decision: [ADR-012](../06-adrs/012-indexing-engine.md)
 
@@ -412,16 +412,17 @@ indexing data as one aggregate.
 ADR-012 defines a hybrid strategy:
 
 ```text
-same target commit + incremental mode -> no-op success
-same path + same Git blob ID          -> reuse content version
-new blob + known SHA-256              -> reuse parser artifact when valid
-new SHA-256                            -> parse new content version
-missing previous path                  -> mark indexed file deleted
+scan immutable target commit tree       -> reconcile current inventory
+same path + same Git blob ID            -> reuse content version
+new blob + known SHA-256                -> reuse immutable hash row
+completed analysis + incremental mode   -> skip parsing
+incomplete or full-mode content version -> parse and reconcile metadata
+missing previous path                   -> mark indexed file deleted
 ```
 
-Git object IDs avoid reading most unchanged blobs. SHA-256 remains the durable
-cross-Git-format content identity and is computed while bounded content is
-read.
+The tree is scanned on every job so deleted paths are detected. Git object IDs
+avoid reading most unchanged blobs. SHA-256 remains the durable content
+identity and is computed while bounded changed content is read.
 
 ## Transaction boundaries
 
@@ -429,7 +430,7 @@ The API creates a queued job with one short database write after tenant and
 branch validation. No clone, fetch, filesystem, parser, or AI work occurs in
 that request transaction.
 
-Workers will:
+Workers:
 
 1. Claim a job in a short atomic transaction.
 2. Scan/hash/parse outside a transaction.
@@ -473,3 +474,7 @@ yarn typeorm schema:log -d src/database/data-source.ts
 ```
 
 After all migrations are applied, `schema:log` must generate no SQL.
+
+The Milestone 3.11 PostgreSQL suite applies the migration chain to the isolated
+test database and verifies initial, incremental, full, deletion, cancellation,
+recovery, and failure persistence.

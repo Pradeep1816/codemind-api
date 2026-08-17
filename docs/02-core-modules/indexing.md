@@ -2,9 +2,11 @@
 
 ## Document information
 
-Status: Milestones 3.1 through 3.10 implemented; tests deferred
-Version: 2.6
+Status: Phase 3 complete
+Version: 2.8
 Owner: CodeMind Engineering
+Architecture: [ADR-012](../06-adrs/012-indexing-engine.md),
+[ADR-013](../06-adrs/013-parser-architecture.md)
 
 ## Purpose
 
@@ -12,12 +14,13 @@ The indexing module coordinates the durable work required to convert a
 synchronized repository branch into searchable code intelligence. It sits
 between repository ingestion and the parser/analysis pipeline.
 
-Milestones 3.1 through 3.10 establish the job and persistence model, immutable
+Milestones 3.1 through 3.12 establish the job and persistence model, immutable
 workspace boundary, file discovery, incremental hashing, language detection,
 bounded parser dispatch, version-scoped symbols, the initial dependency graph,
 and a durable job lifecycle. A background worker now consumes queued work and
 executes discovery, hashing, parsing, symbol extraction, and dependency
-persistence independently of the HTTP request.
+persistence independently of the HTTP request. Focused service and PostgreSQL
+E2E tests now protect the complete workflow.
 
 ## Current responsibilities
 
@@ -83,6 +86,7 @@ Deferred to the next slices:
 - Function-call resolution and advanced static analysis
 - Repository-health integration for current job state
 - Dedicated worker-process bootstrap and configurable parallelism
+- Automatic terminal-workspace retention cleanup and storage quotas
 
 Not owned by this module:
 
@@ -134,6 +138,25 @@ IndexingService
 Clients never submit `organizationId`, `requestedByUserId`, job status, or a
 commit SHA. Those values come from the authenticated identity and trusted
 persisted state.
+
+## Queue and worker architecture
+
+```mermaid
+flowchart LR
+    Client[Authenticated client] --> API[Indexing API]
+    API -->|create queued row and return 202| Jobs[(PostgreSQL index_jobs)]
+    Worker[IndexingWorker poll loop] --> Queue[IndexingQueue]
+    Queue -->|SKIP LOCKED claim| Jobs
+    Queue -->|lease-owned job| Processor[IndexingProcessor]
+    Processor --> Git[Immutable Git objects]
+    Processor --> Parser[Parser module]
+    Processor --> Metadata[(Files, hashes, symbols, dependencies)]
+    Processor -->|heartbeat, progress, terminal state| Jobs
+```
+
+PostgreSQL is both the durable queue and source of truth. `IndexingQueue` is a
+claim/recovery adapter, not a second store. Redis or BullMQ may later provide a
+wake-up notification, but losing that notification must never lose the job.
 
 ## Module boundaries
 
@@ -189,8 +212,9 @@ queued -> preparing -> discovering -> hashing
 Only a private lease token can advance a running job. A heartbeat renews the
 lease and reports whether cooperative cancellation was requested.
 
-The worker completes the symbol pass for every changed file before building
-graph edges. This currently reads and parses bounded source again during the
+The worker completes the symbol pass for every selected parser-supported file
+before building graph edges. This currently reads and parses bounded source
+again during the
 graph pass, trading some CPU for deterministic cross-file symbol resolution
 without retaining an entire repository AST in memory.
 
@@ -391,12 +415,20 @@ unknown/deleted/unsynchronized branches, active-job conflicts, concurrent
 database uniqueness races, tenant-scoped lists, and hidden cross-tenant job
 identifiers.
 
-The migration and entity metadata must also pass TypeORM schema-drift checks.
-New Phase 3 scanner, hash, language, parser, symbol, and dependency tests remain
-explicitly deferred until the planned phase-level test slice.
+The Milestone 3.11 suite covers discovery limits and ignores, hashing, language
+detection, TypeScript/JavaScript parsing, symbol and dependency persistence,
+job transitions, retries, cancellation, expired leases, and tenant-aware API
+authorization. A deterministic Git boundary drives a real PostgreSQL pipeline
+test for initial, unchanged, modified, deleted, full, and failed indexing.
 
-## Next implementation slice
+The small-fixture performance smoke check enforces a run below ten seconds,
+positive file throughput, and less than 256 MiB of heap growth. It is a
+regression guard, not a substitute for a future large-repository benchmark.
 
-Milestone 3.11 adds the deferred unit, integration, authorization, failure,
-incremental re-indexing, and performance tests. Milestone 3.12 then performs
-the final Phase 3 documentation and architecture review.
+## Phase 4 handoff
+
+Phase 3 ends at versioned structural metadata. Phase 4 may consume active
+files, current file hashes, symbols, and dependency edges to derive domain
+concepts, architectural components, workflows, and business rules. It must
+retain organization, repository, branch, commit, file, and source-range
+provenance rather than replacing Phase 3 records with generated summaries.

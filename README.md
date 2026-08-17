@@ -32,7 +32,8 @@ MCP and developer tools
 
 ## Current Status
 
-CodeMind is implementing Phase 3 indexing and code intelligence.
+CodeMind has completed Phase 3 indexing and code intelligence. Phase 4,
+knowledge graph and business-logic extraction, is next.
 
 Implemented:
 
@@ -73,6 +74,8 @@ Implemented:
   retries, and expired-job recovery
 - PostgreSQL-backed background indexing worker with incremental completion
   markers and graceful shutdown
+- Focused indexing/parser service tests and a deterministic PostgreSQL E2E
+  pipeline covering incremental, full, retry, cancellation, and recovery flows
 - Database-aware `GET /health` endpoint
 - URI API versioning under `/api/v1`
 - Global request validation
@@ -829,6 +832,10 @@ Never enable automatic schema synchronization in production.
 - [Repository API](docs/04-api/repository-api.md)
 - [Repository module](docs/02-core-modules/repository.md)
 - [Repository schema](docs/03-database/repository-schema.md)
+- [Indexing module](docs/02-core-modules/indexing.md)
+- [Parser module](docs/02-core-modules/parser.md)
+- [Indexing API](docs/04-api/indexing-api.md)
+- [Indexing schema](docs/03-database/indexing-strategy.md)
 - [Roadmap](docs/05-roadmap/roadmap.md)
 - [Milestones](docs/05-roadmap/milestones.md)
 - [Architecture decisions](docs/06-adrs/README.md)

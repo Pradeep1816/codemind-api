@@ -23,6 +23,18 @@ Then run the suite:
 yarn test:e2e
 ```
 
+Run only the indexing pipeline suite with:
+
+```bash
+yarn test:e2e indexing.e2e-spec.ts --runInBand
+```
+
+The indexing suite disables autonomous worker polling and invokes each claim
+explicitly. Its deterministic Git boundary supplies immutable fixture commits
+while NestJS, guards, migrations, TypeORM repositories, lifecycle services,
+and PostgreSQL remain real. It covers initial, unchanged, modified, deleted,
+full, cancelled, recovered, and retry-exhausted jobs.
+
 Both database creation and data cleanup refuse to operate unless the actual
 database name ends with `_test`. E2E cleanup truncates application tables but
 preserves the TypeORM `migrations` table.

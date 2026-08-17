@@ -2,9 +2,10 @@
 
 ## Status
 
-Milestone 3.10 implemented; tests are deferred to Milestone 3.11. The API
-returns immediately after creating durable work, while a PostgreSQL-backed
-worker executes the indexing pipeline in the background.
+Phase 3 is complete. The API returns immediately after creating durable work,
+while a PostgreSQL-backed worker executes the indexing pipeline in the
+background. Authorization, job lifecycle, cancellation, retries, and pipeline
+outcomes are covered by the PostgreSQL E2E suite.
 
 ## Base path
 
@@ -14,6 +15,12 @@ worker executes the indexing pipeline in the background.
 
 All requests require a bearer access token. The organization scope comes from
 the authenticated session and cannot be supplied by a client.
+
+This API exposes orchestration and progress, not raw code-intelligence tables.
+`indexed_files`, `file_hashes`, `code_symbols`, and `code_dependencies` are
+internal Phase 3 persistence models. Phase 4 and Phase 5 will expose
+source-grounded knowledge and search contracts instead of leaking database
+rows directly.
 
 ## Endpoints
 
@@ -186,3 +193,11 @@ later reduce polling latency, but PostgreSQL remains the source of truth.
 
 Cross-organization IDs intentionally return `404` to avoid resource
 disclosure.
+
+## Related documentation
+
+- [Indexing module](../02-core-modules/indexing.md)
+- [Parser module](../02-core-modules/parser.md)
+- [Indexing schema](../03-database/indexing-strategy.md)
+- [ADR-012: Indexing engine](../06-adrs/012-indexing-engine.md)
+- [ADR-013: Parser architecture](../06-adrs/013-parser-architecture.md)

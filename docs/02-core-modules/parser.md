@@ -2,9 +2,10 @@
 
 ## Document information
 
-Status: Milestone 3.8 dependency extraction integrated; tests deferred
-Version: 2.2
+Status: Phase 3 parser architecture complete
+Version: 2.4
 Owner: CodeMind Engineering
+Architecture decision: [ADR-013](../06-adrs/013-parser-architecture.md)
 
 ## Purpose
 
@@ -33,10 +34,7 @@ Implemented in Milestone 3.6:
 Deferred:
 
 - Function-call extraction and semantic type-checker relationships
-- Background orchestration, retries, and failure thresholds in Milestone 3.10
 - Additional language adapters
-- Phase-level parser tests, as explicitly deferred for the current development
-  sequence
 
 ## Architecture boundary
 
@@ -92,6 +90,9 @@ src/modules/indexing/parsing/
 ├── source-parsing.service.ts
 └── source-parsing.types.ts
 ```
+
+This split allows future parser adapters to change libraries without changing
+Git access, job ownership, or persistence rules.
 
 ## Parser contract
 
@@ -259,8 +260,10 @@ version-scoped relationships, resolves deterministic relative repository
 paths, and links unambiguous symbols. Bare packages, aliases, and ambiguous
 symbols preserve their text without an incorrect target.
 
-## Next milestone
+## Verification
 
-Milestone 3.10 now coordinates inventory, parsing, symbols, and dependencies in
-a lease-owned background worker. Milestone 3.11 adds parser and end-to-end
-pipeline coverage before Phase 3 completion.
+Milestone 3.11 covers TypeScript symbols and relationships, JavaScript/JSX
+dispatch, malformed-source diagnostics, unsupported language rejection,
+bounded immutable source reads, symbol normalization, and dependency
+resolution. The PostgreSQL E2E suite also verifies parser output through the
+complete background indexing pipeline.

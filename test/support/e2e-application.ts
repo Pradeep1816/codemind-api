@@ -8,9 +8,8 @@ import { AppModule } from '../../src/app.module';
 import { configureApplication } from '../../src/app.setup';
 import { GitService } from '../../src/modules/repositories/git/git.service';
 
-export interface E2eGitService {
-  synchronizeRepository: GitService['synchronizeRepository'];
-}
+export type E2eGitService = Pick<GitService, 'synchronizeRepository'> &
+  Partial<Pick<GitService, 'requireCommit' | 'listCommitFiles' | 'readBlob'>>;
 
 export interface E2eApplicationContext {
   app: INestApplication;

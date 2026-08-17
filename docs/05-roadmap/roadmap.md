@@ -3,8 +3,8 @@
 ## Document information
 
 Status: Active
-Version: 2.0
-Updated: 2026-08-01
+Version: 2.1
+Updated: 2026-08-17
 Owner: CodeMind Engineering
 
 ## Vision
@@ -33,7 +33,7 @@ The product goal is:
 |---:|---|---|---|
 | 1 | Platform & Identity | Secure multi-tenant backend foundation | Complete |
 | 2 | Repository Management | Register, share, synchronize, and inspect repositories | Complete |
-| 3 | Indexing & Code Intelligence | Convert Git source into structured code metadata | In progress |
+| 3 | Indexing & Code Intelligence | Convert Git source into structured code metadata | Complete |
 | 4 | Knowledge Graph & Business Logic | Convert code structure into navigable system knowledge | Planned |
 | 5 | Search Engine | Retrieve precise lexical, symbol, graph, and semantic context | Planned |
 | 6 | AI Assistant (RAG) | Answer and reason from retrieved CodeMind knowledge | Planned |
@@ -42,11 +42,11 @@ The product goal is:
 
 ## Current checkpoint
 
-Phases 1 and 2 are complete. Phase 3.1 defines the durable indexing job,
-file inventory, content-version, and indexing-error foundation. The job API
-creates an immutable branch/commit request and exposes status/history.
+Phases 1 through 3 are complete. Phase 3 established the durable indexing job,
+file inventory, content-version, symbol, dependency, and indexing-error model.
+The API creates an immutable branch/commit request and exposes status/history.
 
-Phase 3.2 prepares isolated job workspaces and verifies the immutable commit in
+Phase 3.2 prepared isolated job workspaces and verified the immutable commit in
 the hardened Git object cache. Phase 3.3 scans that Git tree with centralized
 ignore and resource policies and transactionally reconciles file inventory.
 Phase 3.4 skips unchanged Git blobs and persists SHA-256 content versions for
@@ -55,16 +55,19 @@ and JSON/Markdown/YAML as inventory-only. Phase 3.6 parses bounded TS/TSX/JS/JSX
 content into normalized syntax metadata without executing it. Phase 3.7 stores
 version-scoped symbols with tenant-aware, retry-safe reconciliation. Phase 3.8
 stores imports, exports, inheritance, and reliably resolved local targets.
-Phase 3.9 adds the durable job state machine, atomic claims, lease fencing,
+Phase 3.9 added the durable job state machine, atomic claims, lease fencing,
 heartbeats, progress, retry, cancellation, recovery, and terminal health
 updates. Phase 3.10 executes that lifecycle through a PostgreSQL-backed worker,
 including current-file progress, incremental completion markers, heartbeats,
-cancellation checks, failure recording, and graceful shutdown.
+cancellation checks, failure recording, and graceful shutdown. Milestone 3.11
+verified the pipeline with service and PostgreSQL E2E coverage, and Milestone
+3.12 reconciled the module, API, schema, parser, ADR, and roadmap documents.
 
 Architecture decisions:
 
 - [ADR-011: Secure Git Integration](../06-adrs/011-secure-git-integration.md)
 - [ADR-012: Indexing Engine Architecture](../06-adrs/012-indexing-engine.md)
+- [ADR-013: Parser Architecture](../06-adrs/013-parser-architecture.md)
 
 ## Phase 1 — Platform & Identity
 
@@ -124,22 +127,22 @@ flowchart TD
 
 | Milestone | Scope | Status |
 |---:|---|---|
-| 3.1 | Indexing foundation | Implemented; E2E regression deferred |
-| 3.2 | Git workspace manager | Implemented; tests deferred |
-| 3.3 | File discovery | Implemented; tests deferred |
-| 3.4 | Incremental indexing | Implemented; tests deferred |
-| 3.5 | Language detection | Implemented; tests deferred |
-| 3.6 | Parser engine | Implemented; tests deferred |
-| 3.7 | Symbol extraction | Implemented; tests deferred |
-| 3.8 | Dependency graph | Implemented; tests deferred |
-| 3.9 | Index job system | Implemented; tests deferred |
-| 3.10 | Background processing | Implemented; migration and tests deferred |
-| 3.11 | Tests | Continuous; phase-level suite planned |
-| 3.12 | Documentation | Continuous; completion review planned |
+| 3.1 | Indexing foundation | Implemented; covered by 3.11 |
+| 3.2 | Git workspace manager | Implemented; covered by 3.11 |
+| 3.3 | File discovery | Implemented; covered by 3.11 |
+| 3.4 | Incremental indexing | Implemented; covered by 3.11 |
+| 3.5 | Language detection | Implemented; covered by 3.11 |
+| 3.6 | Parser engine | Implemented; covered by 3.11 |
+| 3.7 | Symbol extraction | Implemented; covered by 3.11 |
+| 3.8 | Dependency graph | Implemented; covered by 3.11 |
+| 3.9 | Index job system | Implemented; covered by 3.11 |
+| 3.10 | Background processing | Implemented; covered by 3.11 |
+| 3.11 | Tests | Implemented |
+| 3.12 | Documentation | Complete |
 
-Phase 3 is complete when CodeMind can:
+Phase 3 delivers:
 
-- Materialize an exact repository commit safely
+- Verify and read an exact repository commit safely without checkout
 - Scan supported source files with bounded resource use
 - Detect unchanged, changed, new, and deleted files
 - Parse TypeScript and JavaScript without executing source code

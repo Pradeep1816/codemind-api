@@ -6,11 +6,11 @@
 |---|---|
 | Phase 1 — Platform & Identity | Complete |
 | Phase 2 — Repository Management | Complete |
-| Phase 3 — Indexing & Code Intelligence | In progress |
+| Phase 3 — Indexing & Code Intelligence | Complete |
 | Phases 4–7 | Planned |
 | Phase 8 | Future |
 
-Milestones 3.1 through 3.10 are implemented. They define the indexing data model,
+Milestones 3.1 through 3.12 are implemented. They define the indexing data model,
 durable queued-job API, immutable commit verification, and isolated job
 workspace lifecycle, plus bounded Git-tree discovery and transactional file
 inventory. Incremental mode skips unchanged Git blobs and persists SHA-256
@@ -21,8 +21,12 @@ dependency graph. Milestone 3.9 adds atomic claims, leases, phase/progress
 tracking, bounded automatic retries, cancellation, recovery, and manual retry
 history. Milestone 3.10 now executes the complete pipeline through a
 PostgreSQL-backed background worker with heartbeats, cooperative cancellation,
-incremental completion markers, and graceful shutdown. The E2E and new Phase 3
-tests are explicitly deferred to Milestone 3.11.
+incremental completion markers, and graceful shutdown. Milestone 3.11 adds
+focused service tests and a real-PostgreSQL pipeline suite for authorization,
+initial/full/incremental indexing, changed and deleted files, atomic claims,
+cancellation, lease recovery, bounded retries, and performance smoke limits.
+Milestone 3.12 completes the module, parser, API, schema, ADR, roadmap, and
+Phase 4 handoff documentation.
 
 ## Phase 1 — Platform & Identity
 
@@ -91,14 +95,14 @@ Status: Complete
 
 ## Phase 3 — Indexing & Code Intelligence
 
-Status: In progress
+Status: Complete
 
 Goal: transform an exact Git commit into versioned file, symbol, and dependency
 metadata without executing repository code.
 
 ### 3.1 Indexing foundation
 
-Status: Implemented; E2E regression deferred
+Status: Implemented; covered by the Milestone 3.11 suite
 
 Implemented structure:
 
@@ -154,7 +158,7 @@ Acceptance criteria:
 
 ### 3.2 Git workspace manager
 
-Status: Implemented; tests deferred
+Status: Implemented; covered by the Milestone 3.11 suite
 
 Deliver:
 
@@ -163,17 +167,18 @@ Deliver:
 - `source/`, `metadata/`, and `cache/` lifecycle
 - Immutable target-commit verification against the hardened Git object cache
 - Traversal/symlink containment protection
-- Cleanup and storage-budget policies
+- Safe workspace reset and validated cleanup operations
+- File-count, byte, path, and depth input budgets
 - No repository code, hooks, build steps, or package scripts executed
 
 The workspace service prepares empty `source`, `metadata`, and `cache`
-directories. Milestone 3.3 scans immutable Git-tree metadata without a
-checkout. Milestone 3.4 reads only selected blobs for hashing and may
-materialize bounded source when a later parser requires it.
+directories. The current pipeline scans immutable Git-tree metadata without a
+checkout and reads only selected blobs. `source/` remains reserved for a future
+adapter that requires bounded materialization.
 
 ### 3.3 File discovery
 
-Status: Implemented; tests deferred
+Status: Implemented; covered by the Milestone 3.11 suite
 
 Deliver:
 
@@ -181,16 +186,16 @@ Deliver:
 - Central supported-extension registry
 - Default ignores for `.git`, `node_modules`, `dist`, `build`, and `coverage`
 - Normalized relative paths
-- File-count, path, depth, file-size, total-byte, and timeout limits
+- File-count, path, depth, file-size, and total-byte limits
 - Batched writes to `indexed_files`
 
 ### 3.4 Incremental indexing
 
-Status: Implemented; tests deferred
+Status: Implemented; covered by the Milestone 3.11 suite
 
 Deliver the ADR-012 hybrid strategy:
 
-- Target-commit no-op detection
+- Immutable target-commit verification on every run
 - Git blob identity for cheap unchanged-file checks
 - SHA-256 content identity for durable versions
 - Added, changed, unchanged, and deleted classification
@@ -199,7 +204,7 @@ Deliver the ADR-012 hybrid strategy:
 
 ### 3.5 Language detection
 
-Status: Implemented; tests deferred
+Status: Implemented; covered by the Milestone 3.11 suite
 
 Initial parsed languages:
 
@@ -213,14 +218,14 @@ files. Future adapters add Python, Java, Go, PHP, and C#.
 
 ### 3.6 Parser engine
 
-Status: Implemented; tests deferred
+Status: Implemented; covered by the Milestone 3.11 suite
 
 Deliver:
 
 - Language-specific `SourceParser` interface
 - TypeScript Compiler API adapter for TS/JS
 - Plain normalized parser results with no ORM coupling
-- Syntax diagnostics and per-file failure isolation
+- Syntax diagnostics without executing repository source
 - Bounded source input and parser execution
 
 The adapter extracts normalized classes, interfaces, functions, methods,
@@ -229,7 +234,7 @@ Those results are persisted by Milestone 3.7.
 
 ### 3.7 Symbol extraction
 
-Status: Implemented; tests deferred
+Status: Implemented; covered by the Milestone 3.11 suite
 
 Create version-scoped symbol metadata for:
 
@@ -245,7 +250,7 @@ output after verifying running-job and tenant ownership.
 
 ### 3.8 Dependency graph
 
-Status: Implemented; tests deferred
+Status: Implemented; covered by the Milestone 3.11 suite
 
 Create directed relationships for:
 
@@ -261,7 +266,7 @@ deferred until semantic resolution is reliable.
 
 ### 3.9 Index job system
 
-Status: Implemented; tests deferred
+Status: Implemented; covered by the Milestone 3.11 suite
 
 Current endpoints:
 
@@ -284,7 +289,7 @@ Delivered:
 
 ### 3.10 Background processing
 
-Status: Implemented; migration execution and tests deferred
+Status: Implemented; migration and pipeline verified by the Milestone 3.11 suite
 
 Delivered:
 
@@ -300,9 +305,9 @@ Delivered:
 
 ### 3.11 Tests
 
-Status: Continuous
+Status: Implemented
 
-Add coverage with each slice:
+Delivered coverage:
 
 - Workspace and Git security tests
 - Scanner ignore, limit, and path-safety tests
@@ -311,26 +316,31 @@ Add coverage with each slice:
 - Symbol and dependency extraction tests
 - Job transition, retry, cancellation, and recovery tests
 - PostgreSQL integration and cross-tenant authorization tests
+- Initial, unchanged, modified, deleted, and explicit full-index workflows
+- Concurrent claims, cancellation, expired-lease recovery, and retry exhaustion
+- A bounded small-fixture duration, throughput, and heap-growth smoke check
 
-Only service unit specs are added for the current indexing foundation; no
-controller or DTO unit spec files are created.
+Only service unit specs and pipeline E2E tests are added; no controller or DTO
+unit spec files are created.
 
 ### 3.12 Documentation
 
-Status: In progress throughout Phase 3
+Status: Complete
 
-Maintain:
+Final documentation set:
 
 - `docs/02-core-modules/indexing.md`
+- `docs/02-core-modules/parser.md`
 - `docs/03-database/indexing-strategy.md`
 - `docs/04-api/indexing-api.md`
 - `docs/06-adrs/012-indexing-engine.md`
+- `docs/06-adrs/013-parser-architecture.md`
 - This roadmap and milestone tracker
 
 ## Phase 3 completion gate
 
-Phase 3 is complete when a synchronized TypeScript/JavaScript repository can
-be safely indexed end-to-end and CodeMind can persist:
+Phase 3 is complete. A synchronized TypeScript/JavaScript repository can be
+safely indexed end-to-end, and CodeMind persists:
 
 - Active and deleted file inventory
 - Commit, Git blob, and SHA-256 provenance
@@ -338,8 +348,17 @@ be safely indexed end-to-end and CodeMind can persist:
 - Dependency relationships
 - Progress, file failures, retries, and terminal job state
 
-The resulting metadata must be tenant-scoped, migration-backed, searchable by
-the next phase, and covered by unit plus PostgreSQL integration tests.
+The resulting metadata is tenant-scoped, migration-backed, ready for Phase 4
+consumption, and covered by unit plus PostgreSQL integration tests.
+
+Verification commands:
+
+```bash
+yarn build
+yarn eslint "{src,apps,libs,test}/**/*.ts"
+yarn test --runInBand
+yarn test:e2e --runInBand
+```
 
 ## Later phases
 

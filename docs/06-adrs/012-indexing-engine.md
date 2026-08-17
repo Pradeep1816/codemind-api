@@ -71,24 +71,27 @@ Each worker attempt receives a service-derived path:
 └── cache/
 ```
 
-- `source/` contains only files selected from the job's target commit.
-- `metadata/` contains bounded temporary manifests and scanner output.
-- `cache/` contains disposable parser artifacts local to that attempt.
+- `source/` is reserved for bounded materialization required by a future
+  adapter; the current TS/JS pipeline reads selected blobs directly.
+- `metadata/` is reserved for bounded temporary manifests and scanner output.
+- `cache/` is reserved for disposable parser artifacts local to an attempt.
 
 The API never accepts a workspace path. Every identifier used in a path is
 validated, and every resolved path must remain inside the configured root.
 Directories use owner-only permissions where supported.
 
 The worker processes the immutable `index_jobs.target_commit_sha`; it never
-checks out a mutable branch name. Source materialization reads the Git tree and
-blobs for that commit through argument-array Git commands. It rejects absolute
-paths, traversal segments, NUL bytes, paths over configured limits, and entries
-that would escape through symbolic links. Repository code, hooks, package
-scripts, build tools, and language runtimes are never executed.
+checks out a mutable branch name. The current implementation reads the Git tree
+and selected blobs for that commit through argument-array Git commands. It
+rejects absolute paths, traversal segments, NUL bytes, paths over configured
+limits, and entries that would escape through symbolic links. Repository code,
+hooks, package scripts, build tools, and language runtimes are never executed.
 
-The job workspace is removed after terminal completion. It may be retained for
-a short configurable diagnostic window after failure, but it is not a source
-of truth. PostgreSQL and the Git object cache are durable.
+The workspace is safely reset before an attempt, so stale attempt data cannot
+affect a retry. A validated cleanup operation exists for retention tooling;
+automatic terminal retention and quota sweeping remain operational follow-up.
+The workspace is never a source of truth. PostgreSQL and the Git object cache
+are durable.
 
 ### Horizontal scaling consequence
 
@@ -179,11 +182,14 @@ instances without changing the durable queue contract.
 Parsing uses a language-specific port rather than controller or worker code
 calling a parser library directly.
 
+[ADR-013](013-parser-architecture.md) is the detailed authority for the parser
+contract, safety boundary, adapter extension rules, and alternatives.
+
 Conceptual contract:
 
 ```ts
 interface SourceParser {
-  supports(language: SourceLanguage): boolean;
+  supports(input: Pick<ParseSourceInput, 'language' | 'extension'>): boolean;
   parse(input: ParseSourceInput): Promise<ParseSourceResult>;
 }
 ```
@@ -195,8 +201,8 @@ entities and performs no database writes.
 
 The first adapter uses the TypeScript Compiler API for TypeScript, TSX,
 JavaScript, and JSX. It provides mature syntax handling and precise source
-positions without executing code. The `typescript` package must be a runtime
-dependency when this adapter is implemented.
+positions without executing code. The `typescript` package is a runtime
+dependency.
 
 Language detection is extension-based and centralized. TypeScript/TSX and
 JavaScript/JSX are parser-supported; JSON, Markdown, and YAML are retained as
@@ -207,9 +213,10 @@ Future Python, Java, Go, PHP, and C# adapters implement the same contract.
 Tree-sitter may be used inside those adapters, but its node types must not leak
 into CodeMind's normalized domain model.
 
-Parser failures are isolated to a file where possible. One unsupported or
-malformed file should not abort an otherwise useful repository index unless a
-configured failure threshold is crossed.
+Malformed TypeScript/JavaScript syntax is returned as normalized diagnostics
+and may still yield useful partial syntax metadata. Operational read, parser,
+or persistence errors fail the current attempt, are recorded without source
+content, and follow the bounded job retry policy.
 
 ## 4. Incremental indexing
 
@@ -217,9 +224,9 @@ CodeMind uses both Git identity and SHA-256 rather than choosing only one.
 
 ### Commit identity
 
-The job's target commit makes the complete run reproducible. If the latest
-successful job for a branch already targets the same commit and a forced full
-mode was not requested, the job can finish without scanning content again.
+The job's target commit makes the complete run reproducible. Every job scans
+the target Git tree so it can reconcile deleted paths. Incremental mode then
+avoids reading and parsing unchanged content.
 
 ### Git blob identity
 
@@ -236,10 +243,11 @@ identical content across Git object formats or repositories.
 The decision flow is:
 
 ```text
-same target commit and incremental mode -> no-op success
-same path and Git blob ID               -> reuse version
-new blob, existing SHA-256              -> reuse parsed content where valid
-new SHA-256                              -> parse and persist new version
+scan immutable target commit tree       -> reconcile current inventory
+same path and Git blob ID               -> reuse content version
+new blob, existing SHA-256              -> reuse immutable hash row
+completed analysis + incremental mode   -> skip parsing
+incomplete or full-mode content version -> parse and reconcile metadata
 missing previous path                   -> mark file deleted
 ```
 
@@ -288,7 +296,7 @@ Represents normalized declarations for a file version: name, qualified name,
 kind, visibility, source range, signature, and optional documentation. Symbol
 identity is scoped to the immutable file version.
 
-### `dependencies`
+### `code_dependencies`
 
 Represents directed relationships such as `import`, `export`, `extends`,
 `implements`, and later `calls`. Both unresolved textual targets and resolved
@@ -326,10 +334,12 @@ It ignores at minimum:
 - `build`
 - `coverage`
 
-Ignore rules are centralized and testable. Repository `.gitignore` rules may
-augment platform defaults but cannot re-enable paths blocked by CodeMind's
-security policy. Limits apply to file count, individual file size, total bytes,
-path length, nesting depth, and processing time.
+Ignore rules are centralized and testable. The current scanner applies the
+platform defaults above. Future `.gitignore` support may add exclusions but
+must not re-enable paths blocked by CodeMind's security policy. Limits apply to
+file count, individual file size, total selected bytes, path length, and
+nesting depth. Git commands retain the hardened timeout and output limits
+established by ADR-011.
 
 ## Alternatives considered
 

@@ -33,9 +33,12 @@ export class RelativeModuleResolverService {
     }
 
     const extension = posix.extname(targetBase).toLowerCase();
+    const hasSourceExtension = SOURCE_EXTENSIONS.includes(
+      extension as (typeof SOURCE_EXTENSIONS)[number],
+    );
     const candidates: string[] = [];
 
-    if (extension.length > 0) {
+    if (hasSourceExtension) {
       if (extension === '.js') {
         candidates.push(
           `${targetBase.slice(0, -extension.length)}.ts`,

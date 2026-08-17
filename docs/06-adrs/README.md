@@ -87,6 +87,7 @@ Benefits and trade-offs.
 | ADR-010 | Deployment Strategy |
 | ADR-011 | Secure Git Integration |
 | ADR-012 | Indexing Engine Architecture |
+| ADR-013 | Language-Specific Parser Architecture |
 
 
 
