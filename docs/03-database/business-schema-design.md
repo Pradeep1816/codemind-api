@@ -1,4 +1,11 @@
-This is one of the most important schemas for CodeMind's main purpose.
+> **Legacy draft — do not implement.** Phase 4 initially represents business
+> facts as typed, evidence-backed knowledge nodes and edges. See
+> [Knowledge Graph Schema](knowledge-graph-schema.md) and
+> [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md). Specialized
+> `business_*` projections are deferred until real query requirements justify
+> them. The model below is retained only as historical design context.
+
+This was the original business-schema concept for CodeMind.
 
 The previous layers understand:
 
@@ -61,7 +68,7 @@ Module: Business Intelligence Engine
 
 Document: Business Schema
 
-Status: Draft
+Status: Superseded legacy draft
 
 Version: 1.0
 

@@ -1,788 +1,270 @@
-Knowledge Module Design
+# Knowledge Module
 
+## Document information
 
-## Document Information
+Status: Phase 4 architecture approved; implementation planned
+Version: 2.0
+Owner: CodeMind Engineering
+Architecture decision:
+[ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
+Database proposal:
+[Knowledge graph schema](../03-database/knowledge-graph-schema.md)
 
-Module: Knowledge Engine
+## Purpose
 
-Status: Draft
+The knowledge module turns normalized analysis facts into a durable,
+tenant-scoped, evidence-backed product view of a repository.
 
-Version: 1.0
+It provides the stable boundary consumed later by documentation, search, AI,
+and MCP. It does not replace Phase 3 structural metadata and does not treat
+generated prose as authoritative knowledge.
 
-Owner: CodeMind Engineering Team
+## Knowledge model
 
+CodeMind represents knowledge as:
 
-
-# 1. Overview
-
-
-The Knowledge Module is responsible for storing, organizing, and retrieving knowledge extracted from software systems.
-
-
-It acts as the long-term memory layer of CodeMind.
-
-
-The module combines:
-
-
-- Code metadata
-- Dependency relationships
-- Business concepts
-- Workflows
-- Documentation
-- AI-generated insights
-
-
-
-Input:
-
-
-
-Parser Data
-
-Analysis Results
-
-Database Metadata
-
-Documentation
-
-
-
-Output:
-
-
-
-System Knowledge Model
-
-
-
-
-# 2. Goals
-
-
-The Knowledge Module should:
-
-
-- Store structured system knowledge
-- Build a knowledge graph
-- Represent software concepts
-- Connect technical and business information
-- Provide context for AI systems
-- Preserve historical understanding
-
-
-
-# 3. Problem Being Solved
-
-
-Source code contains implementation details.
-
-
-Example:
-
-
-```typescript
-if(payment.status === FAILED){
-
- createCredit();
-
-}
-
-
-Code understanding:
-
-PaymentService calls createCredit()
-
-
-Business understanding:
-
-Failed payments automatically create customer credit.
-
-
-The Knowledge Module stores both views.
-
-4. Knowledge Architecture
-
-High-level architecture:
-
-                 Analysis Module
-
-
-                       |
-
-                       v
-
-
-              Knowledge Builder
-
-
-                       |
-
-        --------------------------------
-
-        |              |               |
-
-        v              v               v
-
-
- Structured       Knowledge       Semantic
-
- Storage          Graph           Search
-
-
-(PostgreSQL)      (Neo4j)         (Vector DB)
-
-
-
-5. Knowledge Types
-
-CodeMind stores different types of knowledge.
-
-5.1 Technical Knowledge
-
-Generated from source code.
-
-Examples:
-
-Class:
-
-InvoiceService
-
-
-Methods:
-
-createInvoice()
-
-cancelInvoice()
-
-
-Dependencies:
-
-PaymentService
-
-
-Stored attributes:
-
-Name
-
-Type
-
-Location
-
-Relationships
-
-Metadata
-
-5.2 Architectural Knowledge
-
-Represents system structure.
-
-Example:
-
-Controller Layer
-
-       |
-
-       v
-
-Service Layer
-
-       |
-
-       v
-
-Repository Layer
-
-
-Examples:
-
-Modules
-Services
-Components
-Dependencies
-5.3 Business Knowledge
-
-Represents business behaviour.
-
-Example:
-
-Technical:
-
-cancelLesson()
-
-
-Business:
-
-When a lesson is cancelled,
-the payment allocation is reversed
-and the invoice amount is recalculated.
-
-5.4 Historical Knowledge
-
-Stores system evolution.
-
-Example:
-
-Payment calculation changed in version 2.4
-
-Reason:
-
-New tax requirement
-
-
-Useful for:
-
-Legacy systems
-Migration projects
-Debugging
-6. Knowledge Model
-
-CodeMind represents knowledge using:
-
-Entity
-
-+
-
-Relationship
-
-+
-
-Context
-
-+
-
-Evidence
-
-
-Example:
-
-Entity:
-
-Invoice
-
-
-Relationship:
-
-GENERATED_BY
-
-
-Target:
-
-InvoiceService
-
-
-Context:
-
-Created during payment completion workflow.
-
-
-Evidence:
-
-invoice.service.ts line 120
-
-7. Knowledge Graph
-
-The Knowledge Graph represents relationships between concepts.
-
-Example:
-
-Customer
-
+```text
+Immutable snapshot
     |
-
-    HAS
-
+    +-- typed nodes
     |
-
-Enrollment
-
+    +-- typed directed edges
     |
-
-    GENERATES
-
+    +-- source evidence
     |
+    `-- derivation and confidence
+```
+
+Examples of nodes:
+
+- `DoctorController` classified as an architectural controller
+- `DoctorScheduleService` classified as a service
+- `DoctorSchedule` identified as a domain concept
+- “A cancelled appointment releases its slot” represented as a business rule
+- “Book doctor appointment” represented as a workflow
+
+Examples of edges:
+
+- Controller `calls` service
+- Service `depends_on` repository
+- Code component `represents` domain concept
+- Rule `enforces` workflow step
+- Event `triggers` state transition
+
+Every example must link to immutable file/hash/symbol/range evidence before it
+can be published.
+
+## Position in the pipeline
+
+```mermaid
+flowchart LR
+    Index[(Phase 3 snapshot)] --> Build[KnowledgeBuildService]
+    Build --> Analysis[Analysis module]
+    Analysis --> Facts[Normalized facts]
+    Facts --> Validate[Knowledge validation]
+    Validate --> Draft[(Unpublished snapshot)]
+    Draft --> Publish[Atomic publication]
+    Publish --> Current[(Current knowledge snapshot)]
+    Current --> Consumers[Documentation, Search, AI, MCP]
+```
+
+## Current implementation state
+
+The NestJS `KnowledgeModule` exists as an empty module placeholder. Milestone
+4.1 defines its boundaries and persistence proposal. Builds, entities,
+migrations, services, workers, controllers, and APIs are not implemented yet.
+
+## Responsibilities
+
+The knowledge module owns:
+
+- Durable knowledge-build creation and status
+- Background claim, lease, retry, cancellation, and recovery rules
+- Snapshot identity and current-snapshot selection
+- Validation of normalized analysis facts
+- Node, edge, evidence, and derivation persistence
+- Atomic snapshot publication
+- Tenant-scoped graph and evidence queries
+- Future human review state
 
-Invoice
+It does not own:
 
-    |
+- Git synchronization or raw source storage
+- Phase 3 file, hash, symbol, or dependency persistence
+- Language/compiler AST traversal
+- Search ranking or embeddings
+- AI provider calls or conversation memory
+- Documentation rendering
 
-PAID_BY
+## Snapshot identity
 
-    |
+Every build targets exactly one successful Phase 3 index job. Its knowledge
+snapshot records:
 
-Payment
+- Organization, repository, and branch
+- Source index-job ID
+- Immutable target commit SHA
+- Analyzer bundle version
+- Semantic configuration digest
+- Publication and supersession timestamps
 
+Snapshots are immutable. Re-running analyzers with different code or
+configuration creates another snapshot. Only one published snapshot may be
+current for a branch.
 
-The graph answers questions like:
+If a branch advances while a build is running, the resulting snapshot remains
+valid for its target commit. It becomes current only when the branch still
+points to that commit at publication time.
 
-Which services affect invoice generation?
+## Publication lifecycle
 
+```mermaid
+sequenceDiagram
+    participant W as Knowledge worker
+    participant A as Analysis module
+    participant K as Knowledge persistence
+    participant DB as PostgreSQL
 
-or:
+    W->>A: Analyze successful index snapshot
+    A-->>W: Stream bounded facts and diagnostics
+    W->>K: Persist unpublished fact batches
+    K->>DB: Insert nodes, edges, evidence
+    W->>K: Validate and publish
+    K->>DB: Atomic evidence check and current-snapshot swap
+    DB-->>K: Published snapshot
+    K-->>W: Build succeeded
+```
 
-What happens when payment fails?
+Readers filter to published snapshots. They never observe partially persisted
+graphs.
 
-8. Knowledge Building Pipeline
+## Evidence requirements
 
-Flow:
+A published node or edge has at least one evidence link. Evidence identifies:
 
-Parsed Code
+- Indexed file
+- Immutable file hash
+- Code symbol when applicable
+- Exact source range when applicable
+- Evidence role such as declaration, call, condition, assignment, or
+  configuration
 
+Evidence does not copy source text. A future authorized source endpoint may
+resolve a bounded excerpt from the snapshot commit.
 
-    |
+Persistence validates that evidence belongs to the snapshot organization,
+repository, branch, index job, and commit. Cross-snapshot evidence is rejected.
 
-    v
+## Node and edge identity
 
+Database IDs are auto-increment integers local to one persisted snapshot.
+Cross-snapshot comparison uses:
 
-Relationship Analysis
+- Fact kind
+- Deterministic identity key
+- Normalized content fingerprint
+- Analyzer name and version
 
+The identity key answers “is this the same conceptual fact?” The content
+fingerprint answers “did its normalized meaning change?” Neither is supplied by
+an API client.
 
-    |
+## Confidence and review
 
-    v
+Each node and edge records derivation type and confidence:
 
+- Deterministic
+- Heuristic
+- AI-assisted in a later phase
+- Human-confirmed in a later review workflow
 
-Knowledge Extractor
+Confidence is not permission to hide uncertainty. APIs return derivation type,
+confidence, snapshot commit, and evidence summaries with inferred knowledge.
 
+Rejected or corrected knowledge will be preserved as review history rather
+than silently rewriting the source snapshot.
 
-    |
+## PostgreSQL-first storage
 
-    v
+The first graph uses PostgreSQL adjacency tables with indexed source/target
+node IDs and bounded recursive CTE traversal.
 
+PostgreSQL is selected because it already provides:
 
-Knowledge Graph
+- Tenant-aware transactions
+- Migration and backup infrastructure
+- Atomic snapshot publication
+- Strong foreign keys to Phase 3 evidence
+- Sufficient traversal for the first bounded repository queries
 
+Neo4j remains a measured future option. Vector indexes belong to Phase 5 search
+and will be derived projections, not the authoritative graph.
 
-    |
+## Public API principles
 
-    v
+Future APIs are repository and snapshot scoped. Planned product-level
+resources include:
 
+- Current knowledge snapshot
+- Architecture components and relationships
+- Domain concepts
+- Business rules
+- Workflows and steps
+- States, transitions, events, and handlers
+- Evidence summaries
 
-Search Layer
+The API will not provide generic CRUD for `knowledge_nodes` or
+`knowledge_edges`. Facts are generated from source snapshots and updated by
+rebuilding, not by arbitrary row mutation.
 
-9. Knowledge Extractors
+Cross-organization identifiers return `404`. Read access requires
+`repository.read`; triggering or cancelling a build requires a dedicated
+knowledge-generation permission to be finalized before API implementation.
 
-Different extractors build different knowledge.
+## Planned module structure
 
-Code Extractor
-
-Creates:
-
-Classes
-
-Functions
-
-Methods
-
-Relationship Extractor
-
-Creates:
-
-CALLS
-
-DEPENDS_ON
-
-IMPORTS
-
-USES
-
-Domain Extractor
-
-Creates:
-
-Business Entity
-
-Workflow
-
-Rule
-
-Documentation Extractor
-
-Reads:
-
-README
-
-Wiki
-
-Comments
-
-Markdown
-
-10. Knowledge Graph Design
-Nodes
-
-Examples:
-
-Repository
-
-File
-
-Class
-
-Function
-
-Entity
-
-BusinessRule
-
-Workflow
-
-APIEndpoint
-
-DatabaseTable
-
-Relationships
-
-Examples:
-
-CONTAINS
-
-CALLS
-
-DEPENDS_ON
-
-CREATES
-
-UPDATES
-
-IMPLEMENTS
-
-REPRESENTS
-
-
-Example:
-
-PaymentController
-
-        |
-
-        CALLS
-
-        |
-
-PaymentService
-
-        |
-
-        UPDATES
-
-        |
-
-PaymentTable
-
-11. Storage Strategy
-
-CodeMind uses different storage systems.
-
-PostgreSQL
-
-Purpose:
-
-Structured information.
-
-Stores:
-
-Users
-
-Repositories
-
-Files
-
-Classes
-
-Functions
-
-Business Rules
-
-Graph Database
-
-Technology:
-
-Neo4j
-
-
-Purpose:
-
-Relationship traversal.
-
-Stores:
-
-Service
-
-      |
-
-depends on
-
-      |
-
-Repository
-
-Vector Database
-
-Technology:
-
-Qdrant
-
-
-Purpose:
-
-Semantic retrieval.
-
-Stores:
-
-Code summaries
-
-Documentation
-
-Business explanations
-
-12. Knowledge Database Entities
-Knowledge Entity
-knowledge_items
-
-
-id
-
-repository_id
-
-type
-
-name
-
-description
-
-source
-
-created_at
-
-
-Types:
-
-TECHNICAL
-
-BUSINESS
-
-ARCHITECTURE
-
-DOCUMENTATION
-
-Business Rule
-business_rules
-
-
-id
-
-name
-
-description
-
-evidence
-
-confidence
-
-
-Example:
-
-Name:
-
-Payment Failure Handling
-
-
-Description:
-
-Failed payments generate customer credits.
-
-13. Knowledge Confidence
-
-Every generated knowledge item should have confidence.
-
-Example:
-
-Business Rule:
-
-High Confidence
-
-Evidence:
-
-Source code + Tests + Documentation
-
-
-Confidence levels:
-
-HIGH
-
-MEDIUM
-
-LOW
-
-14. Knowledge Query Examples
-Example 1
-
-Question:
-
-How does invoice creation work?
-
-
-Knowledge retrieval:
-
-InvoiceController
-
-       |
-
-       v
-
-InvoiceService
-
-       |
-
-       v
-
-PaymentService
-
-       |
-
-       v
-
-InvoiceRepository
-
-Example 2
-
-Question:
-
-What breaks if PaymentService changes?
-
-
-Knowledge:
-
-PaymentService
-
- affects:
-
-- InvoiceService
-
-- RefundService
-
-- SubscriptionService
-
-15. Events
-KnowledgeCreatedEvent
-
-Payload:
-
-{
- "type":"BUSINESS_RULE",
- "entity":"Payment"
-}
-KnowledgeUpdatedEvent
-
-Triggered when:
-
-Source code changes
-New analysis completes
-Documentation changes
-16. Module Structure
-
-NestJS:
-
+```text
 src/modules/knowledge/
-
-
-├── controllers/
-
-├── services/
-
-├── builders/
-
-├── extractors/
-
-├── graph/
-
+├── dto/
 ├── entities/
-
-├── events/
-
+├── enums/
+├── lifecycle/
+├── persistence/
+├── queue/
+├── services/
+├── workers/
+├── knowledge.controller.ts
+├── knowledge.service.ts
 └── knowledge.module.ts
+```
 
-17. Dependencies
+Exact files follow the implemented use cases; this is not permission to create
+empty placeholders.
 
-Knowledge Module depends on:
+## Milestone boundaries
 
-Parser Module
+Milestone 4.2 defines read ports and analyzer facts without persistence.
 
-Analysis Module
+Milestone 4.3 implements:
 
-Database Module
+- Knowledge builds and lifecycle
+- Immutable snapshots
+- Nodes and edges
+- Evidence and evidence links
+- Build errors
+- Entities, constraints, indexes, and migrations
+- Atomic publication and current-snapshot behavior
 
-Graph Module
+Later milestones add extraction, APIs, and full background processing.
 
+## Completion gate
 
-Should NOT depend on:
+The knowledge foundation is complete only when:
 
-AI Module
-
-MCP Module
-
-18. Performance Strategy
-
-Large systems may contain:
-
-Millions of knowledge nodes
-
-
-Strategies:
-
-Batch graph updates
-Incremental updates
-Background processing
-Cache frequently accessed knowledge
-19. Future Enhancements
-Autonomous Knowledge Updates
-
-When code changes:
-
-Git Push
-
- |
-
- v
-
-Re-index
-
- |
-
- v
-
-Update Knowledge
-
-System Memory
-
-Remember:
-
-Previous architecture decisions
-
-Historical changes
-
-Known problems
-
-Knowledge Validation
-
-Allow developers to:
-
-Confirm rules
-Correct generated knowledge
-Add missing context
-Summary
-
-The Knowledge Module transforms raw technical information into a persistent understanding of software systems.
-
-Its responsibility:
-
-"Remember what the system is, how it works, and why it behaves that way."
-
-It enables:
-
-Business understanding
-AI context generation
-Documentation generation
-Impact analysis
-Legacy system exploration
+- A successful index job can produce one immutable knowledge snapshot.
+- Every published node and edge has valid Phase 3 evidence.
+- Partial builds are invisible.
+- Current-snapshot publication is safe when branches move or builds race.
+- Cross-tenant reads and writes are impossible at service and query boundaries.
+- Migrations produce no TypeORM schema drift.
+- Unit and PostgreSQL integration tests cover publication and evidence rules.

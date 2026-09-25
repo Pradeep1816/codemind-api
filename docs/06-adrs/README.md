@@ -88,6 +88,7 @@ Benefits and trade-offs.
 | ADR-011 | Secure Git Integration |
 | ADR-012 | Indexing Engine Architecture |
 | ADR-013 | Language-Specific Parser Architecture |
+| ADR-014 | Knowledge Analysis Architecture |
 
 
 

@@ -1,4 +1,11 @@
-his is one of the most important database documents in CodeMind.
+> **Legacy draft — do not implement.** Phase 3 structural persistence is
+> defined by [Indexing Schema and Persistence Strategy](indexing-strategy.md).
+> Phase 4 derived knowledge is defined by the
+> [Knowledge Graph Schema](knowledge-graph-schema.md) and
+> [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md). The generic
+> `code_entities` model below is retained only as historical design context.
+
+This is one of the original database concept documents in CodeMind.
 
 The Repository Schema answers:
 
@@ -19,7 +26,7 @@ Module: Code Intelligence
 
 Document: Code Intelligence Schema
 
-Status: Draft
+Status: Superseded legacy draft
 
 Version: 1.0
 

@@ -33,7 +33,8 @@ MCP and developer tools
 ## Current Status
 
 CodeMind has completed Phase 3 indexing and code intelligence. Phase 4,
-knowledge graph and business-logic extraction, is next.
+knowledge graph and business-logic extraction, is in progress with its
+architecture and persistence model defined before implementation.
 
 Implemented:
 
@@ -836,6 +837,9 @@ Never enable automatic schema synchronization in production.
 - [Parser module](docs/02-core-modules/parser.md)
 - [Indexing API](docs/04-api/indexing-api.md)
 - [Indexing schema](docs/03-database/indexing-strategy.md)
+- [Analysis module](docs/02-core-modules/analysis.md)
+- [Knowledge module](docs/02-core-modules/knowledge.md)
+- [Knowledge graph schema proposal](docs/03-database/knowledge-graph-schema.md)
 - [Roadmap](docs/05-roadmap/roadmap.md)
 - [Milestones](docs/05-roadmap/milestones.md)
 - [Architecture decisions](docs/06-adrs/README.md)

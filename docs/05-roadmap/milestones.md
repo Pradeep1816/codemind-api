@@ -7,7 +7,8 @@
 | Phase 1 — Platform & Identity | Complete |
 | Phase 2 — Repository Management | Complete |
 | Phase 3 — Indexing & Code Intelligence | Complete |
-| Phases 4–7 | Planned |
+| Phase 4 — Knowledge Graph & Business Logic | In progress |
+| Phases 5–7 | Planned |
 | Phase 8 | Future |
 
 Milestones 3.1 through 3.12 are implemented. They define the indexing data model,
@@ -360,12 +361,136 @@ yarn test --runInBand
 yarn test:e2e --runInBand
 ```
 
+## Phase 4 — Knowledge Graph & Business Logic
+
+Status: In progress
+
+Goal: derive commit-scoped technical and business knowledge from successful
+Phase 3 snapshots without duplicating structural truth.
+
+### 4.1 Architecture foundation
+
+Status: Complete
+
+Delivered:
+
+- ADR-014 module boundaries and dependency direction
+- PostgreSQL-first typed adjacency graph decision
+- Immutable knowledge snapshots tied to successful index jobs
+- Mandatory file/hash/symbol/range evidence
+- Deterministic and heuristic derivation classification
+- Business extraction as an analysis subdomain
+- Canonical analysis, business, knowledge, and schema documents
+- Legacy schema drafts explicitly marked superseded
+
+No entities, migrations, workers, or APIs are introduced in this architecture
+milestone.
+
+### 4.2 Analysis foundation
+
+Status: Planned
+
+Deliver:
+
+- Tenant-scoped read-only Phase 3 snapshot port
+- Bounded immutable-source port
+- Versioned technical analyzer contract
+- Normalized fact, evidence, confidence, and diagnostic types
+- Initial TypeScript/JavaScript call, decorator, and injection fixtures
+
+### 4.3 Knowledge persistence foundation
+
+Status: Planned
+
+Deliver:
+
+- Knowledge-build lifecycle entities
+- Immutable snapshot, node, edge, evidence, and error entities
+- Evidence link tables, constraints, and indexes
+- Reviewed TypeORM migrations and zero schema drift
+- Atomic publication and current-snapshot selection
+
+### 4.4 Call graph and architecture extraction
+
+Status: Planned
+
+Deliver:
+
+- Reliably resolved call edges
+- Module, controller, service, repository, entity, provider, and configuration
+  classifications
+- Component containment and dependency relationships
+- Explicit unresolved/ambiguous targets
+
+### 4.5 Domain concepts and business rules
+
+Status: Planned
+
+Deliver:
+
+- Evidence-backed domain concepts
+- Validation, permission, calculation, state, eligibility, and scheduling rules
+- Deterministic identity and content fingerprints
+- Clear heuristic confidence and unsupported cases
+
+### 4.6 Workflows, events, states, and transitions
+
+Status: Planned
+
+Deliver:
+
+- Ordered workflow and workflow-step facts
+- Domain events and handlers
+- State values and evidence-backed transitions
+- Bounded traversal and branching
+
+### 4.7 Knowledge APIs
+
+Status: Planned
+
+Deliver repository-scoped APIs for:
+
+- Current and historical snapshots
+- Architecture components and relationships
+- Domain concepts and business rules
+- Workflows, states, events, and transitions
+- Evidence summaries
+
+### 4.8 Background processing
+
+Status: Planned
+
+Deliver:
+
+- Durable PostgreSQL worker claims and leases
+- Progress, retries, cancellation, recovery, and graceful shutdown
+- Unpublished batch persistence and atomic publication
+- Current-snapshot race protection when branches advance
+
+### 4.9 Tests and documentation
+
+Status: Planned
+
+Deliver:
+
+- Analyzer fixtures and malformed/ambiguous source tests
+- Publication, evidence, lifecycle, and tenant-isolation tests
+- PostgreSQL E2E pipeline coverage
+- Bounded graph traversal and performance baselines
+- API, module, schema, ADR, and roadmap completion review
+
+## Phase 4 completion gate
+
+Phase 4 is complete when CodeMind can generate and query an immutable knowledge
+snapshot containing architecture, domain, rule, workflow, state, and event
+facts for a supported TypeScript/JavaScript repository, with evidence for every
+published node and edge.
+
+The result must be tenant-scoped, commit-scoped, reproducible by analyzer
+version, migration-backed, atomically published, and covered by unit plus
+PostgreSQL integration tests.
+
 ## Later phases
-
-### Phase 4 — Knowledge Graph & Business Logic
-
-Resolve code relationships into architecture, workflows, business rules,
-domain concepts, and versioned documentation.
 
 ### Phase 5 — Search Engine
 

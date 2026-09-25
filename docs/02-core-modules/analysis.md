@@ -1,705 +1,229 @@
-Analysis Module Design
-
-
-## Document Information
-
-Module: Analysis Engine
-
-Status: Draft
-
-Version: 1.0
-
-Owner: CodeMind Engineering Team
-
-
-
-# 1. Overview
-
-
-The Analysis Module analyzes parsed code metadata and discovers relationships between software components.
-
-
-It transforms raw code structures into architectural intelligence.
-
-
-Input:
-
-
-
-Parser Output
-
-|
-
-|
-
-Classes
-
-Functions
-
-Imports
-
-Decorators
-
-Methods
-
-
-
-Output:
-
-
-
-Dependency Graph
-
-Call Graph
-
-Architecture Model
-
-Impact Analysis
-
-Code Relationships
-
-
-
-
-# 2. Goals
-
-
-The Analysis Module should:
-
-
-- Discover relationships between code components
-- Build dependency graphs
-- Generate call graphs
-- Identify system architecture patterns
-- Support impact analysis
-- Detect code complexity
-- Provide context for knowledge generation
-
-
-
-# 3. Non Goals
-
-
-The Analysis Module should NOT:
-
-
-- Generate AI explanations
-- Decide business meaning
-- Create user documentation
-- Modify source code
-
-
-Those responsibilities belong to:
-
-
-
-Business Engine
-
-Documentation Module
-
-AI Module
-
-
-
-
-# 4. Architecture
-
-
-High-level flow:
-
-
-            Parser Module
-
-
-                 |
-
-                 v
-
-
-         Analysis Engine
-
-
-                 |
-
-    ----------------------------
-
-    |             |            |
-
-    v             v            v
-
-Dependency Call Graph Architecture
-
-Analyzer Analyzer Analyzer
-
-                 |
-
-                 v
-
-
-          Knowledge Module
-
-
-
-# 5. Analysis Pipeline
-
-
-Complete workflow:
-
-
-
-Parsed Code
-
- |
-
- v
-
-Relationship Extraction
-
- |
-
- v
-
-Graph Construction
-
- |
-
- v
-
-Pattern Detection
-
- |
-
- v
-
-Analysis Result Storage
-
-
-
-
-# 6. Dependency Analysis
-
+# Analysis Module
+
+## Document information
+
+Status: Phase 4 architecture approved; implementation planned
+Version: 2.0
+Owner: CodeMind Engineering
+Architecture decision:
+[ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
 
 ## Purpose
 
+The analysis module converts Phase 3 structural metadata and bounded immutable
+source into normalized technical facts. It bridges syntax-level understanding
+and the knowledge graph.
 
-Understand which components depend on each other.
+Phase 3 answers:
 
+> Which files, symbols, imports, exports, and inheritance relationships exist?
 
-Example:
+Analysis answers:
 
+> How do those symbols interact, what architectural roles do they play, and
+> which source behaviors may support higher-level knowledge?
 
-Source:
+## Position in the pipeline
 
+```mermaid
+flowchart LR
+    Index[(Phase 3 snapshot)] --> Reader[Code intelligence read port]
+    Git[Immutable source blobs] --> Source[Bounded source port]
+    Reader --> Analysis[AnalysisService]
+    Source --> Analysis
+    Analysis --> Technical[Technical facts]
+    Technical --> Business[Business analyzer family]
+    Technical --> Knowledge[Knowledge publication]
+    Business --> Knowledge
+```
+
+The analysis module produces facts. It does not publish snapshots or expose
+public knowledge APIs.
+
+## Inputs
+
+An analysis run targets one successful Phase 3 index job and receives:
+
+- Organization, repository, branch, and target commit identity
+- Active indexed files and immutable current file hashes
+- Code symbols and source ranges
+- Import, export, `extends`, and `implements` dependencies
+- Bounded source text only when an analyzer needs body-level syntax
+- Analyzer bundle version and semantic configuration digest
+
+Input access must use exported Phase 3 read/source ports. Analysis services must
+not import indexing TypeORM repositories or query Phase 3 tables directly.
+
+## Outputs
+
+Analyzers emit normalized facts in bounded batches. Initial fact families are:
+
+- Call sites and reliably resolved call targets
+- Framework decorators and route metadata
+- Constructor injection and provider relationships
+- Module, controller, service, repository, entity, provider, and configuration
+  classifications
+- Conditions and guarded actions
+- Assignments and state changes
+- Domain event publication and handler candidates
+- Workflow-step and transition candidates
+
+Facts contain stable identity, source evidence, analyzer identity, derivation
+type, confidence, and bounded typed properties. They contain no compiler AST
+nodes, TypeORM entities, raw source bodies, or generated prose.
+
+## Module boundary
+
+The analysis module owns:
+
+- Analyzer interfaces and registration
+- Read-only Phase 3 snapshot access contracts
+- Bounded immutable-source access contracts
+- Language/framework-specific analyzers
+- Fact normalization and stable identity generation
+- Analyzer diagnostics and resource limits
+- Technical architecture classification
+- The logical business-analyzer family
+
+It does not own:
+
+- Knowledge build lifecycle or graph persistence
+- Current-snapshot publication
+- Public knowledge APIs
+- Search ranking or embeddings
+- AI provider calls
+- Documentation generation
+- Repository synchronization or indexing lifecycle
+
+Dependency direction:
+
+```text
+Analysis -> Phase 3 read/source ports
+Analysis -X-> Knowledge persistence, Search, AI, MCP
+Knowledge orchestrator -> Analysis contracts
+```
+
+## Analyzer contract
+
+Milestone 4.2 will finalize a contract shaped like:
 
 ```typescript
-import { PaymentService }
-from './payment.service';
-
-Detected relationship:
-
-InvoiceService
-
-        |
-
-        depends on
-
-        |
-
-PaymentService
-
-Dependency Types
-Import Dependency
-
-Example:
-
-File A
-
-imports
-
-File B
-
-Service Dependency
-
-Example:
-
-constructor(
- private paymentService: PaymentService
-)
-
-
-Result:
-
-InvoiceService
-
-uses
-
-PaymentService
-
-Database Dependency
-
-Example:
-
-PaymentService
-
-uses
-
-PaymentRepository
-
-7. Call Graph Analysis
-Purpose
-
-Understand execution flow.
-
-Example:
-
-Code:
-
-Controller
-
-    calls
-
-Service
-
-    calls
-
-Repository
-
-
-Graph:
-
-InvoiceController
-
-        |
-
-        v
-
-InvoiceService
-
-        |
-
-        v
-
-InvoiceRepository
-
-
-Useful for:
-
-Debugging
-Impact analysis
-Feature understanding
-8. Impact Analysis
-Purpose
-
-Understand what can break after a change.
-
-Example:
-
-Developer changes:
-
-PaymentService
-
-
-CodeMind identifies:
-
-PaymentService
-
-       |
-
-       +---- InvoiceService
-
-       |
-
-       +---- SubscriptionService
-
-       |
-
-       +---- RefundService
-
-
-Question:
-
-"What will be affected if I change PaymentService?"
-
-Answer:
-
-All dependent modules.
-
-9. Circular Dependency Detection
-
-Example:
-
-UserService
-
-     |
-
-     v
-
-AuthService
-
-
-     |
-
-     v
-
-
-UserService
-
-
-Detection:
-
-Circular dependency found:
-
-UserService -> AuthService -> UserService
-
-
-Benefits:
-
-Architecture improvement
-Better maintainability
-10. Architecture Discovery
-
-The Analysis Module detects patterns.
-
-Example:
-
-NestJS Application:
-
-Controller
-
-      |
-
-      v
-
-Service
-
-      |
-
-      v
-
-Repository
-
-      |
-
-      v
-
-Database
-
-
-Detected architecture:
-
-Layered Architecture
-
-11. Relationship Model
-
-CodeMind creates relationships:
-
-Node
-
-
-+
-
-Relationship
-
-
-+
-
-Metadata
-
-
-Example:
-
-Node:
-
-InvoiceService
-
-
-Relationship:
-
-CALLS
-
-
-Target:
-
-PaymentService
-
-
-Result:
-
-InvoiceService
-
-      CALLS
-
-PaymentService
-
-12. Graph Model
-
-Example:
-
-                 UserController
-
-                       |
-
-                       |
-
-                       v
-
-
-                 UserService
-
-                       |
-
-                       |
-
-                       v
-
-
-                 UserRepository
-
-                       |
-
-                       |
-
-                       v
-
-
-                  User Table
-
-13. Database Design
-Code Nodes
-
-Stores:
-
-code_nodes
-
-
-id
-
-repository_id
-
-type
-
-name
-
-file_id
-
-metadata
-
-
-Types:
-
-CLASS
-
-FUNCTION
-
-METHOD
-
-ENTITY
-
-CONTROLLER
-
-SERVICE
-
-Relationships
-code_relationships
-
-
-id
-
-source_id
-
-target_id
-
-type
-
-metadata
-
-
-Types:
-
-IMPORTS
-
-CALLS
-
-DEPENDS_ON
-
-EXTENDS
-
-IMPLEMENTS
-
-14. Analysis Jobs
-
-Large repositories require background processing.
-
-Example:
-
-Repository Indexed
-
-
-        |
-
-        v
-
-
-Create Analysis Job
-
-
-        |
-
-        v
-
-
-Dependency Analysis
-
-
-        |
-
-        v
-
-
-Call Graph Analysis
-
-
-        |
-
-        v
-
-
-Store Results
-
-15. Events
-AnalysisStartedEvent
-
-Payload:
-
-{
- "repositoryId":"123"
+interface CodeAnalyzer {
+  readonly name: string;
+  readonly version: string;
+
+  supports(context: AnalysisFileContext): boolean;
+
+  analyze(
+    context: AnalysisFileContext,
+  ): AsyncIterable<AnalysisFact | AnalysisDiagnostic>;
 }
+```
 
-RelationshipCreatedEvent
+The final contract must support repository-wide analyzers without requiring all
+ASTs or facts to remain in memory. File-level and graph-level passes may be
+separate interfaces when their lifecycle differs.
 
-Payload:
+## Analysis passes
 
-{
- "source":"InvoiceService",
- "target":"PaymentService",
- "type":"CALLS"
-}
+### Pass 1: Snapshot inventory
 
-AnalysisCompletedEvent
+- Load the successful index job and immutable commit identity.
+- Stream active files, current hashes, symbols, and Phase 3 dependencies.
+- Reject cross-tenant, stale, or incomplete snapshot data.
 
-Payload:
+### Pass 2: Source facts
 
-{
- "repositoryId":"123",
- "relationships":50000
-}
+- Read only parser-supported immutable blobs required by enabled analyzers.
+- Extract decorators, call sites, injection, conditions, assignments, and
+  event/state candidates.
+- Preserve exact file/hash/symbol/range evidence.
 
-16. Module Structure
+### Pass 3: Technical resolution
 
-NestJS:
+- Resolve calls and injection only when targets are unambiguous.
+- Classify architecture roles using explicit framework and naming evidence.
+- Preserve unresolved textual facts instead of guessing.
 
+### Pass 4: Business candidates
+
+- Convert supported conditions and actions into rule candidates.
+- Group call/state/event facts into workflow candidates.
+- Emit confidence and derivation metadata for every inference.
+
+The knowledge module validates, persists, and publishes the resulting fact set.
+
+## Determinism and confidence
+
+Derivation types have explicit meaning:
+
+| Type              | Meaning                                                                 |
+| ----------------- | ----------------------------------------------------------------------- |
+| `deterministic`   | Directly represented by syntax or an unambiguous Phase 3 relationship   |
+| `heuristic`       | Inferred from a documented, versioned pattern with incomplete certainty |
+| `ai_assisted`     | Proposed by a future AI analyzer and always reviewable                  |
+| `human_confirmed` | Explicitly approved through a future review workflow                    |
+
+Deterministic results should be reproducible for the same commit, analyzer
+bundle, and configuration digest. Heuristics must not be promoted to
+deterministic facts merely because their confidence is high.
+
+## Source safety
+
+Repository content is untrusted data. Analyzers must never:
+
+- Import or require repository modules
+- Execute package scripts, compilers, tests, hooks, or build tools
+- Load repository-defined plugins or configuration as executable code
+- Follow paths outside the managed immutable Git snapshot
+- Store raw source in facts, errors, logs intended for clients, or API payloads
+
+Source reads enforce Phase 3 path, file-size, total-byte, output, and Git command
+limits. New analyzers must add their own fact-count, recursion-depth, runtime,
+and batch-size limits.
+
+## Error behavior
+
+Syntax diagnostics may produce partial technical facts when their ranges remain
+valid. Operational source, analyzer, resolution, or validation failures are
+reported as sanitized diagnostics to the knowledge-build lifecycle.
+
+The build orchestrator decides whether a diagnostic is retryable or terminal.
+Analyzers never update build status directly and never hide a failed source
+read as an empty successful result.
+
+## Planned module structure
+
+```text
 src/modules/analysis/
-
-
-├── controllers/
-
-├── services/
-
 ├── analyzers/
-
-│
-├── dependency/
-
-│
-├── call-graph/
-
-│
-├── architecture/
-
-├── graph/
-
-├── entities/
-
-├── events/
-
+│   ├── architecture/
+│   ├── business/
+│   ├── calls/
+│   ├── framework/
+│   └── state/
+├── interfaces/
+│   ├── code-analyzer.interface.ts
+│   ├── code-intelligence-reader.interface.ts
+│   └── immutable-source-reader.interface.ts
+├── types/
+│   ├── analysis-context.types.ts
+│   ├── analysis-fact.types.ts
+│   └── analysis-diagnostic.types.ts
+├── analysis.service.ts
 └── analysis.module.ts
+```
 
-17. Dependencies
+This structure is a target, not an implemented file list.
 
-Analysis Module depends on:
+## Milestone 4.2 acceptance criteria
 
-Parser Module
-
-Storage Module
-
-Graph Module
-
-
-Should NOT depend on:
-
-AI Module
-
-Business Engine
-
-Documentation Module
-
-18. Performance Strategy
-Graph Processing
-
-Large systems may contain:
-
-Millions of relationships
-
-
-Strategies:
-
-Batch processing
-Graph indexing
-Incremental updates
-Background workers
-19. Future Enhancements
-Architecture Score
-
-Example:
-
-Coupling Score
-
-Complexity Score
-
-Maintainability Score
-
-Automated Refactoring Suggestions
-
-Example:
-
-PaymentService has too many responsibilities.
-
-Consider splitting:
-
-PaymentValidationService
-
-PaymentProcessingService
-
-Runtime Analysis
-
-Future:
-
-Combine static analysis with:
-
-Logs
-Traces
-Metrics
-Summary
-
-The Analysis Module transforms parsed code into system intelligence.
-
-Its responsibility:
-
-"Understand relationships and behaviour between software components."
-
-It enables:
-
-Impact analysis
-Architecture discovery
-Knowledge graphs
-AI system understanding
+- A tenant-scoped read port streams one successful Phase 3 snapshot.
+- An immutable-source port returns bounded content for the target commit.
+- Analyzer contracts define identity, version, evidence, confidence, and
+  diagnostics without ORM coupling.
+- TypeScript/JavaScript call, decorator, and injection fixtures establish the
+  first technical facts.
+- Unsupported or ambiguous relationships remain explicit and unresolved.
+- Analyzer resource limits and failure ownership are documented and tested.
+- No Phase 4 database migration is created until the fact contract is stable.

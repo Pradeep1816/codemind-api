@@ -1,694 +1,255 @@
-Business Engine Module Design
+# Business Extraction Engine
 
+## Document information
 
-## Document Information
+Status: Phase 4 logical boundary approved; implementation planned
+Version: 2.0
+Owner: CodeMind Engineering
+Architecture decision:
+[ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
 
-Module: Business Intelligence Engine
+## Purpose
 
-Status: Draft
+The business extraction engine converts supported technical facts into
+evidence-backed domain concepts, rules, workflows, events, and state
+transitions.
 
-Version: 1.0
+It helps answer questions such as:
 
-Owner: CodeMind Engineering Team
+- Where is doctor scheduling implemented?
+- Which conditions prevent an appointment from being booked?
+- What happens when an appointment is cancelled?
+- Where is monetary rounding applied?
+- Which code transitions an order from pending to paid?
 
+The engine explains supported source behavior. It does not decide what a
+business should do and does not replace domain experts.
 
+## Architecture decision
 
-# 1. Overview
+For the first Phase 4 implementation, business extraction is an analyzer family
+inside `AnalysisModule`, not a separate NestJS module.
 
+```text
+src/modules/analysis/analyzers/business/
+```
 
-The Business Engine converts technical code understanding into business-level knowledge.
+This keeps technical and business analyzers on the same immutable snapshot,
+source limits, fact contract, and build lifecycle. The boundary can become a
+separate module later without changing the facts consumed by
+`KnowledgeModule`.
 
+## Position in the pipeline
 
-It discovers:
+```mermaid
+flowchart LR
+    Technical[Calls, conditions, assignments, decorators, states]
+    Domain[Domain concept analyzer]
+    Rules[Business rule analyzer]
+    Workflow[Workflow analyzer]
+    Facts[Normalized business facts]
+    Knowledge[Knowledge snapshot]
 
-- Business rules
-- Workflows
-- Domain concepts
+    Technical --> Domain
+    Technical --> Rules
+    Technical --> Workflow
+    Domain --> Facts
+    Rules --> Facts
+    Workflow --> Facts
+    Facts --> Knowledge
+```
+
+## Responsibilities
+
+The logical business boundary owns:
+
+- Domain-term and bounded-context candidates
+- Condition/action business-rule candidates
+- Validation, calculation, permission, and constraint rules
+- Workflow and workflow-step candidates
 - State transitions
-- Decision logic
-- Business constraints
+- Domain events and handler relationships
+- Business-level fact identity, confidence, and evidence roles
 
+It does not own:
 
-The goal is to help developers understand legacy systems without manually reading thousands of files.
+- Phase 3 parsing or structural persistence
+- Knowledge graph tables or snapshot publication
+- Generated end-user documentation
+- Search ranking, embeddings, or AI provider calls
+- Human approval workflows
+- Modification or execution of repository source
 
+## Extraction principles
 
+### Evidence before explanation
 
-# 2. Problem Statement
+A business fact is publishable only when it links to supporting immutable
+source evidence. A plausible name without a declaration, condition, call,
+assignment, configuration, or relationship is not enough.
 
+### Deterministic patterns first
 
-Legacy systems usually contain business knowledge hidden inside:
+The first analyzers use explicit, versioned patterns such as:
 
+- A route decorator attached to a controller method
+- A controller call to an unambiguous service method
+- A condition guarding a throw, return, call, or assignment
+- A comparison followed by a state assignment
+- A calculation expression passed through a known rounding function
+- An event publication paired with a reliably resolved handler
 
-- Conditional statements
-- Database queries
-- Service methods
-- Configuration files
-- Validation logic
-- Historical code changes
+Naming conventions may increase heuristic confidence but cannot independently
+create a deterministic rule.
 
+### Preserve uncertainty
 
-Example:
+Ambiguous targets remain unresolved. Heuristic concepts and rules carry their
+derivation type and confidence. The engine does not invent missing workflow
+steps to make a graph look complete.
 
+### No AI authority
 
-Technical code:
+AI-assisted extraction belongs to a later phase. When introduced, it produces
+labeled proposals with evidence and review state. It cannot overwrite
+deterministic facts.
 
+## Initial business fact families
 
-```typescript
-if(student.status === "inactive") {
+### Domain concepts
 
-    cancelFutureLessons();
+Examples include Doctor, Appointment, Schedule, Invoice, Payment, Enrollment,
+and Repository. Candidates may come from entities, DTOs, service boundaries,
+route names, validation types, and repeated symbol vocabulary.
 
-}
+### Business rules
 
-Traditional code understanding:
+Initial supported categories:
 
-StudentService updates lessons.
+- Validation rule
+- Permission rule
+- State constraint
+- Calculation rule
+- Eligibility rule
+- Scheduling rule
 
+A normalized rule contains condition, action or outcome, subject concepts,
+derivation, confidence, and evidence. Human-readable summaries are derived from
+that structure and are not the primary identity.
 
-Business understanding:
+### Workflows
 
-When a student becomes inactive,
-all future scheduled lessons are cancelled.
+A workflow contains ordered evidence-backed steps. Initial order comes from
+resolved call sites and explicit state/event relationships; it is not inferred
+from import order or file layout.
 
-3. Goals
+### States and transitions
 
-The Business Engine should:
+State facts record observed values and assignments. A transition requires
+evidence of an old-state condition, new-state assignment, explicit transition
+call, or framework-defined state operation. Merely declaring an enum does not
+prove a runtime transition.
 
-Extract business rules from code
-Identify business workflows
-Map technical components to business concepts
-Understand domain terminology
-Generate business explanations
-Connect code behaviour with user actions
-4. Non Goals
+### Events and handlers
 
-The Business Engine should NOT:
+Event relationships require an identifiable publication and handler contract.
+Name similarity alone is heuristic evidence, not a deterministic link.
 
-Replace domain experts
-Make final business decisions
-Modify application behaviour
-Automatically rewrite code
+## Example: doctor scheduling
 
-It provides understanding, not automation.
+Suppose the indexed repository contains:
 
-5. Architecture
+```text
+DoctorController.scheduleAppointment()
+    -> DoctorScheduleService.schedule()
+    -> AppointmentRepository.findAvailableSlot()
+```
 
-High-level design:
+and the service checks whether a slot is already occupied before saving.
 
-              Knowledge Module
+Phase 4 should produce:
 
+- Architectural nodes for controller, service, and repository
+- A Doctor Appointment Scheduling workflow
+- Ordered call edges between the workflow steps
+- An Appointment Slot domain concept
+- A scheduling rule describing the occupied-slot condition and outcome
+- Evidence links to the route, methods, call sites, condition, and persistence
+  operation
 
-                    |
+The API can then answer “where is doctor scheduling?” with source locations and
+confidence instead of returning an unsupported generated explanation.
 
-                    v
+## Example: rounding logic
 
+Rounding extraction starts from technical evidence such as:
 
-          Business Extraction Engine
+- `Math.round`, `toFixed`, decimal-library, or framework-specific calls
+- Arithmetic expressions before the rounding operation
+- Assignment or return target
+- Surrounding condition and containing symbol
 
+The engine may identify that `calculateInvoiceTotal()` rounds a monetary value.
+It must not claim the legal or accounting reason unless that meaning is
+supported by code, configuration, documentation, or later human confirmation.
 
-                    |
+## Fact contract
 
-        --------------------------------
+Business analyzers emit the same normalized fact envelope as technical
+analyzers:
 
+- Kind and deterministic identity key
+- Typed bounded properties
+- Source and target fact references when applicable
+- Analyzer name and version
+- Derivation type and confidence
+- One or more immutable source evidence records
+- Diagnostics for incomplete or conflicting patterns
 
-        |              |              |
+They do not write knowledge entities directly.
 
+## Planned analyzer structure
 
-        v              v              v
+```text
+src/modules/analysis/analyzers/business/
+├── domain-concept.analyzer.ts
+├── business-rule.analyzer.ts
+├── workflow.analyzer.ts
+├── state-transition.analyzer.ts
+└── domain-event.analyzer.ts
+```
 
+The list is a target. Files are introduced only with implemented behavior and
+service tests.
 
- Rule Engine    Workflow Engine   Domain Engine
+## Resource and security limits
 
+Business analyzers inherit repository, source, and tenant limits from the
+analysis pipeline. They also require limits for:
 
-        |
+- Facts per file and repository
+- Workflow steps and branching depth
+- Graph traversal depth and visited edges
+- Rule-property and summary sizes
+- Analyzer runtime and diagnostic count
 
-        v
+Repository code is never executed. Analyzer failures store sanitized messages
+without source bodies, credentials, absolute paths, or stack traces intended
+for clients.
 
+## Milestone acceptance
 
- Business Knowledge Graph
+Milestone 4.5 is complete when supported TypeScript/JavaScript fixtures produce
+evidence-backed domain concepts and business rules without AI.
 
-6. Business Understanding Pipeline
+Milestone 4.6 is complete when supported fixtures produce bounded workflows,
+events, states, and transitions with deterministic ordering where resolvable.
 
-Flow:
+Both milestones require:
 
-Source Code
-
-
-    |
-
-    v
-
-
-Code Analysis
-
-
-    |
-
-    v
-
-
-Pattern Detection
-
-
-    |
-
-    v
-
-
-Business Extraction
-
-
-    |
-
-    v
-
-
-Business Knowledge
-
-
-    |
-
-    v
-
-
-Documentation / AI
-
-7. Business Rule Extraction
-What is a Business Rule?
-
-A business rule represents a condition or decision that controls system behaviour.
-
-Example:
-
-Code:
-
-if(amount > 10000){
-
- requireApproval();
-
-}
-
-
-Extracted rule:
-
-Transactions above 10,000 require approval.
-
-8. Rule Types
-Validation Rules
-
-Example:
-
-Code:
-
-if(age < 18){
-
- throw Error();
-
-}
-
-
-Business:
-
-Users under 18 cannot register.
-
-Calculation Rules
-
-Example:
-
-Code:
-
-total = price - discount;
-
-
-Business:
-
-Final amount is calculated after applying discount.
-
-Permission Rules
-
-Example:
-
-Code:
-
-if(role==="ADMIN")
-
-
-Business:
-
-Only administrators can perform this action.
-
-State Transition Rules
-
-Example:
-
-Code:
-
-order.status="SHIPPED";
-
-
-Business:
-
-An order moves from processing to shipped state.
-
-9. Workflow Discovery
-
-A workflow represents a sequence of business actions.
-
-Example:
-
-Technical flow:
-
-OrderController
-
-      |
-
-      v
-
-OrderService
-
-      |
-
-      v
-
-PaymentService
-
-      |
-
-      v
-
-InventoryService
-
-
-Business workflow:
-
-Customer places order
-
-        |
-
-Payment processed
-
-        |
-
-Inventory reserved
-
-        |
-
-Order confirmed
-
-10. Domain Concept Extraction
-
-The engine identifies business entities.
-
-Examples:
-
-Technical:
-
-CustomerEntity
-
-InvoiceEntity
-
-PaymentEntity
-
-
-Business:
-
-Customer
-
-Invoice
-
-Payment
-
-
-Sources:
-
-Database tables
-Entity names
-API names
-Variable names
-Documentation
-11. Decision Logic Analysis
-
-The engine analyzes:
-
-Conditions
-
-Example:
-
-if(subscription.type==="PREMIUM")
-
-
-Meaning:
-
-Premium subscribers receive special processing.
-
-Loops
-
-Example:
-
-for(each invoice)
-
-
-Meaning:
-
-System processes multiple invoices.
-
-Exceptions
-
-Example:
-
-throw PaymentFailedException
-
-
-Meaning:
-
-Payment failure is a supported business scenario.
-
-12. Business Knowledge Model
-
-Business objects:
-
-Business Entity
-
-Business Rule
-
-Workflow
-
-Decision
-
-Constraint
-
-Event
-
-
-Example:
-
-Entity:
-
-Invoice
-
-
-Rule:
-
-Invoice cannot be deleted after payment.
-
-
-Workflow:
-
-Invoice Creation Process
-
-13. Business Graph
-
-Example:
-
-Customer
-
-
-   |
-
-creates
-
-
-   |
-
-Enrollment
-
-
-   |
-
-generates
-
-
-   |
-
-Invoice
-
-
-   |
-
-paid by
-
-
-   |
-
-Payment
-
-
-The graph allows questions:
-
-How does customer payment work?
-
-
-What happens after cancellation?
-
-
-Which rules affect invoices?
-
-14. AI Assisted Extraction
-
-AI should not directly scan the whole repository.
-
-Correct flow:
-
-Repository
-
-
- |
-
- v
-
-
-Parser
-
-
- |
-
- v
-
-
-Analysis
-
-
- |
-
- v
-
-
-Business Context
-
-
- |
-
- v
-
-
-AI
-
-
-
-Benefits:
-
-Less token usage
-Better accuracy
-Better context
-Lower cost
-15. Confidence System
-
-Business extraction should have confidence scores.
-
-Example:
-
-Rule:
-
-Late payment creates penalty.
-
-
-Confidence:
-
-85%
-
-
-Evidence:
-
-PaymentService
-
-PenaltyCalculationService
-
-Documentation
-
-
-Levels:
-
-HIGH
-
-MEDIUM
-
-LOW
-
-16. Database Design
-Business Rules
-
-Table:
-
-business_rules
-
-
-id
-
-repository_id
-
-name
-
-description
-
-confidence
-
-source_reference
-
-created_at
-
-Workflows
-business_workflows
-
-
-id
-
-name
-
-description
-
-steps
-
-confidence
-
-Business Entities
-business_entities
-
-
-id
-
-name
-
-type
-
-description
-
-17. Events
-BusinessRuleDetectedEvent
-
-Example:
-
-{
-"type":"VALIDATION_RULE",
-"name":"Payment Approval Required"
-}
-WorkflowDiscoveredEvent
-
-Example:
-
-{
-"name":"Invoice Generation Workflow"
-}
-18. Module Structure
-
-NestJS:
-
-src/modules/business/
-
-
-├── controllers/
-
-├── services/
-
-├── extractors/
-
-│
-├── rules/
-
-│
-├── workflows/
-
-│
-├── domain/
-
-├── confidence/
-
-├── entities/
-
-├── events/
-
-└── business.module.ts
-
-19. Dependencies
-
-Depends on:
-
-Knowledge Module
-
-Analysis Module
-
-Parser Module
-
-
-Should NOT depend on:
-
-AI Module
-
-MCP Module
-
-Frontend
-
-20. Future Enhancements
-Business Simulation
-
-Example:
-
-Question:
-
-What happens if payment fails?
-
-
-Simulation:
-
-Payment Failure
-
- |
-
- v
-
-Create Credit
-
- |
-
- v
-
-Notify Customer
-
-Automatic Business Documentation
-
-Generate:
-
-Process documents
-SOPs
-Technical-to-business mapping
-Domain Expert Feedback
-
-Allow users to:
-
-Approve rules
-Correct explanations
-Add missing context
-Summary
-
-The Business Engine transforms technical understanding into business understanding.
-
-Its responsibility:
-
-"Explain what the software does from a business perspective."
-
-It enables:
-
-Legacy system onboarding
-Faster developer productivity
-Business documentation
-AI-powered system understanding
-Safer code changes
+- Stable analyzer versions and identities
+- Clear deterministic versus heuristic classification
+- Idempotent knowledge publication
+- Tenant isolation
+- Unit and PostgreSQL integration coverage
+- Documentation of unsupported and ambiguous cases

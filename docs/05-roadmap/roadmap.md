@@ -3,7 +3,7 @@
 ## Document information
 
 Status: Active
-Version: 2.1
+Version: 2.2
 Updated: 2026-08-17
 Owner: CodeMind Engineering
 
@@ -34,7 +34,7 @@ The product goal is:
 | 1 | Platform & Identity | Secure multi-tenant backend foundation | Complete |
 | 2 | Repository Management | Register, share, synchronize, and inspect repositories | Complete |
 | 3 | Indexing & Code Intelligence | Convert Git source into structured code metadata | Complete |
-| 4 | Knowledge Graph & Business Logic | Convert code structure into navigable system knowledge | Planned |
+| 4 | Knowledge Graph & Business Logic | Convert code structure into navigable system knowledge | In progress |
 | 5 | Search Engine | Retrieve precise lexical, symbol, graph, and semantic context | Planned |
 | 6 | AI Assistant (RAG) | Answer and reason from retrieved CodeMind knowledge | Planned |
 | 7 | MCP Server | Expose CodeMind safely to external AI tools | Planned |
@@ -63,11 +63,18 @@ cancellation checks, failure recording, and graceful shutdown. Milestone 3.11
 verified the pipeline with service and PostgreSQL E2E coverage, and Milestone
 3.12 reconciled the module, API, schema, parser, ADR, and roadmap documents.
 
+Phase 4.1 now defines a PostgreSQL-first, immutable knowledge-snapshot model.
+Technical analysis, business extraction, and knowledge publication have
+separate contracts. Every published fact requires Phase 3 source evidence, and
+Neo4j, embeddings, and AI-assisted facts remain deferred until their phases or
+measured requirements justify them.
+
 Architecture decisions:
 
 - [ADR-011: Secure Git Integration](../06-adrs/011-secure-git-integration.md)
 - [ADR-012: Indexing Engine Architecture](../06-adrs/012-indexing-engine.md)
 - [ADR-013: Parser Architecture](../06-adrs/013-parser-architecture.md)
+- [ADR-014: Knowledge Analysis Architecture](../06-adrs/014-knowledge-analysis-architecture.md)
 
 ## Phase 1 — Platform & Identity
 
@@ -155,6 +162,47 @@ Phase 3 delivers:
 
 Goal: turn structural code metadata into navigable system knowledge.
 
+Architecture flow:
+
+```mermaid
+flowchart LR
+    Phase3[(Files, hashes, symbols, dependencies)]
+    Analysis[Technical analysis]
+    Business[Business extraction]
+    Snapshot[(Evidence-backed knowledge snapshot)]
+    Consumers[Documentation, Search, AI, MCP]
+
+    Phase3 --> Analysis
+    Analysis --> Business
+    Analysis --> Snapshot
+    Business --> Snapshot
+    Snapshot --> Consumers
+```
+
+Milestones:
+
+| Milestone | Scope | Status |
+|---:|---|---|
+| 4.1 | Architecture, module boundaries, provenance, snapshot, and storage decisions | Complete |
+| 4.2 | Phase 3 read/source ports and technical analyzer contracts | Planned |
+| 4.3 | Knowledge builds, snapshots, graph, evidence, entities, and migrations | Planned |
+| 4.4 | Call graph and architecture-component extraction | Planned |
+| 4.5 | Domain concepts and evidence-backed business rules | Planned |
+| 4.6 | Workflows, events, states, and transitions | Planned |
+| 4.7 | Tenant-scoped knowledge and evidence APIs | Planned |
+| 4.8 | Background processing, retry, cancellation, and recovery | Planned |
+| 4.9 | Tests, performance/security verification, and documentation | Planned |
+
+Architecture decisions:
+
+- Phase 3 remains the structural source of truth.
+- PostgreSQL adjacency tables are the first graph store.
+- Knowledge snapshots are immutable and commit scoped.
+- Every node and edge requires source evidence.
+- Deterministic analyzers precede AI-assisted enrichment.
+- Business extraction begins as an analysis subdomain, not another NestJS
+  module.
+
 Planned capabilities:
 
 - Resolved cross-file and cross-module graph
@@ -163,6 +211,14 @@ Planned capabilities:
 - Architecture and module summaries with source provenance
 - Change-impact paths and ownership context
 - Generated documentation tied to code versions
+
+Canonical Phase 4 documents:
+
+- [Analysis module](../02-core-modules/analysis.md)
+- [Business extraction engine](../02-core-modules/business-engine.md)
+- [Knowledge module](../02-core-modules/knowledge.md)
+- [Knowledge graph schema](../03-database/knowledge-graph-schema.md)
+- [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
 
 ## Phase 5 — Search Engine
 

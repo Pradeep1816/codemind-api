@@ -1,4 +1,9 @@
-This is the core intelligence layer of CodeMind.
+> **Legacy draft — do not implement.** The canonical Phase 4 persistence
+> proposal is [Knowledge Graph Schema](knowledge-graph-schema.md), governed by
+> [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md). The model below
+> is retained only as historical design context.
+
+This was the original knowledge-layer concept for CodeMind.
 
 The previous schema (code-intelligence-schema.md) understands:
 
@@ -19,7 +24,7 @@ Module: Knowledge Engine
 
 Document: Knowledge Schema
 
-Status: Draft
+Status: Superseded legacy draft
 
 Version: 1.0
 
