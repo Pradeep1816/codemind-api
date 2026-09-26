@@ -34,7 +34,8 @@ MCP and developer tools
 
 CodeMind has completed Phase 3 indexing and code intelligence. Phase 4,
 knowledge graph and business-logic extraction, is in progress with its
-architecture plus analysis foundation implemented before persistence.
+architecture, analysis foundation, and knowledge persistence foundation
+implemented.
 
 Implemented:
 
@@ -83,6 +84,8 @@ Implemented:
   injection, and unresolved call-site facts with source evidence
 - Stable analysis fact identities, content fingerprints, diagnostics, and
   resource limits
+- Migration-backed knowledge builds, immutable graph snapshots, typed nodes,
+  edges, evidence, errors, and atomic current-snapshot publication
 - Database-aware `GET /health` endpoint
 - URI API versioning under `/api/v1`
 - Global request validation

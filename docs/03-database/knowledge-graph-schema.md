@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Proposed for Phase 4 implementation
-Version: 1.0
+Status: Implemented in Milestone 4.3
+Version: 1.1
 Owner: CodeMind Engineering
 Architecture decision:
 [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
@@ -14,8 +14,8 @@ The Phase 4 schema stores commit-scoped architectural and business knowledge
 derived from Phase 3 files, hashes, symbols, and dependencies. It does not copy
 or replace those structural records.
 
-This document defines the migration target for Milestone 4.3. No tables in this
-document are implemented yet.
+This document defines the schema implemented by the Milestone 4.3 TypeORM
+entities and `1785680000000-AddKnowledgeGraphFoundation` migration.
 
 ## Storage principles
 
@@ -303,8 +303,10 @@ Those decisions require measured queries or belong to later phases.
 
 ## Implementation sequence
 
-1. Milestone 4.2 fixes analyzer fact kinds and read ports.
-2. Milestone 4.3 converts this proposal into entities and reviewed migrations.
-3. Migration and entity metadata must produce no TypeORM schema drift.
-4. PostgreSQL integration tests must verify tenant scope, snapshot publication,
-   evidence integrity, retries, and current-snapshot races.
+1. Milestone 4.2 fixed analyzer fact kinds and read ports.
+2. Milestone 4.3 converted this design into entities and a TypeORM migration.
+3. PostgreSQL integration coverage verifies snapshot publication, evidence
+   completeness and source-version integrity, immutability, and branch-move
+   behavior.
+4. Lifecycle retry and current-snapshot concurrency coverage expands with the
+   Milestone 4.8 worker implementation.

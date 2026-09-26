@@ -73,8 +73,14 @@ Milestone 4.2 now exports tenant-scoped Phase 3 snapshot and bounded immutable
 source ports, defines normalized analyzer facts and diagnostics, and streams
 deterministic TypeScript/JavaScript decorator, constructor-injection, and call
 facts. Resource limits, stable fingerprints, evidence scope, stale-snapshot
-detection, and explicit unresolved targets are covered by focused tests. No
-Phase 4 tables or public APIs are introduced yet.
+detection, and explicit unresolved targets are covered by focused tests.
+
+Milestone 4.3 now persists durable knowledge builds and invisible draft
+snapshots with typed nodes, edges, evidence, and bounded errors. PostgreSQL
+constraints enforce tenant and Phase 3 source scope, published content is
+immutable, and one transaction validates evidence before publishing a snapshot
+and conditionally selecting it as current. Public knowledge APIs are not
+introduced yet.
 
 Architecture decisions:
 
@@ -192,7 +198,7 @@ Milestones:
 | --------: | ---------------------------------------------------------------------------- | -------- |
 |       4.1 | Architecture, module boundaries, provenance, snapshot, and storage decisions | Complete |
 |       4.2 | Phase 3 read/source ports and technical analyzer contracts                   | Complete |
-|       4.3 | Knowledge builds, snapshots, graph, evidence, entities, and migrations       | Planned  |
+|       4.3 | Knowledge builds, snapshots, graph, evidence, entities, and migrations       | Complete |
 |       4.4 | Call graph and architecture-component extraction                             | Planned  |
 |       4.5 | Domain concepts and evidence-backed business rules                           | Planned  |
 |       4.6 | Workflows, events, states, and transitions                                   | Planned  |

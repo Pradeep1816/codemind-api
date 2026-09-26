@@ -1,4 +1,30 @@
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { KnowledgeBuildErrorEntity } from './entities/knowledge-build-error.entity';
+import { KnowledgeBuildEntity } from './entities/knowledge-build.entity';
+import { KnowledgeEdgeEvidenceEntity } from './entities/knowledge-edge-evidence.entity';
+import { KnowledgeEdgeEntity } from './entities/knowledge-edge.entity';
+import { KnowledgeEvidenceEntity } from './entities/knowledge-evidence.entity';
+import { KnowledgeNodeEvidenceEntity } from './entities/knowledge-node-evidence.entity';
+import { KnowledgeNodeEntity } from './entities/knowledge-node.entity';
+import { KnowledgeSnapshotEntity } from './entities/knowledge-snapshot.entity';
+import { KnowledgePersistenceRepository } from './persistence/knowledge-persistence.repository';
+import { KnowledgePersistenceService } from './services/knowledge-persistence.service';
 
-@Module({})
+@Module({
+  imports: [
+    TypeOrmModule.forFeature([
+      KnowledgeBuildEntity,
+      KnowledgeSnapshotEntity,
+      KnowledgeNodeEntity,
+      KnowledgeEdgeEntity,
+      KnowledgeEvidenceEntity,
+      KnowledgeNodeEvidenceEntity,
+      KnowledgeEdgeEvidenceEntity,
+      KnowledgeBuildErrorEntity,
+    ]),
+  ],
+  providers: [KnowledgePersistenceRepository, KnowledgePersistenceService],
+  exports: [KnowledgePersistenceService],
+})
 export class KnowledgeModule {}

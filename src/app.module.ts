@@ -5,6 +5,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { AnalysisModule } from './modules/analysis/analysis.module';
 import { HealthModule } from './modules/health/health.module';
 import { IndexingModule } from './modules/indexing/indexing.module';
+import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { RepositoriesModule } from './modules/repositories/repositories.module';
 
 @Module({
@@ -15,6 +16,7 @@ import { RepositoriesModule } from './modules/repositories/repositories.module';
     RepositoriesModule,
     IndexingModule,
     AnalysisModule,
+    KnowledgeModule,
     HealthModule,
   ],
 })

@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Phase 4 architecture approved; implementation planned
-Version: 2.0
+Status: Milestone 4.3 persistence foundation implemented
+Version: 2.1
 Owner: CodeMind Engineering
 Architecture decision:
 [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
@@ -70,9 +70,17 @@ flowchart LR
 
 ## Current implementation state
 
-The NestJS `KnowledgeModule` exists as an empty module placeholder. Milestone
-4.1 defines its boundaries and persistence proposal. Builds, entities,
-migrations, services, workers, controllers, and APIs are not implemented yet.
+The `KnowledgeModule` owns migration-backed build, snapshot, node, edge,
+evidence, evidence-link, and build-error entities. Its internal persistence
+service creates a build and invisible draft atomically, writes retry-safe graph
+batches, validates evidence completeness, and publishes a snapshot atomically.
+
+Database constraints and triggers validate Phase 3 source scope and protect
+published graph content from mutation. A published snapshot becomes current
+only when its repository branch still points to the build's target commit.
+
+Architecture extraction, public knowledge APIs, and background knowledge
+workers remain later Phase 4 milestones.
 
 ## Responsibilities
 
@@ -246,7 +254,7 @@ empty placeholders.
 Milestone 4.2 defines and implements read ports and analyzer facts without
 persistence.
 
-Milestone 4.3 implements:
+Milestone 4.3 implemented:
 
 - Knowledge builds and lifecycle
 - Immutable snapshots

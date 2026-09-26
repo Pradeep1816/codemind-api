@@ -405,15 +405,17 @@ Delivered:
 
 ### 4.3 Knowledge persistence foundation
 
-Status: Planned
+Status: Complete
 
-Deliver:
+Delivered:
 
 - Knowledge-build lifecycle entities
 - Immutable snapshot, node, edge, evidence, and error entities
 - Evidence link tables, constraints, and indexes
 - Reviewed TypeORM migrations and zero schema drift
 - Atomic publication and current-snapshot selection
+- PostgreSQL integration coverage for publication, evidence, immutability, and
+  branch-move behavior
 
 ### 4.4 Call graph and architecture extraction
 
