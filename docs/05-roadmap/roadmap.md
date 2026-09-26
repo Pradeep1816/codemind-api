@@ -82,6 +82,14 @@ immutable, and one transaction validates evidence before publishing a snapshot
 and conditionally selecting it as current. Public knowledge APIs are not
 introduced yet.
 
+Milestone 4.4 now classifies supported TypeScript/JavaScript architecture
+components and resolves calls through local methods, constructor injection,
+reliable Phase 3 imports, namespace targets, and inheritance. Module metadata
+produces containment and dependency relationships. Every call retains an
+explicit resolved, unresolved, or ambiguous result, and the Knowledge module
+projects publishable component and relationship facts into the 4.3 persistence
+contract.
+
 Architecture decisions:
 
 - [ADR-011: Secure Git Integration](../06-adrs/011-secure-git-integration.md)
@@ -199,7 +207,7 @@ Milestones:
 |       4.1 | Architecture, module boundaries, provenance, snapshot, and storage decisions | Complete |
 |       4.2 | Phase 3 read/source ports and technical analyzer contracts                   | Complete |
 |       4.3 | Knowledge builds, snapshots, graph, evidence, entities, and migrations       | Complete |
-|       4.4 | Call graph and architecture-component extraction                             | Planned  |
+|       4.4 | Call graph and architecture-component extraction                             | Complete |
 |       4.5 | Domain concepts and evidence-backed business rules                           | Planned  |
 |       4.6 | Workflows, events, states, and transitions                                   | Planned  |
 |       4.7 | Tenant-scoped knowledge and evidence APIs                                    | Planned  |

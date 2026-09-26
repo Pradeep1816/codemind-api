@@ -141,6 +141,11 @@ export class TypeScriptTechnicalAnalyzer implements CodeAnalyzer {
           )
       : [];
     const startOffset = decorator.getStart(sourceFile, false);
+    const normalizedDecoratorName = decoratorName?.split('.').at(-1) ?? null;
+    const moduleMetadata =
+      normalizedDecoratorName === 'Module'
+        ? this.readModuleMetadata(decorator)
+        : null;
 
     return this.factFactory.create({
       kind: AnalysisFactKind.Decorator,
@@ -151,6 +156,7 @@ export class TypeScriptTechnicalAnalyzer implements CodeAnalyzer {
       confidence: 1,
       properties: {
         arguments: argumentsValue,
+        moduleMetadata,
         name: decoratorName,
         targetKind: this.readDecoratorTargetKind(targetNode),
         targetName: this.readDeclarationName(targetNode, sourceFile),
@@ -343,6 +349,50 @@ export class TypeScriptTechnicalAnalyzer implements CodeAnalyzer {
     }
 
     return argument ? this.readExpressionName(argument) : null;
+  }
+
+  private readModuleMetadata(
+    decorator: ts.Decorator,
+  ): Readonly<Record<string, readonly string[]>> | null {
+    if (
+      !ts.isCallExpression(decorator.expression) ||
+      decorator.expression.arguments.length === 0
+    ) {
+      return null;
+    }
+
+    const argument = decorator.expression.arguments[0];
+
+    if (!argument || !ts.isObjectLiteralExpression(argument)) {
+      return null;
+    }
+
+    const metadata: Record<string, readonly string[]> = {};
+
+    for (const property of argument.properties) {
+      if (
+        !ts.isPropertyAssignment(property) ||
+        (!ts.isIdentifier(property.name) && !ts.isStringLiteral(property.name))
+      ) {
+        continue;
+      }
+
+      const name = property.name.text;
+
+      if (
+        !['controllers', 'providers', 'imports', 'exports'].includes(name) ||
+        !ts.isArrayLiteralExpression(property.initializer)
+      ) {
+        continue;
+      }
+
+      metadata[name] = property.initializer.elements.flatMap((element) => {
+        const reference = this.readExpressionName(element);
+        return reference ? [reference] : [];
+      });
+    }
+
+    return Object.keys(metadata).length > 0 ? metadata : null;
   }
 
   private readCallTarget(expression: ts.Expression): {

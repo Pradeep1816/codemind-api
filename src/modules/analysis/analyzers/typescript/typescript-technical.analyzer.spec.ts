@@ -168,6 +168,42 @@ export class DoctorController {
     );
   });
 
+  it('extracts bounded Nest module references for repository-wide resolution', () => {
+    const outputs = collect(
+      createAnalyzer(),
+      createContext(
+        `
+@Module({
+  imports: [SharedModule, forwardRef(() => DeferredModule)],
+  controllers: [DoctorController],
+  providers: [DoctorService, { provide: TOKEN, useClass: DoctorRepository }],
+  exports: [DoctorService],
+})
+export class DoctorModule {}
+`,
+        SourceLanguage.TypeScript,
+        'ts',
+      ),
+    );
+    const moduleDecorator = outputs.find(
+      (output) =>
+        output.type === 'fact' &&
+        output.kind === AnalysisFactKind.Decorator &&
+        output.properties.name === 'Module',
+    );
+
+    expect(
+      moduleDecorator?.type === 'fact'
+        ? moduleDecorator.properties.moduleMetadata
+        : null,
+    ).toEqual({
+      imports: ['SharedModule'],
+      controllers: ['DoctorController'],
+      providers: ['DoctorService'],
+      exports: ['DoctorService'],
+    });
+  });
+
   it('preserves computed calls as unresolved and emits a diagnostic', () => {
     const outputs = collect(
       createAnalyzer(),

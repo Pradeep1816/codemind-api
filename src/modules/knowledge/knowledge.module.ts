@@ -10,6 +10,7 @@ import { KnowledgeNodeEntity } from './entities/knowledge-node.entity';
 import { KnowledgeSnapshotEntity } from './entities/knowledge-snapshot.entity';
 import { KnowledgePersistenceRepository } from './persistence/knowledge-persistence.repository';
 import { KnowledgePersistenceService } from './services/knowledge-persistence.service';
+import { ArchitectureKnowledgeProjector } from './services/architecture-knowledge.projector';
 
 @Module({
   imports: [
@@ -24,7 +25,11 @@ import { KnowledgePersistenceService } from './services/knowledge-persistence.se
       KnowledgeBuildErrorEntity,
     ]),
   ],
-  providers: [KnowledgePersistenceRepository, KnowledgePersistenceService],
-  exports: [KnowledgePersistenceService],
+  providers: [
+    KnowledgePersistenceRepository,
+    KnowledgePersistenceService,
+    ArchitectureKnowledgeProjector,
+  ],
+  exports: [KnowledgePersistenceService, ArchitectureKnowledgeProjector],
 })
 export class KnowledgeModule {}

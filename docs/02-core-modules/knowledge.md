@@ -79,8 +79,10 @@ Database constraints and triggers validate Phase 3 source scope and protect
 published graph content from mutation. A published snapshot becomes current
 only when its repository branch still points to the build's target commit.
 
-Architecture extraction, public knowledge APIs, and background knowledge
-workers remain later Phase 4 milestones.
+Milestone 4.4 now provides an internal projector that converts architecture
+component and relationship facts into the existing node, edge, and evidence
+persistence inputs. Public knowledge APIs and background worker orchestration
+remain deferred to Milestones 4.7 and 4.8.
 
 ## Responsibilities
 

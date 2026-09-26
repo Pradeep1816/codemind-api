@@ -419,15 +419,17 @@ Delivered:
 
 ### 4.4 Call graph and architecture extraction
 
-Status: Planned
+Status: Complete
 
-Deliver:
+Delivered:
 
 - Reliably resolved call edges
 - Module, controller, service, repository, entity, provider, and configuration
   classifications
 - Component containment and dependency relationships
 - Explicit unresolved/ambiguous targets
+- Bounded repository-wide file, symbol, dependency, and output accumulation
+- Knowledge projection for architecture nodes, relationships, and evidence
 
 ### 4.5 Domain concepts and business rules
 

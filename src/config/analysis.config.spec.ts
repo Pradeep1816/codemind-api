@@ -9,6 +9,10 @@ describe('Analysis configuration', () => {
     'ANALYSIS_MAX_DIAGNOSTICS_PER_FILE',
     'ANALYSIS_MAX_AST_NODES_PER_FILE',
     'ANALYSIS_MAX_PROPERTY_BYTES',
+    'ANALYSIS_MAX_ARCHITECTURE_FILES',
+    'ANALYSIS_MAX_ARCHITECTURE_SYMBOLS',
+    'ANALYSIS_MAX_ARCHITECTURE_DEPENDENCIES',
+    'ANALYSIS_MAX_ARCHITECTURE_OUTPUTS',
   ] as const;
   const originalValues = new Map(
     variableNames.map((name) => [name, process.env[name]]),
@@ -32,6 +36,10 @@ describe('Analysis configuration', () => {
     process.env.ANALYSIS_MAX_DIAGNOSTICS_PER_FILE = '50';
     process.env.ANALYSIS_MAX_AST_NODES_PER_FILE = '10000';
     process.env.ANALYSIS_MAX_PROPERTY_BYTES = '4096';
+    process.env.ANALYSIS_MAX_ARCHITECTURE_FILES = '1000';
+    process.env.ANALYSIS_MAX_ARCHITECTURE_SYMBOLS = '5000';
+    process.env.ANALYSIS_MAX_ARCHITECTURE_DEPENDENCIES = '10000';
+    process.env.ANALYSIS_MAX_ARCHITECTURE_OUTPUTS = '20000';
 
     expect(analysisConfig()).toEqual({
       maxTotalSourceBytes: 1_048_576,
@@ -39,6 +47,10 @@ describe('Analysis configuration', () => {
       maxDiagnosticsPerFile: 50,
       maxAstNodesPerFile: 10_000,
       maxPropertyBytes: 4_096,
+      maxArchitectureFiles: 1_000,
+      maxArchitectureSymbols: 5_000,
+      maxArchitectureDependencies: 10_000,
+      maxArchitectureOutputs: 20_000,
     });
   });
 
@@ -55,6 +67,10 @@ describe('Analysis configuration', () => {
         ANALYSIS_MAX_DIAGNOSTICS_PER_FILE: '0',
         ANALYSIS_MAX_AST_NODES_PER_FILE: '99',
         ANALYSIS_MAX_PROPERTY_BYTES: '100',
+        ANALYSIS_MAX_ARCHITECTURE_FILES: '0',
+        ANALYSIS_MAX_ARCHITECTURE_SYMBOLS: '0',
+        ANALYSIS_MAX_ARCHITECTURE_DEPENDENCIES: '0',
+        ANALYSIS_MAX_ARCHITECTURE_OUTPUTS: '0',
       }),
     ).toThrow('Environment validation failed');
   });

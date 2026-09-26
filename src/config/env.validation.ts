@@ -323,6 +323,30 @@ class EnvironmentVariables {
   @Max(1_048_576)
   ANALYSIS_MAX_PROPERTY_BYTES = 16_384;
 
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(5_000_000)
+  ANALYSIS_MAX_ARCHITECTURE_SYMBOLS = 250_000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(1_000_000)
+  ANALYSIS_MAX_ARCHITECTURE_FILES = 100_000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10_000_000)
+  ANALYSIS_MAX_ARCHITECTURE_DEPENDENCIES = 500_000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10_000_000)
+  ANALYSIS_MAX_ARCHITECTURE_OUTPUTS = 500_000;
+
   @IsEnum(AiProvider)
   AI_PROVIDER = AiProvider.OpenAi;
 

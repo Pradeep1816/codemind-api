@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Milestone 4.2 implemented; knowledge persistence planned
-Version: 2.1
+Status: Milestone 4.4 architecture extraction implemented
+Version: 2.2
 Owner: CodeMind Engineering
 Architecture decision:
 [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
@@ -56,9 +56,10 @@ not import indexing TypeORM repositories or query Phase 3 tables directly.
 
 ## Outputs
 
-Analyzers emit normalized facts in bounded batches. Planned fact families are:
+Analyzers emit normalized facts in bounded batches. Implemented fact families
+include:
 
-- Call sites with explicit unresolved targets until Milestone 4.4
+- Call sites and repository-wide resolved, unresolved, or ambiguous results
 - Framework decorators and route metadata
 - Constructor injection and provider relationships
 - Module, controller, service, repository, entity, provider, and configuration
@@ -122,8 +123,10 @@ interface CodeAnalyzer {
 ```
 
 Synchronous syntax analyzers and future asynchronous analyzers share the same
-streaming boundary. Repository-wide analyzers will use a separate interface
-when Milestone 4.4 introduces a lifecycle that differs from a single file.
+streaming boundary. `ArchitectureAnalysisService` provides the separate
+repository-wide pass: it buffers only bounded Phase 3 metadata, consumes the
+file-level fact stream, and emits architecture facts without retaining source
+bodies or compiler AST nodes.
 
 ## Current implementation
 
@@ -142,8 +145,16 @@ Milestone 4.2 provides:
   limits, and streams output without retaining repository source.
 - `TypeScriptTechnicalAnalyzer`, version `1.0.0`, which emits deterministic
   decorator, constructor-injection, and call-site facts for TS, TSX, JS, and
-  JSX while enforcing a bounded iterative AST walk. Call and injection targets
-  remain explicitly `unresolved`.
+  JSX while enforcing a bounded iterative AST walk. Nest module decorators also
+  expose bounded identifier-only controller, provider, import, and export
+  references.
+- `ArchitectureAnalysisService`, version `1.0.0`, which classifies module,
+  controller, service, repository, entity, provider, and configuration
+  components; resolves supported call and injection targets; and emits
+  evidence-backed `contains`, `depends_on`, and `calls` relationships.
+- `ArchitectureKnowledgeProjector`, owned by `KnowledgeModule`, which maps
+  normalized component and relationship facts into the 4.3 node/edge/evidence
+  persistence contract without introducing an Analysis-to-Knowledge dependency.
 
 The read port accepts the current file inventory associated with the requested
 successful index job. It rejects a historical job after a later index has
@@ -179,6 +190,24 @@ knowledge history independently in Milestone 4.3.
 - Emit confidence and derivation metadata for every inference.
 
 The knowledge module validates, persists, and publishes the resulting fact set.
+
+## Architecture resolution support
+
+The initial repository-wide resolver supports:
+
+- `this.method()` calls inside one classified class
+- Calls through constructor-injected properties such as
+  `this.service.execute()`
+- Reliably resolved imported functions and static/imported class receivers
+- Namespace-import members when Phase 3 resolved the target file
+- `super.method()` when Phase 3 resolved the `extends` relationship
+- Module containment from identifier-only `controllers` and `providers`
+- Module dependencies from identifier-only `imports`
+
+Computed calls, runtime provider factories, unresolved path aliases,
+`forwardRef` expressions, and targets with multiple valid symbols remain
+explicitly unresolved or ambiguous. Naming suffixes are heuristic; framework
+decorators and Phase 3 target identities provide deterministic evidence.
 
 ## Determinism and confidence
 

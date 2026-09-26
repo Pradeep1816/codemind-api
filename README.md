@@ -86,6 +86,11 @@ Implemented:
   resource limits
 - Migration-backed knowledge builds, immutable graph snapshots, typed nodes,
   edges, evidence, errors, and atomic current-snapshot publication
+- Repository-wide architecture classification and bounded call resolution for
+  modules, controllers, services, repositories, entities, providers, and
+  configuration components
+- Evidence-backed `contains`, `depends_on`, and resolved `calls` graph
+  projection with explicit unresolved and ambiguous call results
 - Database-aware `GET /health` endpoint
 - URI API versioning under `/api/v1`
 - Global request validation

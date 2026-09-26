@@ -252,13 +252,17 @@ only from validated organization, repository, and job IDs.
 
 ### Analysis
 
-| Variable                            | Required | Default     | Description                                     |
-| ----------------------------------- | -------: | ----------- | ----------------------------------------------- |
-| `ANALYSIS_MAX_TOTAL_SOURCE_BYTES`   |       No | `536870912` | Maximum immutable source bytes per snapshot     |
-| `ANALYSIS_MAX_FACTS_PER_FILE`       |       No | `20000`     | Maximum facts emitted for one source file       |
-| `ANALYSIS_MAX_DIAGNOSTICS_PER_FILE` |       No | `1000`      | Maximum diagnostics emitted for one source file |
-| `ANALYSIS_MAX_AST_NODES_PER_FILE`   |       No | `200000`    | Maximum compiler AST nodes visited per file     |
-| `ANALYSIS_MAX_PROPERTY_BYTES`       |       No | `16384`     | Maximum serialized property bytes for one fact  |
+| Variable                                 | Required | Default     | Description                                     |
+| ---------------------------------------- | -------: | ----------- | ----------------------------------------------- |
+| `ANALYSIS_MAX_TOTAL_SOURCE_BYTES`        |       No | `536870912` | Maximum immutable source bytes per snapshot     |
+| `ANALYSIS_MAX_FACTS_PER_FILE`            |       No | `20000`     | Maximum facts emitted for one source file       |
+| `ANALYSIS_MAX_DIAGNOSTICS_PER_FILE`      |       No | `1000`      | Maximum diagnostics emitted for one source file |
+| `ANALYSIS_MAX_AST_NODES_PER_FILE`        |       No | `200000`    | Maximum compiler AST nodes visited per file     |
+| `ANALYSIS_MAX_PROPERTY_BYTES`            |       No | `16384`     | Maximum serialized property bytes for one fact  |
+| `ANALYSIS_MAX_ARCHITECTURE_SYMBOLS`      |       No | `250000`    | Maximum symbols in one architecture pass        |
+| `ANALYSIS_MAX_ARCHITECTURE_FILES`        |       No | `100000`    | Maximum files in one architecture pass          |
+| `ANALYSIS_MAX_ARCHITECTURE_DEPENDENCIES` |       No | `500000`    | Maximum dependencies in one architecture pass   |
+| `ANALYSIS_MAX_ARCHITECTURE_OUTPUTS`      |       No | `500000`    | Maximum outputs from one architecture pass      |
 
 The `analysis` namespace exposes:
 
@@ -269,6 +273,10 @@ The `analysis` namespace exposes:
   maxDiagnosticsPerFile: number;
   maxAstNodesPerFile: number;
   maxPropertyBytes: number;
+  maxArchitectureSymbols: number;
+  maxArchitectureFiles: number;
+  maxArchitectureDependencies: number;
+  maxArchitectureOutputs: number;
 }
 ```
 

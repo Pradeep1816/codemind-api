@@ -16,4 +16,17 @@ export default registerAs('analysis', () => ({
   ),
   maxAstNodesPerFile: readInteger('ANALYSIS_MAX_AST_NODES_PER_FILE', 200_000),
   maxPropertyBytes: readInteger('ANALYSIS_MAX_PROPERTY_BYTES', 16_384),
+  maxArchitectureSymbols: readInteger(
+    'ANALYSIS_MAX_ARCHITECTURE_SYMBOLS',
+    250_000,
+  ),
+  maxArchitectureFiles: readInteger('ANALYSIS_MAX_ARCHITECTURE_FILES', 100_000),
+  maxArchitectureDependencies: readInteger(
+    'ANALYSIS_MAX_ARCHITECTURE_DEPENDENCIES',
+    500_000,
+  ),
+  maxArchitectureOutputs: readInteger(
+    'ANALYSIS_MAX_ARCHITECTURE_OUTPUTS',
+    500_000,
+  ),
 }));
