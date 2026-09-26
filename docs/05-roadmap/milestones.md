@@ -446,7 +446,7 @@ Delivered:
 
 ### 4.6 Workflows, events, states, and transitions
 
-Status: Planned
+Status: In progress
 
 Deliver:
 
@@ -454,6 +454,13 @@ Deliver:
 - Domain events and handlers
 - State values and evidence-backed transitions
 - Bounded traversal and branching
+
+Implemented so far:
+
+- Enum and explicit-assignment state facts
+- Equality-guarded transitions with unknown-source preservation
+- State and transition knowledge nodes with immutable evidence
+- Proven `transitions_to` and containing-component `enforces` relationships
 
 ### 4.7 Knowledge APIs
 

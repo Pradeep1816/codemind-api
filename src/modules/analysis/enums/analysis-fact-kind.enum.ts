@@ -7,4 +7,6 @@ export enum AnalysisFactKind {
   CallResolution = 'call_resolution',
   DomainConcept = 'domain_concept',
   BusinessRule = 'business_rule',
+  State = 'state',
+  StateTransition = 'state_transition',
 }

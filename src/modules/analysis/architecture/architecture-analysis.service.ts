@@ -112,6 +112,8 @@ export class ArchitectureAnalysisService {
           break;
         case AnalysisFactKind.DomainConcept:
         case AnalysisFactKind.BusinessRule:
+        case AnalysisFactKind.State:
+        case AnalysisFactKind.StateTransition:
           this.appendOutput(outputs, output);
           break;
         default:

@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Milestone 4.5 deterministic extraction implemented
-Version: 2.1
+Status: Milestone 4.6 state extraction in progress
+Version: 2.2
 Owner: CodeMind Engineering
 Architecture decision:
 [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
@@ -213,13 +213,30 @@ They do not write knowledge entities directly.
 ```text
 src/modules/analysis/analyzers/business/
 ├── typescript-business.analyzer.ts
-└── typescript-business-analyzer.errors.ts
+├── typescript-business-analyzer.errors.ts
+├── typescript-state.analyzer.ts
+└── typescript-state-analyzer.errors.ts
 ```
 
-The combined TypeScript/JavaScript analyzer performs one bounded AST walk and
-emits both concept and rule facts. Workflow, state-transition, and domain-event
-analyzers are introduced in Milestone 4.6 only with implemented behavior and
-service tests.
+The TypeScript/JavaScript business analyzer emits concept and rule facts. The
+state analyzer performs its own bounded pass and emits states plus explicit
+transitions. Workflow and domain-event analyzers are introduced only with
+implemented behavior and service tests.
+
+## Implemented state boundary
+
+The initial state pass recognizes:
+
+- Enum members as declared states
+- Qualified enum values assigned to fields named `status` or `state`
+- Simple bounded string values assigned to those fields
+- A previous state only when an enclosing equality guard compares the exact
+  same target, such as `appointment.status === AppointmentStatus.Pending`
+
+An unguarded assignment still creates a transition fact with an unknown source
+state, but it does not create a `transitions_to` graph edge. Inequality guards,
+computed properties, nested data-flow inference, switch fall-through, and
+cross-function transition composition remain unsupported rather than guessed.
 
 ## Implemented rule boundary
 
@@ -235,8 +252,7 @@ The following remain unsupported rather than guessed:
 - Runtime-computed property names and reflective control flow
 - Interprocedural conditions requiring data-flow execution
 - Legal or accounting intent that is not represented by source structure
-- Workflows, event/handler pairing, and proven state transitions (Milestone
-  4.6)
+- Workflows and event/handler pairing (remaining Milestone 4.6 work)
 
 ## Resource and security limits
 

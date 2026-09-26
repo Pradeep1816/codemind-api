@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Milestone 4.5 business projection implemented
-Version: 2.2
+Status: Milestone 4.6 state projection in progress
+Version: 2.3
 Owner: CodeMind Engineering
 Architecture decision:
 [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
@@ -84,6 +84,11 @@ relationships, domain concepts, and business rules. Repeated domain evidence
 is merged deterministically, while containing components are linked to concepts
 with `represents` and rules with `enforces`. Public knowledge APIs and
 background worker orchestration remain deferred to Milestones 4.7 and 4.8.
+
+The first Milestone 4.6 projector adds state and state-transition nodes. A
+`transitions_to` edge is published only when both states are supported by
+evidence; unknown-source assignments remain visible transition nodes without a
+fabricated source edge.
 
 ## Responsibilities
 
@@ -267,8 +272,8 @@ Milestone 4.3 implemented:
 - Entities, constraints, indexes, and migrations
 - Atomic publication and current-snapshot behavior
 
-Milestones 4.4 and 4.5 add architecture, domain, and rule extraction plus
-projection. Later milestones add workflows/events/states, APIs, and full
+Milestones 4.4–4.6 add architecture, domain, rule, and initial state extraction
+plus projection. Later milestones add workflows/events, APIs, and full
 background processing.
 
 ## Completion gate

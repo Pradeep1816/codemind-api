@@ -13,6 +13,7 @@ import {
   AnalysisExecutionErrorCode,
 } from './analysis.errors';
 import { TypeScriptBusinessAnalyzer } from './analyzers/business/typescript-business.analyzer';
+import { TypeScriptStateAnalyzer } from './analyzers/business/typescript-state.analyzer';
 import { TypeScriptTechnicalAnalyzer } from './analyzers/typescript/typescript-technical.analyzer';
 import type { CodeAnalyzer } from './interfaces/code-analyzer.interface';
 import { AnalysisFileContext } from './types/analysis-context.types';
@@ -34,8 +35,14 @@ export class AnalysisService {
     typeScriptTechnicalAnalyzer: CodeAnalyzer,
     @Inject(TypeScriptBusinessAnalyzer)
     typeScriptBusinessAnalyzer: CodeAnalyzer,
+    @Inject(TypeScriptStateAnalyzer)
+    typeScriptStateAnalyzer: CodeAnalyzer,
   ) {
-    this.analyzers = [typeScriptTechnicalAnalyzer, typeScriptBusinessAnalyzer];
+    this.analyzers = [
+      typeScriptTechnicalAnalyzer,
+      typeScriptBusinessAnalyzer,
+      typeScriptStateAnalyzer,
+    ];
   }
 
   /**

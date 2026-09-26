@@ -12,6 +12,7 @@ import { KnowledgePersistenceRepository } from './persistence/knowledge-persiste
 import { ArchitectureKnowledgeProjector } from './services/architecture-knowledge.projector';
 import { BusinessKnowledgeProjector } from './services/business-knowledge.projector';
 import { KnowledgePersistenceService } from './services/knowledge-persistence.service';
+import { StateKnowledgeProjector } from './services/state-knowledge.projector';
 
 @Module({
   imports: [
@@ -31,11 +32,13 @@ import { KnowledgePersistenceService } from './services/knowledge-persistence.se
     KnowledgePersistenceService,
     ArchitectureKnowledgeProjector,
     BusinessKnowledgeProjector,
+    StateKnowledgeProjector,
   ],
   exports: [
     KnowledgePersistenceService,
     ArchitectureKnowledgeProjector,
     BusinessKnowledgeProjector,
+    StateKnowledgeProjector,
   ],
 })
 export class KnowledgeModule {}

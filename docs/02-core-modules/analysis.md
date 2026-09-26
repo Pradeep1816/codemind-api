@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Milestone 4.5 domain and business-rule extraction implemented
-Version: 2.3
+Status: Milestone 4.6 state extraction in progress
+Version: 2.4
 Owner: CodeMind Engineering
 Architecture decision:
 [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
@@ -161,6 +161,12 @@ Milestone 4.2 provides:
 - `BusinessKnowledgeProjector`, owned by `KnowledgeModule`, which merges
   repeated concept evidence, creates domain-concept and business-rule nodes,
   and projects component `represents` and `enforces` relationships.
+- `TypeScriptStateAnalyzer`, version `1.0.0`, which emits declared enum states
+  and explicit `status`/`state` assignments. It creates a proven source state
+  only when an enclosing equality guard compares the same assignment target.
+- `StateKnowledgeProjector`, owned by `KnowledgeModule`, which creates state and
+  transition nodes, component `enforces` edges, and `transitions_to` edges only
+  for transitions with both a proven source and target state.
 
 The read port accepts the current file inventory associated with the requested
 successful index job. It rejects a historical job after a later index has
@@ -235,9 +241,11 @@ The first deterministic business pass supports:
 The analyzer deliberately does not infer intent from arbitrary branches,
 comments, import order, string literals, or name similarity alone. It does not
 claim accounting, legal, scheduling, or authorization meaning beyond the
-observed condition, outcome, identifiers, and containing symbol. Complex
-data-flow, interprocedural rule composition, workflows, events, and state
-transitions remain Milestone 4.6 work.
+observed condition, outcome, identifiers, and containing symbol. Complex data
+flow, interprocedural rule composition, workflows, and events remain Milestone
+4.6 work. State extraction currently supports enum members, qualified enum
+assignments, and bounded simple string assignments to fields named `status` or
+`state`.
 
 ## Determinism and confidence
 
@@ -284,7 +292,8 @@ read as an empty successful result.
 src/modules/analysis/
 ├── analyzers/
 │   ├── business/
-│   │   └── typescript-business.analyzer.ts
+│   │   ├── typescript-business.analyzer.ts
+│   │   └── typescript-state.analyzer.ts
 │   └── typescript/
 │       └── typescript-technical.analyzer.ts
 ├── architecture/

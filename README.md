@@ -96,6 +96,8 @@ Implemented:
 - Deterministic validation, permission, calculation, state-constraint,
   eligibility, and scheduling rule extraction without executing source
 - Knowledge projection for component `represents` and `enforces` relationships
+- Evidence-backed enum states and explicit state transitions, with
+  `transitions_to` edges only when both source and target states are proven
 - Database-aware `GET /health` endpoint
 - URI API versioning under `/api/v1`
 - Global request validation

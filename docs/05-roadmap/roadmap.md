@@ -209,7 +209,7 @@ Milestones:
 |       4.3 | Knowledge builds, snapshots, graph, evidence, entities, and migrations       | Complete |
 |       4.4 | Call graph and architecture-component extraction                             | Complete |
 |       4.5 | Domain concepts and evidence-backed business rules                           | Complete |
-|       4.6 | Workflows, events, states, and transitions                                   | Planned  |
+|       4.6 | Workflows, events, states, and transitions                                   | In progress |
 |       4.7 | Tenant-scoped knowledge and evidence APIs                                    | Planned  |
 |       4.8 | Background processing, retry, cancellation, and recovery                     | Planned  |
 |       4.9 | Tests, performance/security verification, and documentation                  | Planned  |
