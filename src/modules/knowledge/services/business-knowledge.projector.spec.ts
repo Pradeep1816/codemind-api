@@ -1,0 +1,194 @@
+import { AnalysisDerivationType } from '../../analysis/enums/analysis-derivation-type.enum';
+import { AnalysisEvidenceRole } from '../../analysis/enums/analysis-evidence-role.enum';
+import { AnalysisFactKind } from '../../analysis/enums/analysis-fact-kind.enum';
+import type { AnalysisFact } from '../../analysis/types/analysis-fact.types';
+import { KnowledgeEdgeKind } from '../enums/knowledge-edge-kind.enum';
+import { KnowledgeNodeKind } from '../enums/knowledge-node-kind.enum';
+import {
+  BusinessKnowledgeProjectionError,
+  BusinessKnowledgeProjector,
+} from './business-knowledge.projector';
+
+describe('BusinessKnowledgeProjector', () => {
+  const componentIdentity = `architecture_component:${'a'.repeat(64)}`;
+  const conceptIdentity = `domain_concept:${'b'.repeat(64)}`;
+  const ruleIdentity = `business_rule:${'c'.repeat(64)}`;
+
+  function evidence(
+    startOffset: number,
+    endOffset: number,
+    codeSymbolId: number,
+    role = AnalysisEvidenceRole.Declaration,
+  ) {
+    return {
+      indexedFileId: 10,
+      fileHashId: 11,
+      codeSymbolId,
+      role,
+      range: {
+        start: { line: 1, column: 1, offset: startOffset },
+        end: { line: 20, column: 2, offset: endOffset },
+      },
+    } as const;
+  }
+
+  function fact(
+    kind: AnalysisFactKind,
+    identityKey: string,
+    properties: AnalysisFact['properties'],
+    factEvidence = evidence(0, 200, 12),
+    derivationType = AnalysisDerivationType.Deterministic,
+    confidence = 1,
+  ): AnalysisFact {
+    return {
+      type: 'fact',
+      kind,
+      identityKey,
+      contentFingerprint: 'd'.repeat(64),
+      analyzerName: 'typescript-business',
+      analyzerVersion: '1.0.0',
+      derivationType,
+      confidence,
+      properties,
+      evidence: [factEvidence],
+    };
+  }
+
+  function architecture(): AnalysisFact {
+    return fact(
+      AnalysisFactKind.ArchitectureComponent,
+      componentIdentity,
+      {
+        name: 'AppointmentService',
+        componentType: 'service',
+        indexedFileId: 10,
+        symbolId: 12,
+      },
+      evidence(0, 500, 12),
+    );
+  }
+
+  function concept(
+    factEvidence = evidence(20, 80, 13),
+    source = 'entity_decorator',
+    confidence = 1,
+  ): AnalysisFact {
+    return fact(
+      AnalysisFactKind.DomainConcept,
+      conceptIdentity,
+      {
+        name: 'Appointment',
+        normalizedName: 'appointment',
+        declarationKind: 'class',
+        source,
+      },
+      factEvidence,
+      confidence === 1
+        ? AnalysisDerivationType.Deterministic
+        : AnalysisDerivationType.Heuristic,
+      confidence,
+    );
+  }
+
+  function rule(): AnalysisFact {
+    return fact(
+      AnalysisFactKind.BusinessRule,
+      ruleIdentity,
+      {
+        ruleType: 'scheduling',
+        containingSymbolId: 14,
+        containingSymbolName: 'AppointmentService.book',
+        condition: {
+          kind: 'prefixunaryexpression',
+          identifiers: ['available', 'slot'],
+          operation: '!',
+          target: null,
+        },
+        outcome: {
+          kind: 'throw',
+          identifiers: ['SlotUnavailableException'],
+          operation: null,
+          target: null,
+        },
+        subjectConceptIdentityKeys: [conceptIdentity],
+        subjectConceptNames: ['Appointment'],
+      },
+      evidence(120, 180, 14, AnalysisEvidenceRole.Condition),
+      AnalysisDerivationType.Deterministic,
+      0.95,
+    );
+  }
+
+  it('projects merged concepts, rules, and component relationships', () => {
+    const projector = new BusinessKnowledgeProjector();
+    const result = projector.project([
+      architecture(),
+      concept(),
+      concept(evidence(220, 280, 15), 'domain_type', 0.8),
+      rule(),
+    ]);
+
+    expect(result.nodes).toHaveLength(2);
+    const conceptNode = result.nodes.find(
+      (node) => node.kind === KnowledgeNodeKind.DomainConcept,
+    );
+    const ruleNode = result.nodes.find(
+      (node) => node.kind === KnowledgeNodeKind.BusinessRule,
+    );
+
+    expect(conceptNode).toMatchObject({
+      kind: KnowledgeNodeKind.DomainConcept,
+      identityKey: conceptIdentity,
+      name: 'Appointment',
+      confidence: 1,
+      properties: {
+        declarationKinds: ['class'],
+        normalizedName: 'appointment',
+        sources: ['domain_type', 'entity_decorator'],
+      },
+    });
+    expect(
+      new Set(conceptNode?.evidence.map((item) => item.codeSymbolId)),
+    ).toEqual(new Set([13, 15]));
+    expect(ruleNode).toMatchObject({
+      kind: KnowledgeNodeKind.BusinessRule,
+      identityKey: ruleIdentity,
+      name: 'scheduling rule in AppointmentService.book',
+    });
+    expect(result.edges.map((edge) => edge.kind)).toEqual(
+      expect.arrayContaining([
+        KnowledgeEdgeKind.Represents,
+        KnowledgeEdgeKind.Enforces,
+      ]),
+    );
+    expect(
+      result.edges.every(
+        (edge) => edge.source.identityKey === componentIdentity,
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects conflicting concept names for one stable identity', () => {
+    const projector = new BusinessKnowledgeProjector();
+
+    expect(() =>
+      projector.project([
+        concept(),
+        fact(AnalysisFactKind.DomainConcept, conceptIdentity, {
+          name: 'Different Concept',
+          normalizedName: 'different concept',
+          declarationKind: 'class',
+          source: 'domain_type',
+        }),
+      ]),
+    ).toThrow(BusinessKnowledgeProjectionError);
+  });
+
+  it('rejects duplicate business-rule identities', () => {
+    const projector = new BusinessKnowledgeProjector();
+
+    expect(() => projector.project([rule(), rule()])).toThrow(
+      'Business rule identity is not unique',
+    );
+  });
+});

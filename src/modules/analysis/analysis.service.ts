@@ -12,6 +12,7 @@ import {
   AnalysisExecutionError,
   AnalysisExecutionErrorCode,
 } from './analysis.errors';
+import { TypeScriptBusinessAnalyzer } from './analyzers/business/typescript-business.analyzer';
 import { TypeScriptTechnicalAnalyzer } from './analyzers/typescript/typescript-technical.analyzer';
 import type { CodeAnalyzer } from './interfaces/code-analyzer.interface';
 import { AnalysisFileContext } from './types/analysis-context.types';
@@ -31,8 +32,10 @@ export class AnalysisService {
     private readonly immutableSourceReader: ImmutableSourceReader,
     @Inject(TypeScriptTechnicalAnalyzer)
     typeScriptTechnicalAnalyzer: CodeAnalyzer,
+    @Inject(TypeScriptBusinessAnalyzer)
+    typeScriptBusinessAnalyzer: CodeAnalyzer,
   ) {
-    this.analyzers = [typeScriptTechnicalAnalyzer];
+    this.analyzers = [typeScriptTechnicalAnalyzer, typeScriptBusinessAnalyzer];
   }
 
   /**

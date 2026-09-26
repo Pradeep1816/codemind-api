@@ -433,14 +433,16 @@ Delivered:
 
 ### 4.5 Domain concepts and business rules
 
-Status: Planned
+Status: Complete
 
-Deliver:
+Delivered:
 
 - Evidence-backed domain concepts
 - Validation, permission, calculation, state, eligibility, and scheduling rules
 - Deterministic identity and content fingerprints
 - Clear heuristic confidence and unsupported cases
+- Domain/rule node projection plus component `represents` and `enforces` edges
+- Bounded AST traversal without source execution or raw-expression persistence
 
 ### 4.6 Workflows, events, states, and transitions
 

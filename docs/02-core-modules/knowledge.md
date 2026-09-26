@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Milestone 4.3 persistence foundation implemented
-Version: 2.1
+Status: Milestone 4.5 business projection implemented
+Version: 2.2
 Owner: CodeMind Engineering
 Architecture decision:
 [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
@@ -79,10 +79,11 @@ Database constraints and triggers validate Phase 3 source scope and protect
 published graph content from mutation. A published snapshot becomes current
 only when its repository branch still points to the build's target commit.
 
-Milestone 4.4 now provides an internal projector that converts architecture
-component and relationship facts into the existing node, edge, and evidence
-persistence inputs. Public knowledge APIs and background worker orchestration
-remain deferred to Milestones 4.7 and 4.8.
+Milestones 4.4 and 4.5 provide internal projectors for architecture components,
+relationships, domain concepts, and business rules. Repeated domain evidence
+is merged deterministically, while containing components are linked to concepts
+with `represents` and rules with `enforces`. Public knowledge APIs and
+background worker orchestration remain deferred to Milestones 4.7 and 4.8.
 
 ## Responsibilities
 
@@ -266,7 +267,9 @@ Milestone 4.3 implemented:
 - Entities, constraints, indexes, and migrations
 - Atomic publication and current-snapshot behavior
 
-Later milestones add extraction, APIs, and full background processing.
+Milestones 4.4 and 4.5 add architecture, domain, and rule extraction plus
+projection. Later milestones add workflows/events/states, APIs, and full
+background processing.
 
 ## Completion gate
 

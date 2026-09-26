@@ -208,7 +208,7 @@ Milestones:
 |       4.2 | Phase 3 read/source ports and technical analyzer contracts                   | Complete |
 |       4.3 | Knowledge builds, snapshots, graph, evidence, entities, and migrations       | Complete |
 |       4.4 | Call graph and architecture-component extraction                             | Complete |
-|       4.5 | Domain concepts and evidence-backed business rules                           | Planned  |
+|       4.5 | Domain concepts and evidence-backed business rules                           | Complete |
 |       4.6 | Workflows, events, states, and transitions                                   | Planned  |
 |       4.7 | Tenant-scoped knowledge and evidence APIs                                    | Planned  |
 |       4.8 | Background processing, retry, cancellation, and recovery                     | Planned  |

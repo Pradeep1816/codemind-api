@@ -109,6 +109,12 @@ describe('AnalysisService', () => {
       codeIntelligenceReader,
       immutableSourceReader,
       analyzer,
+      {
+        name: 'unsupported-business-analyzer',
+        version: '1.0.0',
+        supports: jest.fn().mockReturnValue(false),
+        analyze: jest.fn().mockReturnValue([]),
+      },
     );
 
     return {

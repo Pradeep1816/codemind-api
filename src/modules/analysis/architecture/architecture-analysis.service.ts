@@ -110,6 +110,10 @@ export class ArchitectureAnalysisService {
         case AnalysisFactKind.CallSite:
           calls.push(output);
           break;
+        case AnalysisFactKind.DomainConcept:
+        case AnalysisFactKind.BusinessRule:
+          this.appendOutput(outputs, output);
+          break;
         default:
           break;
       }

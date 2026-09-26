@@ -34,8 +34,8 @@ MCP and developer tools
 
 CodeMind has completed Phase 3 indexing and code intelligence. Phase 4,
 knowledge graph and business-logic extraction, is in progress with its
-architecture, analysis foundation, and knowledge persistence foundation
-implemented.
+architecture, persistence foundation, domain concepts, and deterministic
+business-rule extraction implemented.
 
 Implemented:
 
@@ -91,6 +91,11 @@ Implemented:
   configuration components
 - Evidence-backed `contains`, `depends_on`, and resolved `calls` graph
   projection with explicit unresolved and ambiguous call results
+- Evidence-backed domain concepts from entities, domain types, boundary types,
+  and service boundaries
+- Deterministic validation, permission, calculation, state-constraint,
+  eligibility, and scheduling rule extraction without executing source
+- Knowledge projection for component `represents` and `enforces` relationships
 - Database-aware `GET /health` endpoint
 - URI API versioning under `/api/v1`
 - Global request validation

@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Phase 4 logical boundary approved; implementation planned
-Version: 2.0
+Status: Milestone 4.5 deterministic extraction implemented
+Version: 2.1
 Owner: CodeMind Engineering
 Architecture decision:
 [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
@@ -208,19 +208,35 @@ analyzers:
 
 They do not write knowledge entities directly.
 
-## Planned analyzer structure
+## Implemented analyzer structure
 
 ```text
 src/modules/analysis/analyzers/business/
-├── domain-concept.analyzer.ts
-├── business-rule.analyzer.ts
-├── workflow.analyzer.ts
-├── state-transition.analyzer.ts
-└── domain-event.analyzer.ts
+├── typescript-business.analyzer.ts
+└── typescript-business-analyzer.errors.ts
 ```
 
-The list is a target. Files are introduced only with implemented behavior and
+The combined TypeScript/JavaScript analyzer performs one bounded AST walk and
+emits both concept and rule facts. Workflow, state-transition, and domain-event
+analyzers are introduced in Milestone 4.6 only with implemented behavior and
 service tests.
+
+## Implemented rule boundary
+
+Milestone 4.5 recognizes guarded `throw`/`return` outcomes, semantically
+signaled guarded calls or assignments, and explicit rounding operations. Rule
+properties retain normalized identifiers, operator/kind information, the
+containing Phase 3 symbol, and matched domain-concept identities. They do not
+retain raw source expressions or literal values.
+
+The following remain unsupported rather than guessed:
+
+- Meaning inferred only from comments or arbitrary string literals
+- Runtime-computed property names and reflective control flow
+- Interprocedural conditions requiring data-flow execution
+- Legal or accounting intent that is not represented by source structure
+- Workflows, event/handler pairing, and proven state transitions (Milestone
+  4.6)
 
 ## Resource and security limits
 

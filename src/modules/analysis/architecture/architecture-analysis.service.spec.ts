@@ -431,6 +431,41 @@ describe('ArchitectureAnalysisService', () => {
     expect(facts.every((fact) => fact.evidence.length > 0)).toBe(true);
   });
 
+  it('forwards domain and rule facts into the repository-wide output', async () => {
+    const fixture = createFixture();
+    const serviceFile = fixture.files[2];
+    const serviceMethod = serviceFile.symbols.find(
+      (candidate) => candidate.id === 6,
+    )!;
+    const concept = baseFact(
+      AnalysisFactKind.DomainConcept,
+      `domain_concept:${'a'.repeat(64)}`,
+      {
+        name: 'Doctor',
+        normalizedName: 'doctor',
+        declarationKind: 'class',
+        source: 'service_boundary',
+      },
+      evidence(serviceMethod, serviceFile, AnalysisEvidenceRole.Declaration),
+    );
+    const rule = baseFact(
+      AnalysisFactKind.BusinessRule,
+      `business_rule:${'b'.repeat(64)}`,
+      {
+        ruleType: 'scheduling',
+        containingSymbolId: serviceMethod.id,
+        containingSymbolName: serviceMethod.qualifiedName,
+      },
+      evidence(serviceMethod, serviceFile, AnalysisEvidenceRole.Condition),
+    );
+    const outputs = await collect(
+      createService(fixture.files, [...fixture.facts, concept, rule]),
+    );
+
+    expect(outputs).toContain(concept);
+    expect(outputs).toContain(rule);
+  });
+
   it('preserves ambiguous and unresolved call targets explicitly', async () => {
     const fixture = createFixture();
     const controllerFile = fixture.files[1];

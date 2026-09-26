@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Milestone 4.4 architecture extraction implemented
-Version: 2.2
+Status: Milestone 4.5 domain and business-rule extraction implemented
+Version: 2.3
 Owner: CodeMind Engineering
 Architecture decision:
 [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
@@ -64,10 +64,9 @@ include:
 - Constructor injection and provider relationships
 - Module, controller, service, repository, entity, provider, and configuration
   classifications
-- Conditions and guarded actions
-- Assignments and state changes
-- Domain event publication and handler candidates
-- Workflow-step and transition candidates
+- Evidence-backed domain concepts from supported declarations
+- Validation, permission, calculation, state-constraint, eligibility, and
+  scheduling rule candidates
 
 Facts contain stable identity, source evidence, analyzer identity, derivation
 type, confidence, and bounded typed properties. They contain no compiler AST
@@ -155,6 +154,13 @@ Milestone 4.2 provides:
 - `ArchitectureKnowledgeProjector`, owned by `KnowledgeModule`, which maps
   normalized component and relationship facts into the 4.3 node/edge/evidence
   persistence contract without introducing an Analysis-to-Knowledge dependency.
+- `TypeScriptBusinessAnalyzer`, version `1.0.0`, which derives domain concepts
+  from entity, type, boundary, and service declarations and derives typed rules
+  from guarded outcomes plus recognized rounding calls. It records identifiers
+  and operators, but not raw expressions or literal values.
+- `BusinessKnowledgeProjector`, owned by `KnowledgeModule`, which merges
+  repeated concept evidence, creates domain-concept and business-rule nodes,
+  and projects component `represents` and `enforces` relationships.
 
 The read port accepts the current file inventory associated with the requested
 successful index job. It rejects a historical job after a later index has
@@ -185,8 +191,9 @@ knowledge history independently in Milestone 4.3.
 
 ### Pass 4: Business candidates
 
-- Convert supported conditions and actions into rule candidates.
-- Group call/state/event facts into workflow candidates.
+- Convert supported guarded conditions and rounding calls into rule candidates.
+- Normalize concept names from supported declarations and attach matching
+  concept identities to rule properties.
 - Emit confidence and derivation metadata for every inference.
 
 The knowledge module validates, persists, and publishes the resulting fact set.
@@ -208,6 +215,29 @@ Computed calls, runtime provider factories, unresolved path aliases,
 `forwardRef` expressions, and targets with multiple valid symbols remain
 explicitly unresolved or ambiguous. Naming suffixes are heuristic; framework
 decorators and Phase 3 target identities provide deterministic evidence.
+
+## Business extraction support
+
+The first deterministic business pass supports:
+
+- Entity-decorated classes as direct domain concepts
+- Exported classes, interfaces, enums, type aliases, DTO/model/entity boundary
+  types, and controller/service/repository names as heuristic concept evidence
+- Guarded `throw` and `return` outcomes as validation rules
+- Permission, state, eligibility, and scheduling categories when identifiers
+  provide explicit category signals
+- `Math.round`, `Math.floor`, `Math.ceil`, `Math.trunc`, and `.toFixed()` as
+  calculation/rounding rules
+- Stable SHA-256 identities and fingerprints with exact immutable evidence
+- Architecture-to-concept `represents` and architecture-to-rule `enforces`
+  graph projection
+
+The analyzer deliberately does not infer intent from arbitrary branches,
+comments, import order, string literals, or name similarity alone. It does not
+claim accounting, legal, scheduling, or authorization meaning beyond the
+observed condition, outcome, identifiers, and containing symbol. Complex
+data-flow, interprocedural rule composition, workflows, events, and state
+transitions remain Milestone 4.6 work.
 
 ## Determinism and confidence
 
@@ -253,8 +283,12 @@ read as an empty successful result.
 ```text
 src/modules/analysis/
 ├── analyzers/
+│   ├── business/
+│   │   └── typescript-business.analyzer.ts
 │   └── typescript/
 │       └── typescript-technical.analyzer.ts
+├── architecture/
+│   └── architecture-analysis.service.ts
 ├── enums/
 ├── interfaces/
 │   └── code-analyzer.interface.ts
@@ -275,7 +309,7 @@ src/modules/indexing/
     └── immutable-source-reader.service.ts
 ```
 
-Tests sit next to the services and analyzer they verify. Future analyzer
+Tests sit next to the services and analyzers they verify. Future analyzer
 families are introduced only with implemented behavior.
 
 ## Milestone 4.2 acceptance criteria

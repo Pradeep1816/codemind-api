@@ -9,8 +9,9 @@ import { KnowledgeNodeEvidenceEntity } from './entities/knowledge-node-evidence.
 import { KnowledgeNodeEntity } from './entities/knowledge-node.entity';
 import { KnowledgeSnapshotEntity } from './entities/knowledge-snapshot.entity';
 import { KnowledgePersistenceRepository } from './persistence/knowledge-persistence.repository';
-import { KnowledgePersistenceService } from './services/knowledge-persistence.service';
 import { ArchitectureKnowledgeProjector } from './services/architecture-knowledge.projector';
+import { BusinessKnowledgeProjector } from './services/business-knowledge.projector';
+import { KnowledgePersistenceService } from './services/knowledge-persistence.service';
 
 @Module({
   imports: [
@@ -29,7 +30,12 @@ import { ArchitectureKnowledgeProjector } from './services/architecture-knowledg
     KnowledgePersistenceRepository,
     KnowledgePersistenceService,
     ArchitectureKnowledgeProjector,
+    BusinessKnowledgeProjector,
   ],
-  exports: [KnowledgePersistenceService, ArchitectureKnowledgeProjector],
+  exports: [
+    KnowledgePersistenceService,
+    ArchitectureKnowledgeProjector,
+    BusinessKnowledgeProjector,
+  ],
 })
 export class KnowledgeModule {}

@@ -5,4 +5,6 @@ export enum AnalysisFactKind {
   ArchitectureComponent = 'architecture_component',
   ArchitectureRelationship = 'architecture_relationship',
   CallResolution = 'call_resolution',
+  DomainConcept = 'domain_concept',
+  BusinessRule = 'business_rule',
 }
