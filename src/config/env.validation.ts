@@ -293,6 +293,36 @@ class EnvironmentVariables {
   @Max(3_600_000)
   INDEXING_WORKER_RECOVERY_INTERVAL_MS = 30_000;
 
+  @Type(() => Number)
+  @IsInt()
+  @Min(1_024)
+  @Max(10_737_418_240)
+  ANALYSIS_MAX_TOTAL_SOURCE_BYTES = 536_870_912;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100_000)
+  ANALYSIS_MAX_FACTS_PER_FILE = 20_000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100_000)
+  ANALYSIS_MAX_DIAGNOSTICS_PER_FILE = 1_000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(100)
+  @Max(5_000_000)
+  ANALYSIS_MAX_AST_NODES_PER_FILE = 200_000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(256)
+  @Max(1_048_576)
+  ANALYSIS_MAX_PROPERTY_BYTES = 16_384;
+
   @IsEnum(AiProvider)
   AI_PROVIDER = AiProvider.OpenAi;
 

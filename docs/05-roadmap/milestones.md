@@ -2,14 +2,14 @@
 
 ## Current delivery state
 
-| Phase | Status |
-|---|---|
-| Phase 1 — Platform & Identity | Complete |
-| Phase 2 — Repository Management | Complete |
-| Phase 3 — Indexing & Code Intelligence | Complete |
+| Phase                                      | Status      |
+| ------------------------------------------ | ----------- |
+| Phase 1 — Platform & Identity              | Complete    |
+| Phase 2 — Repository Management            | Complete    |
+| Phase 3 — Indexing & Code Intelligence     | Complete    |
 | Phase 4 — Knowledge Graph & Business Logic | In progress |
-| Phases 5–7 | Planned |
-| Phase 8 | Future |
+| Phases 5–7                                 | Planned     |
+| Phase 8                                    | Future      |
 
 Milestones 3.1 through 3.12 are implemented. They define the indexing data model,
 durable queued-job API, immutable commit verification, and isolated job
@@ -388,15 +388,20 @@ milestone.
 
 ### 4.2 Analysis foundation
 
-Status: Planned
+Status: Complete
 
-Deliver:
+Delivered:
 
-- Tenant-scoped read-only Phase 3 snapshot port
-- Bounded immutable-source port
-- Versioned technical analyzer contract
-- Normalized fact, evidence, confidence, and diagnostic types
-- Initial TypeScript/JavaScript call, decorator, and injection fixtures
+- Tenant-scoped read-only Phase 3 snapshot port with stale-inventory detection
+- Bounded immutable-source port with commit, blob, size, and UTF-8 validation
+- Versioned synchronous/asynchronous technical analyzer contract
+- Normalized fact, evidence, confidence, diagnostic, identity, and fingerprint
+  types without ORM coupling
+- TypeScript/JavaScript decorator, constructor-injection, call-site, computed
+  target, and unresolved-target fixtures
+- Snapshot source-byte, per-file AST-node, fact, diagnostic, property-payload,
+  duplicate identity, and evidence-scope limits
+- Focused service and analyzer coverage without Phase 4 persistence or APIs
 
 ### 4.3 Knowledge persistence foundation
 

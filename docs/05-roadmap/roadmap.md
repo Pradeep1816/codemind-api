@@ -3,8 +3,8 @@
 ## Document information
 
 Status: Active
-Version: 2.2
-Updated: 2026-08-17
+Version: 2.3
+Updated: 2026-09-26
 Owner: CodeMind Engineering
 
 ## Vision
@@ -29,16 +29,16 @@ The product goal is:
 
 ## Phase overview
 
-| Phase | Name | Outcome | Status |
-|---:|---|---|---|
-| 1 | Platform & Identity | Secure multi-tenant backend foundation | Complete |
-| 2 | Repository Management | Register, share, synchronize, and inspect repositories | Complete |
-| 3 | Indexing & Code Intelligence | Convert Git source into structured code metadata | Complete |
-| 4 | Knowledge Graph & Business Logic | Convert code structure into navigable system knowledge | In progress |
-| 5 | Search Engine | Retrieve precise lexical, symbol, graph, and semantic context | Planned |
-| 6 | AI Assistant (RAG) | Answer and reason from retrieved CodeMind knowledge | Planned |
-| 7 | MCP Server | Expose CodeMind safely to external AI tools | Planned |
-| 8 | Enterprise & Observability | Operate securely at organizational scale | Future |
+| Phase | Name                             | Outcome                                                       | Status      |
+| ----: | -------------------------------- | ------------------------------------------------------------- | ----------- |
+|     1 | Platform & Identity              | Secure multi-tenant backend foundation                        | Complete    |
+|     2 | Repository Management            | Register, share, synchronize, and inspect repositories        | Complete    |
+|     3 | Indexing & Code Intelligence     | Convert Git source into structured code metadata              | Complete    |
+|     4 | Knowledge Graph & Business Logic | Convert code structure into navigable system knowledge        | In progress |
+|     5 | Search Engine                    | Retrieve precise lexical, symbol, graph, and semantic context | Planned     |
+|     6 | AI Assistant (RAG)               | Answer and reason from retrieved CodeMind knowledge           | Planned     |
+|     7 | MCP Server                       | Expose CodeMind safely to external AI tools                   | Planned     |
+|     8 | Enterprise & Observability       | Operate securely at organizational scale                      | Future      |
 
 ## Current checkpoint
 
@@ -68,6 +68,13 @@ Technical analysis, business extraction, and knowledge publication have
 separate contracts. Every published fact requires Phase 3 source evidence, and
 Neo4j, embeddings, and AI-assisted facts remain deferred until their phases or
 measured requirements justify them.
+
+Milestone 4.2 now exports tenant-scoped Phase 3 snapshot and bounded immutable
+source ports, defines normalized analyzer facts and diagnostics, and streams
+deterministic TypeScript/JavaScript decorator, constructor-injection, and call
+facts. Resource limits, stable fingerprints, evidence scope, stale-snapshot
+detection, and explicit unresolved targets are covered by focused tests. No
+Phase 4 tables or public APIs are introduced yet.
 
 Architecture decisions:
 
@@ -132,20 +139,20 @@ flowchart TD
 
 ### Milestone status
 
-| Milestone | Scope | Status |
-|---:|---|---|
-| 3.1 | Indexing foundation | Implemented; covered by 3.11 |
-| 3.2 | Git workspace manager | Implemented; covered by 3.11 |
-| 3.3 | File discovery | Implemented; covered by 3.11 |
-| 3.4 | Incremental indexing | Implemented; covered by 3.11 |
-| 3.5 | Language detection | Implemented; covered by 3.11 |
-| 3.6 | Parser engine | Implemented; covered by 3.11 |
-| 3.7 | Symbol extraction | Implemented; covered by 3.11 |
-| 3.8 | Dependency graph | Implemented; covered by 3.11 |
-| 3.9 | Index job system | Implemented; covered by 3.11 |
-| 3.10 | Background processing | Implemented; covered by 3.11 |
-| 3.11 | Tests | Implemented |
-| 3.12 | Documentation | Complete |
+| Milestone | Scope                 | Status                       |
+| --------: | --------------------- | ---------------------------- |
+|       3.1 | Indexing foundation   | Implemented; covered by 3.11 |
+|       3.2 | Git workspace manager | Implemented; covered by 3.11 |
+|       3.3 | File discovery        | Implemented; covered by 3.11 |
+|       3.4 | Incremental indexing  | Implemented; covered by 3.11 |
+|       3.5 | Language detection    | Implemented; covered by 3.11 |
+|       3.6 | Parser engine         | Implemented; covered by 3.11 |
+|       3.7 | Symbol extraction     | Implemented; covered by 3.11 |
+|       3.8 | Dependency graph      | Implemented; covered by 3.11 |
+|       3.9 | Index job system      | Implemented; covered by 3.11 |
+|      3.10 | Background processing | Implemented; covered by 3.11 |
+|      3.11 | Tests                 | Implemented                  |
+|      3.12 | Documentation         | Complete                     |
 
 Phase 3 delivers:
 
@@ -181,17 +188,17 @@ flowchart LR
 
 Milestones:
 
-| Milestone | Scope | Status |
-|---:|---|---|
-| 4.1 | Architecture, module boundaries, provenance, snapshot, and storage decisions | Complete |
-| 4.2 | Phase 3 read/source ports and technical analyzer contracts | Planned |
-| 4.3 | Knowledge builds, snapshots, graph, evidence, entities, and migrations | Planned |
-| 4.4 | Call graph and architecture-component extraction | Planned |
-| 4.5 | Domain concepts and evidence-backed business rules | Planned |
-| 4.6 | Workflows, events, states, and transitions | Planned |
-| 4.7 | Tenant-scoped knowledge and evidence APIs | Planned |
-| 4.8 | Background processing, retry, cancellation, and recovery | Planned |
-| 4.9 | Tests, performance/security verification, and documentation | Planned |
+| Milestone | Scope                                                                        | Status   |
+| --------: | ---------------------------------------------------------------------------- | -------- |
+|       4.1 | Architecture, module boundaries, provenance, snapshot, and storage decisions | Complete |
+|       4.2 | Phase 3 read/source ports and technical analyzer contracts                   | Complete |
+|       4.3 | Knowledge builds, snapshots, graph, evidence, entities, and migrations       | Planned  |
+|       4.4 | Call graph and architecture-component extraction                             | Planned  |
+|       4.5 | Domain concepts and evidence-backed business rules                           | Planned  |
+|       4.6 | Workflows, events, states, and transitions                                   | Planned  |
+|       4.7 | Tenant-scoped knowledge and evidence APIs                                    | Planned  |
+|       4.8 | Background processing, retry, cancellation, and recovery                     | Planned  |
+|       4.9 | Tests, performance/security verification, and documentation                  | Planned  |
 
 Architecture decisions:
 

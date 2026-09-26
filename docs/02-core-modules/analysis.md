@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Phase 4 architecture approved; implementation planned
-Version: 2.0
+Status: Milestone 4.2 implemented; knowledge persistence planned
+Version: 2.1
 Owner: CodeMind Engineering
 Architecture decision:
 [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
@@ -51,14 +51,14 @@ An analysis run targets one successful Phase 3 index job and receives:
 - Bounded source text only when an analyzer needs body-level syntax
 - Analyzer bundle version and semantic configuration digest
 
-Input access must use exported Phase 3 read/source ports. Analysis services must
+Input access uses the exported Phase 3 read/source ports. Analysis services do
 not import indexing TypeORM repositories or query Phase 3 tables directly.
 
 ## Outputs
 
-Analyzers emit normalized facts in bounded batches. Initial fact families are:
+Analyzers emit normalized facts in bounded batches. Planned fact families are:
 
-- Call sites and reliably resolved call targets
+- Call sites with explicit unresolved targets until Milestone 4.4
 - Framework decorators and route metadata
 - Constructor injection and provider relationships
 - Module, controller, service, repository, entity, provider, and configuration
@@ -77,8 +77,7 @@ nodes, TypeORM entities, raw source bodies, or generated prose.
 The analysis module owns:
 
 - Analyzer interfaces and registration
-- Read-only Phase 3 snapshot access contracts
-- Bounded immutable-source access contracts
+- Consumption of the Phase 3 snapshot and immutable-source contracts
 - Language/framework-specific analyzers
 - Fact normalization and stable identity generation
 - Analyzer diagnostics and resource limits
@@ -105,24 +104,52 @@ Knowledge orchestrator -> Analysis contracts
 
 ## Analyzer contract
 
-Milestone 4.2 will finalize a contract shaped like:
+Milestone 4.2 implements this file-level analyzer contract:
 
 ```typescript
 interface CodeAnalyzer {
   readonly name: string;
   readonly version: string;
 
-  supports(context: AnalysisFileContext): boolean;
+  supports(context: AnalysisFileSupportContext): boolean;
 
   analyze(
     context: AnalysisFileContext,
-  ): AsyncIterable<AnalysisFact | AnalysisDiagnostic>;
+  ):
+    | Iterable<AnalysisFact | AnalysisDiagnostic>
+    | AsyncIterable<AnalysisFact | AnalysisDiagnostic>;
 }
 ```
 
-The final contract must support repository-wide analyzers without requiring all
-ASTs or facts to remain in memory. File-level and graph-level passes may be
-separate interfaces when their lifecycle differs.
+Synchronous syntax analyzers and future asynchronous analyzers share the same
+streaming boundary. Repository-wide analyzers will use a separate interface
+when Milestone 4.4 introduces a lifecycle that differs from a single file.
+
+## Current implementation
+
+Milestone 4.2 provides:
+
+- `CODE_INTELLIGENCE_READER`, an indexing-owned port that validates tenant,
+  repository, successful job, branch inventory, and current file hashes before
+  streaming plain file, symbol, and dependency records in bounded batches.
+- `IMMUTABLE_SOURCE_READER`, an indexing-owned port that reads the persisted Git
+  blob from the exact commit, enforces the file-size limit, verifies object ID
+  and byte length, and accepts only UTF-8 source.
+- `AnalysisFactFactory`, which validates evidence and confidence, normalizes
+  bounded properties, and creates deterministic SHA-256 content fingerprints.
+- `AnalysisService`, which selects supported analyzers, enforces snapshot byte,
+  per-file fact, per-file diagnostic, evidence-scope, and duplicate-identity
+  limits, and streams output without retaining repository source.
+- `TypeScriptTechnicalAnalyzer`, version `1.0.0`, which emits deterministic
+  decorator, constructor-injection, and call-site facts for TS, TSX, JS, and
+  JSX while enforcing a bounded iterative AST walk. Call and injection targets
+  remain explicitly `unresolved`.
+
+The read port accepts the current file inventory associated with the requested
+successful index job. It rejects a historical job after a later index has
+reconciled that branch because Phase 3 does not retain immutable file-membership
+rows for every historical job. Phase 4 snapshots will preserve published
+knowledge history independently in Milestone 4.3.
 
 ## Analysis passes
 
@@ -192,31 +219,39 @@ The build orchestrator decides whether a diagnostic is retryable or terminal.
 Analyzers never update build status directly and never hide a failed source
 read as an empty successful result.
 
-## Planned module structure
+## Implemented module structure
 
 ```text
 src/modules/analysis/
 ├── analyzers/
-│   ├── architecture/
-│   ├── business/
-│   ├── calls/
-│   ├── framework/
-│   └── state/
+│   └── typescript/
+│       └── typescript-technical.analyzer.ts
+├── enums/
 ├── interfaces/
-│   ├── code-analyzer.interface.ts
-│   ├── code-intelligence-reader.interface.ts
-│   └── immutable-source-reader.interface.ts
+│   └── code-analyzer.interface.ts
 ├── types/
 │   ├── analysis-context.types.ts
 │   ├── analysis-fact.types.ts
 │   └── analysis-diagnostic.types.ts
+├── analysis-fact.factory.ts
 ├── analysis.service.ts
 └── analysis.module.ts
+
+src/modules/indexing/
+├── ports/
+│   ├── code-intelligence-reader.port.ts
+│   └── immutable-source-reader.port.ts
+└── readers/
+    ├── code-intelligence-reader.service.ts
+    └── immutable-source-reader.service.ts
 ```
 
-This structure is a target, not an implemented file list.
+Tests sit next to the services and analyzer they verify. Future analyzer
+families are introduced only with implemented behavior.
 
 ## Milestone 4.2 acceptance criteria
+
+Status: Complete
 
 - A tenant-scoped read port streams one successful Phase 3 snapshot.
 - An immutable-source port returns bounded content for the target commit.

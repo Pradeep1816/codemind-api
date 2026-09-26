@@ -30,6 +30,10 @@ import { IndexingProcessor } from './queue/indexing.processor';
 import { IndexingQueue } from './queue/indexing.queue';
 import { IndexingJobService } from './services/indexing-job.service';
 import { IndexingWorker } from './workers/indexing.worker';
+import { CODE_INTELLIGENCE_READER } from './ports/code-intelligence-reader.port';
+import { IMMUTABLE_SOURCE_READER } from './ports/immutable-source-reader.port';
+import { CodeIntelligenceReaderService } from './readers/code-intelligence-reader.service';
+import { ImmutableSourceReaderService } from './readers/immutable-source-reader.service';
 
 @Module({
   imports: [
@@ -66,6 +70,16 @@ import { IndexingWorker } from './workers/indexing.worker';
     CodeDependenciesRepository,
     RelativeModuleResolverService,
     DependencyExtractionService,
+    CodeIntelligenceReaderService,
+    ImmutableSourceReaderService,
+    {
+      provide: CODE_INTELLIGENCE_READER,
+      useExisting: CodeIntelligenceReaderService,
+    },
+    {
+      provide: IMMUTABLE_SOURCE_READER,
+      useExisting: ImmutableSourceReaderService,
+    },
   ],
   exports: [
     IndexingService,
@@ -78,6 +92,8 @@ import { IndexingWorker } from './workers/indexing.worker';
     SourceParsingService,
     SymbolExtractionService,
     DependencyExtractionService,
+    CODE_INTELLIGENCE_READER,
+    IMMUTABLE_SOURCE_READER,
   ],
 })
 export class IndexingModule {}

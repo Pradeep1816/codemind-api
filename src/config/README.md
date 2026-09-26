@@ -17,8 +17,9 @@ application startup, and exposes namespaced configuration through NestJS.
 | `jwt.config.ts`        | JWT signing and expiration settings                               | `jwt`        |
 | `invitation.config.ts` | User-invitation expiration settings                               | `invitation` |
 | `rate-limit.config.ts` | Global and authentication endpoint request limits                 | `rateLimit`  |
-| `git.config.ts`        | Git workspace, local-source, timeout, and clone settings           | `git`        |
-| `indexing.config.ts`   | Indexing workspace, limits, leases, and retry policy               | `indexing`   |
+| `git.config.ts`        | Git workspace, local-source, timeout, and clone settings          | `git`        |
+| `indexing.config.ts`   | Indexing workspace, limits, leases, and retry policy              | `indexing`   |
+| `analysis.config.ts`   | Analysis source, fact, diagnostic, and property limits            | `analysis`   |
 | `ai.config.ts`         | AI provider connection settings                                   | `ai`         |
 
 ## Environment Setup
@@ -45,7 +46,7 @@ Do not commit `.env` or real credentials.
 | `API_VERSION`      |       No | `1`           | Default numeric URI version                       |
 | `CORS_ORIGINS`     |       No | —             | Comma-separated allowed browser origins           |
 | `CORS_CREDENTIALS` |       No | `false`       | Allows browser credentials for configured origins |
-| `TRUST_PROXY`      |       No | `false`       | `false` or `loopback` for a trusted local proxy    |
+| `TRUST_PROXY`      |       No | `false`       | `false` or `loopback` for a trusted local proxy   |
 
 The `app` namespace exposes:
 
@@ -102,12 +103,12 @@ through migrations.
 
 ### JWT
 
-| Variable                 | Required | Default        | Description                                      |
-| ------------------------ | -------: | -------------- | ------------------------------------------------ |
-| `JWT_SECRET`             |      Yes | —              | Access-token secret with at least 32 characters  |
-| `JWT_EXPIRES_IN`         |       No | `15m`          | Access-token lifetime                            |
-| `JWT_REFRESH_SECRET`     |       No | `JWT_SECRET`   | Refresh-token secret with at least 32 characters |
-| `JWT_REFRESH_EXPIRES_IN` |       No | `30d`          | Rotating refresh-token/session lifetime          |
+| Variable                 | Required | Default      | Description                                      |
+| ------------------------ | -------: | ------------ | ------------------------------------------------ |
+| `JWT_SECRET`             |      Yes | —            | Access-token secret with at least 32 characters  |
+| `JWT_EXPIRES_IN`         |       No | `15m`        | Access-token lifetime                            |
+| `JWT_REFRESH_SECRET`     |       No | `JWT_SECRET` | Refresh-token secret with at least 32 characters |
+| `JWT_REFRESH_EXPIRES_IN` |       No | `30d`        | Rotating refresh-token/session lifetime          |
 
 The `jwt` namespace exposes:
 
@@ -143,9 +144,9 @@ SHA-256 hashes are persisted.
 
 ### Rate Limiting
 
-| Variable                            | Required | Default | Description                                      |
-| ----------------------------------- | -------: | ------: | ------------------------------------------------ |
-| `RATE_LIMIT_TTL_MS`                 |       No | `60000` | Global request window in milliseconds            |
+| Variable                            | Required | Default | Description                                       |
+| ----------------------------------- | -------: | ------: | ------------------------------------------------- |
+| `RATE_LIMIT_TTL_MS`                 |       No | `60000` | Global request window in milliseconds             |
 | `RATE_LIMIT_DEFAULT_LIMIT`          |       No |   `120` | Requests per IP during the global window          |
 | `AUTH_RATE_LIMIT_TTL_MS`            |       No | `60000` | Window for security-sensitive endpoints           |
 | `AUTH_REGISTER_RATE_LIMIT`          |       No |     `3` | Registration attempts per IP and auth window      |
@@ -172,13 +173,13 @@ storage provider.
 
 ### Git
 
-| Variable                      | Required | Default                 | Description                                      |
-| ----------------------------- | -------: | ----------------------- | ------------------------------------------------ |
+| Variable                      | Required | Default                  | Description                                      |
+| ----------------------------- | -------: | ------------------------ | ------------------------------------------------ |
 | `GIT_WORKSPACE_ROOT`          |       No | `.codemind/repositories` | Root for internally managed repository clones    |
-| `GIT_LOCAL_REPOSITORIES_ROOT` |       No | —                       | Allow-listed root that enables local Git sources |
-| `GIT_COMMAND_TIMEOUT_MS`      |       No | `120000`                | Git command timeout from 1–600 seconds            |
-| `GIT_MAX_OUTPUT_BYTES`        |       No | `1048576`               | Maximum captured output per command               |
-| `GIT_CLONE_DEPTH`             |       No | `1`                     | Shallow depth; `0` requests complete history      |
+| `GIT_LOCAL_REPOSITORIES_ROOT` |       No | —                        | Allow-listed root that enables local Git sources |
+| `GIT_COMMAND_TIMEOUT_MS`      |       No | `120000`                 | Git command timeout from 1–600 seconds           |
+| `GIT_MAX_OUTPUT_BYTES`        |       No | `1048576`                | Maximum captured output per command              |
+| `GIT_CLONE_DEPTH`             |       No | `1`                      | Shallow depth; `0` requests complete history     |
 
 The `git` namespace exposes:
 
@@ -200,25 +201,25 @@ disabled.
 
 ### Indexing Workspace
 
-| Variable                       | Required | Default              | Description                                       |
-| ------------------------------ | -------: | -------------------- | ------------------------------------------------- |
-| `INDEXING_WORKSPACE_ROOT`      |       No | `.codemind/indexing` | Root for disposable per-job processing workspaces |
-| `INDEXING_MAX_FILES`           |       No | `100000`             | Maximum supported files selected in one scan      |
-| `INDEXING_MAX_FILE_SIZE_BYTES` |       No | `2097152`            | Maximum bytes selected for one file               |
-| `INDEXING_MAX_TOTAL_BYTES`     |       No | `536870912`          | Maximum selected source bytes in one scan          |
-| `INDEXING_MAX_PATH_LENGTH`     |       No | `1024`               | Maximum repository-relative path length            |
-| `INDEXING_MAX_PATH_DEPTH`      |       No | `64`                 | Maximum path segment depth                         |
-| `INDEXING_MAX_SYMBOLS_PER_FILE` |      No | `10000`              | Maximum normalized symbols persisted per file      |
-| `INDEXING_MAX_DEPENDENCIES_PER_FILE` | No | `20000`           | Maximum normalized dependencies persisted per file |
-| `INDEXING_JOB_LEASE_MS` | No | `60000` | Worker lease duration; heartbeats renew it |
-| `INDEXING_JOB_RETRY_DELAY_MS` | No | `30000` | Delay before an automatic retry is claimable |
-| `INDEXING_JOB_MAX_ATTEMPTS` | No | `3` | Maximum automatic attempts for a job |
-| `INDEXING_JOB_RECOVERY_BATCH_SIZE` | No | `100` | Maximum expired leases recovered per call |
-| `INDEXING_JOB_HEARTBEAT_INTERVAL_MS` | No | `15000` | Heartbeat interval; must be shorter than the lease |
-| `INDEXING_WORKER_ENABLED` | No | `true` | Start PostgreSQL polling in this application process |
-| `INDEXING_WORKER_ID` | No | Host and process ID | Optional stable worker identity |
-| `INDEXING_WORKER_POLL_INTERVAL_MS` | No | `2000` | Delay when no queued job is available |
-| `INDEXING_WORKER_RECOVERY_INTERVAL_MS` | No | `30000` | Interval between expired-lease recovery passes |
+| Variable                               | Required | Default              | Description                                          |
+| -------------------------------------- | -------: | -------------------- | ---------------------------------------------------- |
+| `INDEXING_WORKSPACE_ROOT`              |       No | `.codemind/indexing` | Root for disposable per-job processing workspaces    |
+| `INDEXING_MAX_FILES`                   |       No | `100000`             | Maximum supported files selected in one scan         |
+| `INDEXING_MAX_FILE_SIZE_BYTES`         |       No | `2097152`            | Maximum bytes selected for one file                  |
+| `INDEXING_MAX_TOTAL_BYTES`             |       No | `536870912`          | Maximum selected source bytes in one scan            |
+| `INDEXING_MAX_PATH_LENGTH`             |       No | `1024`               | Maximum repository-relative path length              |
+| `INDEXING_MAX_PATH_DEPTH`              |       No | `64`                 | Maximum path segment depth                           |
+| `INDEXING_MAX_SYMBOLS_PER_FILE`        |       No | `10000`              | Maximum normalized symbols persisted per file        |
+| `INDEXING_MAX_DEPENDENCIES_PER_FILE`   |       No | `20000`              | Maximum normalized dependencies persisted per file   |
+| `INDEXING_JOB_LEASE_MS`                |       No | `60000`              | Worker lease duration; heartbeats renew it           |
+| `INDEXING_JOB_RETRY_DELAY_MS`          |       No | `30000`              | Delay before an automatic retry is claimable         |
+| `INDEXING_JOB_MAX_ATTEMPTS`            |       No | `3`                  | Maximum automatic attempts for a job                 |
+| `INDEXING_JOB_RECOVERY_BATCH_SIZE`     |       No | `100`                | Maximum expired leases recovered per call            |
+| `INDEXING_JOB_HEARTBEAT_INTERVAL_MS`   |       No | `15000`              | Heartbeat interval; must be shorter than the lease   |
+| `INDEXING_WORKER_ENABLED`              |       No | `true`               | Start PostgreSQL polling in this application process |
+| `INDEXING_WORKER_ID`                   |       No | Host and process ID  | Optional stable worker identity                      |
+| `INDEXING_WORKER_POLL_INTERVAL_MS`     |       No | `2000`               | Delay when no queued job is available                |
+| `INDEXING_WORKER_RECOVERY_INTERVAL_MS` |       No | `30000`              | Interval between expired-lease recovery passes       |
 
 The `indexing` namespace exposes:
 
@@ -248,6 +249,31 @@ The indexing root must be separate from `GIT_WORKSPACE_ROOT`. Persistent Git
 objects live under the Git root; disposable job `source`, `metadata`, and
 `cache` directories live under the indexing root. Workspace paths are derived
 only from validated organization, repository, and job IDs.
+
+### Analysis
+
+| Variable                            | Required | Default     | Description                                     |
+| ----------------------------------- | -------: | ----------- | ----------------------------------------------- |
+| `ANALYSIS_MAX_TOTAL_SOURCE_BYTES`   |       No | `536870912` | Maximum immutable source bytes per snapshot     |
+| `ANALYSIS_MAX_FACTS_PER_FILE`       |       No | `20000`     | Maximum facts emitted for one source file       |
+| `ANALYSIS_MAX_DIAGNOSTICS_PER_FILE` |       No | `1000`      | Maximum diagnostics emitted for one source file |
+| `ANALYSIS_MAX_AST_NODES_PER_FILE`   |       No | `200000`    | Maximum compiler AST nodes visited per file     |
+| `ANALYSIS_MAX_PROPERTY_BYTES`       |       No | `16384`     | Maximum serialized property bytes for one fact  |
+
+The `analysis` namespace exposes:
+
+```typescript
+{
+  maxTotalSourceBytes: number;
+  maxFactsPerFile: number;
+  maxDiagnosticsPerFile: number;
+  maxAstNodesPerFile: number;
+  maxPropertyBytes: number;
+}
+```
+
+These limits apply before Phase 4 persistence. Analysis reads immutable source
+as untrusted data, never executes it, and discards the text after each file.
 
 ### AI
 

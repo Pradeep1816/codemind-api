@@ -34,7 +34,7 @@ MCP and developer tools
 
 CodeMind has completed Phase 3 indexing and code intelligence. Phase 4,
 knowledge graph and business-logic extraction, is in progress with its
-architecture and persistence model defined before implementation.
+architecture plus analysis foundation implemented before persistence.
 
 Implemented:
 
@@ -77,6 +77,12 @@ Implemented:
   markers and graceful shutdown
 - Focused indexing/parser service tests and a deterministic PostgreSQL E2E
   pipeline covering incremental, full, retry, cancellation, and recovery flows
+- Tenant-scoped Phase 3 snapshot streaming for downstream analysis
+- Bounded immutable source reads tied to persisted commit and blob identities
+- Versioned TypeScript/JavaScript analyzers for decorator, constructor
+  injection, and unresolved call-site facts with source evidence
+- Stable analysis fact identities, content fingerprints, diagnostics, and
+  resource limits
 - Database-aware `GET /health` endpoint
 - URI API versioning under `/api/v1`
 - Global request validation
@@ -96,19 +102,19 @@ Not implemented yet:
 
 ## Technology
 
-| Area             | Technology                            |
-| ---------------- | ------------------------------------- |
-| Runtime          | Node.js and TypeScript                |
-| Backend          | NestJS                                |
-| Database         | PostgreSQL                            |
-| ORM              | TypeORM                               |
-| Validation       | class-validator and class-transformer |
-| Password hashing | Argon2id                              |
+| Area             | Technology                               |
+| ---------------- | ---------------------------------------- |
+| Runtime          | Node.js and TypeScript                   |
+| Backend          | NestJS                                   |
+| Database         | PostgreSQL                               |
+| ORM              | TypeORM                                  |
+| Validation       | class-validator and class-transformer    |
+| Password hashing | Argon2id                                 |
 | Authentication   | Session-backed JWT access/refresh tokens |
-| Authorization    | Organization-scoped RBAC permissions  |
-| Rate limiting    | NestJS Throttler                       |
-| Security headers | Helmet                                |
-| Testing          | Jest                                  |
+| Authorization    | Organization-scoped RBAC permissions     |
+| Rate limiting    | NestJS Throttler                         |
+| Security headers | Helmet                                   |
+| Testing          | Jest                                     |
 
 ## Prerequisites
 
@@ -406,13 +412,13 @@ database transaction as the status change.
 Every HTTP endpoint has a default IP-based limit of 120 requests per 60
 seconds. Security-sensitive endpoints use stricter defaults:
 
-| Endpoint | Default limit per 60 seconds |
-|---|---:|
-| `POST /api/v1/auth/register` | 3 |
-| `POST /api/v1/auth/login` | 5 |
-| `POST /api/v1/auth/refresh` | 20 |
-| `POST /api/v1/auth/invitations/accept` | 5 |
-| `POST /api/v1/users/invitations` | 10 |
+| Endpoint                               | Default limit per 60 seconds |
+| -------------------------------------- | ---------------------------: |
+| `POST /api/v1/auth/register`           |                            3 |
+| `POST /api/v1/auth/login`              |                            5 |
+| `POST /api/v1/auth/refresh`            |                           20 |
+| `POST /api/v1/auth/invitations/accept` |                            5 |
+| `POST /api/v1/users/invitations`       |                           10 |
 
 Exceeding a limit returns HTTP `429 Too Many Requests`. The limits and time
 window are configurable through environment variables. The current in-memory
@@ -685,16 +691,16 @@ Organization -> User -> UserRole <- Role <- Organization
 Organization/User/AuthSession -> AuthAuditEvent
 ```
 
-| Entity           | Responsibility                                      |
-| ---------------- | --------------------------------------------------- |
-| `Organization`   | Tenant boundary, plan, and status                   |
-| `User`           | Organization user identity and authentication state |
-| `Role`           | Organization-scoped access role                     |
-| `Permission`     | Global resource/action capability                   |
-| `UserRole`       | Explicit user-to-role assignment                    |
-| `RolePermission` | Explicit role-to-permission assignment              |
-| `AuthSession`     | Rotating refresh-token and login-session state       |
-| `AuthAuditEvent`  | Security event actor, subject, session, and metadata  |
+| Entity           | Responsibility                                       |
+| ---------------- | ---------------------------------------------------- |
+| `Organization`   | Tenant boundary, plan, and status                    |
+| `User`           | Organization user identity and authentication state  |
+| `Role`           | Organization-scoped access role                      |
+| `Permission`     | Global resource/action capability                    |
+| `UserRole`       | Explicit user-to-role assignment                     |
+| `RolePermission` | Explicit role-to-permission assignment               |
+| `AuthSession`    | Rotating refresh-token and login-session state       |
+| `AuthAuditEvent` | Security event actor, subject, session, and metadata |
 
 Database changes must use migrations. TypeORM schema synchronization is
 disabled.

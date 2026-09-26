@@ -243,7 +243,8 @@ empty placeholders.
 
 ## Milestone boundaries
 
-Milestone 4.2 defines read ports and analyzer facts without persistence.
+Milestone 4.2 defines and implements read ports and analyzer facts without
+persistence.
 
 Milestone 4.3 implements:
 
