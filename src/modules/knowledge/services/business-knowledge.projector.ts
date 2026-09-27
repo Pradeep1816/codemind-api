@@ -23,13 +23,20 @@ import type {
 } from '../persistence/knowledge-persistence.types';
 
 const PROJECTOR_NAME = 'business-knowledge-projector';
-const PROJECTOR_VERSION = '1.0.0';
+const PROJECTOR_VERSION = '1.1.0';
 
 interface ArchitectureDescriptor {
   identityKey: string;
   derivationType: AnalysisDerivationType;
   confidence: number;
   evidence: AnalysisEvidence;
+}
+
+interface RulePatternDescriptor {
+  kind: string;
+  identifiers: readonly string[];
+  operation: string | null;
+  target: string | null;
 }
 
 export interface BusinessKnowledgeProjection {
@@ -59,7 +66,7 @@ export class BusinessKnowledgeProjector {
     const conceptGroups = this.groupFacts(
       facts.filter((fact) => fact.kind === AnalysisFactKind.DomainConcept),
     );
-    const ruleGroups = this.groupFacts(
+    const ruleGroups = this.groupRuleFacts(
       facts.filter((fact) => fact.kind === AnalysisFactKind.BusinessRule),
     );
     const nodes: KnowledgeNodeInput[] = [];
@@ -90,30 +97,32 @@ export class BusinessKnowledgeProjector {
     }
 
     for (const group of ruleGroups.values()) {
-      if (group.length !== 1) {
-        throw new BusinessKnowledgeProjectionError(
-          'Business rule identity is not unique',
-        );
-      }
-
       const fact = group[0];
 
       if (!fact) {
         continue;
       }
 
-      const node = this.toRuleNode(fact);
+      const node = this.toRuleNode(group);
       nodes.push(node);
-      const component = this.findContainingComponent(
-        fact.evidence[0],
-        architecture,
-      );
 
-      if (component) {
-        this.mergeEdge(
-          edges,
-          this.createEdge(component, node, KnowledgeEdgeKind.Enforces, fact),
+      for (const groupFact of group) {
+        const component = this.findContainingComponent(
+          groupFact.evidence[0],
+          architecture,
         );
+
+        if (component) {
+          this.mergeEdge(
+            edges,
+            this.createEdge(
+              component,
+              node,
+              KnowledgeEdgeKind.Enforces,
+              groupFact,
+            ),
+          );
+        }
       }
     }
 
@@ -142,6 +151,37 @@ export class BusinessKnowledgeProjector {
       const group = groups.get(fact.identityKey) ?? [];
       group.push(fact);
       groups.set(fact.identityKey, group);
+    }
+
+    return groups;
+  }
+
+  /**
+   * Groups occurrence-specific analyzer facts by their semantic rule content.
+   * The file identity prevents unrelated rules in different files from being
+   * collapsed while repeated equivalent guards in one file become one node.
+   */
+  private groupRuleFacts(
+    facts: readonly AnalysisFact[],
+  ): ReadonlyMap<string, readonly AnalysisFact[]> {
+    const groups = new Map<string, AnalysisFact[]>();
+
+    for (const fact of facts) {
+      const indexedFileId = fact.evidence[0]?.indexedFileId;
+
+      if (indexedFileId === undefined) {
+        throw new BusinessKnowledgeProjectionError(
+          'Business rule requires source evidence',
+        );
+      }
+
+      const identityKey = this.stableIdentity('business_rule', [
+        String(indexedFileId),
+        JSON.stringify(fact.properties),
+      ]);
+      const group = groups.get(identityKey) ?? [];
+      group.push(fact);
+      groups.set(identityKey, group);
     }
 
     return groups;
@@ -213,7 +253,28 @@ export class BusinessKnowledgeProjector {
     };
   }
 
-  private toRuleNode(fact: AnalysisFact): KnowledgeNodeInput {
+  private toRuleNode(facts: readonly AnalysisFact[]): KnowledgeNodeInput {
+    const fact = facts[0];
+
+    if (!fact) {
+      throw new BusinessKnowledgeProjectionError(
+        'Business rule group is empty',
+      );
+    }
+
+    const propertiesFingerprint = JSON.stringify(fact.properties);
+
+    if (
+      facts.some(
+        (candidate) =>
+          JSON.stringify(candidate.properties) !== propertiesFingerprint,
+      )
+    ) {
+      throw new BusinessKnowledgeProjectionError(
+        'Business rule identity has conflicting properties',
+      );
+    }
+
     const ruleType = this.requireString(
       fact.properties.ruleType,
       'business rule type',
@@ -221,23 +282,195 @@ export class BusinessKnowledgeProjector {
     const containingSymbolName = this.optionalString(
       fact.properties.containingSymbolName,
     );
+    const condition = this.readRulePattern(fact.properties.condition);
+    const outcome = this.readRulePattern(fact.properties.outcome);
+    const description = this.describeRule(
+      ruleType,
+      condition,
+      outcome,
+      containingSymbolName,
+    );
+    const evidence = this.uniqueEvidence(
+      facts.flatMap((candidate) => candidate.evidence),
+    );
+    const confidence = Math.max(
+      ...facts.map((candidate) => candidate.confidence),
+    );
+    const derivationType = facts.some(
+      (candidate) =>
+        candidate.derivationType === AnalysisDerivationType.Deterministic,
+    )
+      ? KnowledgeDerivationType.Deterministic
+      : this.mapDerivation(fact.derivationType);
+    const properties = { ...fact.properties };
+    const identityKey = this.stableIdentity('business_rule', [
+      String(fact.evidence[0].indexedFileId),
+      propertiesFingerprint,
+    ]);
 
     return {
       kind: KnowledgeNodeKind.BusinessRule,
-      identityKey: fact.identityKey,
-      name: containingSymbolName
-        ? `${ruleType} rule in ${containingSymbolName}`
-        : `${ruleType} rule`,
-      summary: null,
-      derivationType: this.mapDerivation(fact.derivationType),
-      confidence: fact.confidence,
+      identityKey,
+      name: description.name,
+      summary: description.summary,
+      derivationType,
+      confidence,
       analyzerName: fact.analyzerName,
       analyzerVersion: fact.analyzerVersion,
-      contentFingerprint: fact.contentFingerprint,
+      contentFingerprint: this.fingerprint({
+        confidence,
+        derivationType,
+        evidence,
+        identityKey,
+        kind: KnowledgeNodeKind.BusinessRule,
+        name: description.name,
+        properties,
+        summary: description.summary,
+      }),
       propertySchemaVersion: 1,
-      properties: { ...fact.properties },
-      evidence: this.mapEvidenceTuple(fact.evidence),
+      properties,
+      evidence: this.mapEvidenceTuple(evidence),
     };
+  }
+
+  private readRulePattern(
+    value: AnalysisPropertyValue | undefined,
+  ): RulePatternDescriptor | null {
+    if (!value || Array.isArray(value) || typeof value !== 'object') {
+      return null;
+    }
+
+    const record = value as Readonly<Record<string, AnalysisPropertyValue>>;
+    const kind = this.optionalString(record.kind);
+    const operation = this.optionalString(record.operation);
+    const target = this.optionalString(record.target);
+    const identifiers = this.readStringArray(record.identifiers);
+
+    return kind
+      ? {
+          kind,
+          identifiers,
+          operation,
+          target,
+        }
+      : null;
+  }
+
+  private readStringArray(
+    value: AnalysisPropertyValue | undefined,
+  ): readonly string[] {
+    if (!Array.isArray(value)) {
+      return [];
+    }
+
+    return (value as readonly AnalysisPropertyValue[]).filter(
+      (item): item is string =>
+        typeof item === 'string' && item.trim().length > 0,
+    );
+  }
+
+  private describeRule(
+    ruleType: string,
+    condition: RulePatternDescriptor | null,
+    outcome: RulePatternDescriptor | null,
+    containingSymbolName: string | null,
+  ): { name: string; summary: string } {
+    const conditionLabel = this.describeCondition(condition);
+    const outcomeLabel = this.describeOutcome(outcome, ruleType);
+    const context = containingSymbolName ? ` in ${containingSymbolName}` : '';
+    const name = conditionLabel
+      ? `${outcomeLabel.title} when ${conditionLabel}${context}`
+      : `${outcomeLabel.title}${context}`;
+    const summary = conditionLabel
+      ? `When ${conditionLabel}, the code ${outcomeLabel.summary}${context}.`
+      : `The code ${outcomeLabel.summary}${context}.`;
+
+    return {
+      name: this.limitText(name, 512),
+      summary: this.limitText(summary, 4_000),
+    };
+  }
+
+  private describeCondition(
+    condition: RulePatternDescriptor | null,
+  ): string | null {
+    if (!condition) {
+      return null;
+    }
+
+    const target =
+      condition.target ?? condition.identifiers.slice(0, 3).join(' and ');
+
+    if (!target) {
+      return this.humanize(condition.kind);
+    }
+
+    return condition.operation === '!' ? `not ${target}` : target;
+  }
+
+  private describeOutcome(
+    outcome: RulePatternDescriptor | null,
+    ruleType: string,
+  ): { title: string; summary: string } {
+    if (!outcome) {
+      const fallback = `${this.humanize(ruleType)} rule`;
+      return { title: fallback, summary: `enforces a ${fallback}` };
+    }
+
+    const primaryIdentifier = outcome.identifiers[0];
+
+    switch (outcome.kind) {
+      case 'assignment': {
+        const target = outcome.target ?? primaryIdentifier ?? 'state';
+        return { title: `Set ${target}`, summary: `sets ${target}` };
+      }
+      case 'throw': {
+        const exception = primaryIdentifier ? ` with ${primaryIdentifier}` : '';
+        return {
+          title: `Reject${exception}`,
+          summary: `rejects execution${exception}`,
+        };
+      }
+      case 'return': {
+        const result = outcome.target ?? primaryIdentifier;
+        return {
+          title: result ? `Return ${result}` : 'Return early',
+          summary: result ? `returns ${result}` : 'returns early',
+        };
+      }
+      case 'call': {
+        const operation = outcome.operation ?? primaryIdentifier ?? 'operation';
+        return { title: `Call ${operation}`, summary: `calls ${operation}` };
+      }
+      case 'rounding_call': {
+        const target =
+          outcome.target ?? primaryIdentifier ?? 'calculated value';
+        return { title: `Round ${target}`, summary: `rounds ${target}` };
+      }
+      default: {
+        const fallback = this.humanize(outcome.kind);
+        return { title: fallback, summary: `performs ${fallback}` };
+      }
+    }
+  }
+
+  private humanize(value: string): string {
+    const normalized = value
+      .replace(/([a-z0-9])([A-Z])/gu, '$1 $2')
+      .replace(/[_-]+/gu, ' ')
+      .trim()
+      .toLocaleLowerCase('en-US');
+
+    return normalized
+      ? normalized.charAt(0).toUpperCase() + normalized.slice(1)
+      : 'Business rule';
+  }
+
+  private limitText(value: string, maximumLength: number): string {
+    return value
+      .replace(/[\r\n]+/gu, ' ')
+      .trim()
+      .slice(0, maximumLength);
   }
 
   private findContainingComponent(

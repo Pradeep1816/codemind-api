@@ -84,7 +84,7 @@ interface RulePattern {
 @Injectable()
 export class TypeScriptBusinessAnalyzer implements CodeAnalyzer {
   readonly name = 'typescript-business';
-  readonly version = '1.0.0';
+  readonly version = '1.1.1';
 
   constructor(
     private readonly factFactory: AnalysisFactFactory,
@@ -119,8 +119,6 @@ export class TypeScriptBusinessAnalyzer implements CodeAnalyzer {
       yield concept;
     }
 
-    const identityOccurrences = new Map<string, number>();
-
     for (const node of nodes) {
       if (ts.isIfStatement(node)) {
         const outcome = this.readGuardedOutcome(node.thenStatement);
@@ -150,7 +148,6 @@ export class TypeScriptBusinessAnalyzer implements CodeAnalyzer {
           condition,
           outcome,
           concepts.candidates,
-          identityOccurrences,
         );
       }
 
@@ -175,7 +172,6 @@ export class TypeScriptBusinessAnalyzer implements CodeAnalyzer {
             target: this.readAssignmentTarget(node),
           },
           concepts.candidates,
-          identityOccurrences,
         );
       }
     }
@@ -368,28 +364,29 @@ export class TypeScriptBusinessAnalyzer implements CodeAnalyzer {
     condition: RulePattern | null,
     outcome: RulePattern,
     concepts: readonly DomainConceptCandidate[],
-    identityOccurrences: Map<string, number>,
   ): AnalysisOutput {
     const containingSymbol = this.findContainingSymbol(context, evidenceNode);
+    const containingSymbolName =
+      containingSymbol?.qualifiedName ??
+      this.readContainingDeclarationName(evidenceNode);
     const signalIdentifiers = [
       ...(condition?.identifiers ?? []),
       ...outcome.identifiers,
-      containingSymbol?.name ?? '',
+      containingSymbolName ?? '',
     ];
     const subjectConcepts = this.matchConcepts(signalIdentifiers, concepts);
     const signature = JSON.stringify({
       condition,
-      containingSymbol: containingSymbol?.qualifiedName ?? null,
+      containingSymbol: containingSymbolName,
       outcome,
       ruleType,
       subjectConcepts: subjectConcepts.map((concept) => concept.identityKey),
     });
-    const occurrence = identityOccurrences.get(signature) ?? 0;
-    identityOccurrences.set(signature, occurrence + 1);
     const identityKey = this.stableIdentity('business_rule', [
       context.file.path,
       signature,
-      String(occurrence),
+      String(evidenceNode.getStart(sourceFile, false)),
+      String(evidenceNode.getEnd()),
     ]);
     const evidence: [AnalysisEvidence, ...AnalysisEvidence[]] = [
       this.createEvidence(
@@ -412,7 +409,7 @@ export class TypeScriptBusinessAnalyzer implements CodeAnalyzer {
       properties: {
         condition: condition as unknown as AnalysisPropertyValue,
         containingSymbolId: containingSymbol?.id ?? null,
-        containingSymbolName: containingSymbol?.qualifiedName ?? null,
+        containingSymbolName,
         outcome: outcome as unknown as AnalysisPropertyValue,
         ruleType,
         subjectConceptIdentityKeys: subjectConcepts.map(
@@ -504,10 +501,10 @@ export class TypeScriptBusinessAnalyzer implements CodeAnalyzer {
 
   private describeCondition(expression: ts.Expression): RulePattern {
     return {
-      kind: ts.SyntaxKind[expression.kind].toLocaleLowerCase('en-US'),
+      kind: this.normalizeSyntaxKind(expression.kind),
       identifiers: this.collectIdentifiers([expression]),
       operation: this.readOperator(expression),
-      target: null,
+      target: this.readConditionTarget(expression),
     };
   }
 
@@ -613,19 +610,86 @@ export class TypeScriptBusinessAnalyzer implements CodeAnalyzer {
     let current: ts.Node | undefined = node.parent;
 
     while (current) {
-      if (
-        (ts.isMethodDeclaration(current) ||
-          ts.isFunctionDeclaration(current) ||
-          ts.isClassDeclaration(current)) &&
-        current.name
-      ) {
+      if (ts.isMethodDeclaration(current) && current.name) {
+        const methodName = this.readExpressionName(current.name);
+        const className = this.findParentClassName(current);
+
+        return methodName && className
+          ? `${className}.${methodName}`
+          : methodName;
+      }
+
+      if (ts.isFunctionDeclaration(current) && current.name) {
         return this.readExpressionName(current.name);
+      }
+
+      if (ts.isArrowFunction(current) || ts.isFunctionExpression(current)) {
+        const assignedName = this.readAssignedFunctionName(current);
+
+        if (assignedName) {
+          return assignedName;
+        }
+      }
+
+      if (ts.isClassDeclaration(current) && current.name) {
+        return current.name.text;
       }
 
       current = current.parent;
     }
 
     return null;
+  }
+
+  private findParentClassName(node: ts.Node): string | null {
+    let current = node.parent;
+
+    while (current) {
+      if (ts.isClassDeclaration(current) && current.name) {
+        return current.name.text;
+      }
+
+      current = current.parent;
+    }
+
+    return null;
+  }
+
+  private readAssignedFunctionName(node: ts.Node): string | null {
+    const propertyNames: string[] = [];
+    let current = node.parent;
+
+    while (current) {
+      if (ts.isPropertyAssignment(current)) {
+        const propertyName = this.readExpressionName(current.name);
+
+        if (propertyName) {
+          propertyNames.push(propertyName);
+        }
+      }
+
+      if (ts.isVariableDeclaration(current)) {
+        const variableName = this.readExpressionName(current.name);
+
+        if (!variableName) {
+          return propertyNames.reverse().join('.') || null;
+        }
+
+        return [variableName, ...propertyNames.reverse()].join('.');
+      }
+
+      if (
+        ts.isFunctionDeclaration(current) ||
+        ts.isMethodDeclaration(current) ||
+        ts.isClassDeclaration(current)
+      ) {
+        break;
+      }
+
+      current = current.parent;
+    }
+
+    return propertyNames.reverse().join('.') || null;
   }
 
   private findContainingSymbol(context: AnalysisFileContext, node: ts.Node) {
@@ -806,6 +870,41 @@ export class TypeScriptBusinessAnalyzer implements CodeAnalyzer {
     }
 
     return null;
+  }
+
+  private readConditionTarget(expression: ts.Expression): string | null {
+    let current = expression;
+
+    while (true) {
+      if (ts.isParenthesizedExpression(current)) {
+        current = current.expression;
+        continue;
+      }
+
+      if (ts.isPrefixUnaryExpression(current)) {
+        current = current.operand;
+        continue;
+      }
+
+      break;
+    }
+
+    if (ts.isBinaryExpression(current)) {
+      return this.readExpressionName(current.left);
+    }
+
+    if (ts.isCallExpression(current)) {
+      return this.readExpressionName(current.expression);
+    }
+
+    return this.readExpressionName(current);
+  }
+
+  private normalizeSyntaxKind(kind: ts.SyntaxKind): string {
+    return ts.SyntaxKind[kind]
+      .replace(/([a-z0-9])([A-Z])/gu, '$1_$2')
+      .replace(/([A-Z]+)([A-Z][a-z])/gu, '$1_$2')
+      .toLocaleLowerCase('en-US');
   }
 
   private isAssignmentOperator(kind: ts.SyntaxKind): boolean {

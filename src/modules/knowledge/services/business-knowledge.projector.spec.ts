@@ -99,10 +99,10 @@ describe('BusinessKnowledgeProjector', () => {
         containingSymbolId: 14,
         containingSymbolName: 'AppointmentService.book',
         condition: {
-          kind: 'prefixunaryexpression',
+          kind: 'prefix_unary_expression',
           identifiers: ['available', 'slot'],
           operation: '!',
-          target: null,
+          target: 'slot.available',
         },
         outcome: {
           kind: 'throw',
@@ -152,8 +152,9 @@ describe('BusinessKnowledgeProjector', () => {
     ).toEqual(new Set([13, 15]));
     expect(ruleNode).toMatchObject({
       kind: KnowledgeNodeKind.BusinessRule,
-      identityKey: ruleIdentity,
-      name: 'scheduling rule in AppointmentService.book',
+      name: 'Reject with SlotUnavailableException when not slot.available in AppointmentService.book',
+      summary:
+        'When not slot.available, the code rejects execution with SlotUnavailableException in AppointmentService.book.',
     });
     expect(result.edges.map((edge) => edge.kind)).toEqual(
       expect.arrayContaining([
@@ -184,11 +185,17 @@ describe('BusinessKnowledgeProjector', () => {
     ).toThrow(BusinessKnowledgeProjectionError);
   });
 
-  it('rejects duplicate business-rule identities', () => {
+  it('merges duplicate business-rule identities and their evidence', () => {
     const projector = new BusinessKnowledgeProjector();
+    const duplicate = rule();
+    duplicate.identityKey = `business_rule:${'e'.repeat(64)}`;
+    duplicate.evidence = [
+      evidence(181, 220, 14, AnalysisEvidenceRole.Condition),
+    ];
+    const result = projector.project([rule(), duplicate]);
 
-    expect(() => projector.project([rule(), rule()])).toThrow(
-      'Business rule identity is not unique',
-    );
+    expect(result.nodes).toHaveLength(1);
+    expect(result.nodes[0]?.evidence).toHaveLength(2);
+    expect(result.nodes[0]?.identityKey).not.toBe(ruleIdentity);
   });
 });
