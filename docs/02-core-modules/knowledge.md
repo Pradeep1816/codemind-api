@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Milestone 4.6 projection complete
-Version: 2.5
+Status: Milestone 4.7 APIs complete
+Version: 2.6
 Owner: CodeMind Engineering
 Architecture decision:
 [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
@@ -82,8 +82,8 @@ only when its repository branch still points to the build's target commit.
 Milestones 4.4 and 4.5 provide internal projectors for architecture components,
 relationships, domain concepts, and business rules. Repeated domain evidence
 is merged deterministically, while containing components are linked to concepts
-with `represents` and rules with `enforces`. Public knowledge APIs and
-background worker orchestration remain deferred to Milestones 4.7 and 4.8.
+with `represents` and rules with `enforces`. Background worker orchestration
+remains deferred to Milestone 4.8.
 
 The first Milestone 4.6 projector adds state and state-transition nodes. A
 `transitions_to` edge is published only when both states are supported by
@@ -226,9 +226,9 @@ PostgreSQL is selected because it already provides:
 Neo4j remains a measured future option. Vector indexes belong to Phase 5 search
 and will be derived projections, not the authoritative graph.
 
-## Public API principles
+## Public API
 
-Future APIs are repository and snapshot scoped. Planned product-level
+The implemented read API is repository and snapshot scoped. Product-level
 resources include:
 
 - Current knowledge snapshot
@@ -239,28 +239,29 @@ resources include:
 - States, transitions, events, and handlers
 - Evidence summaries
 
-The API will not provide generic CRUD for `knowledge_nodes` or
+The API does not provide generic CRUD for `knowledge_nodes` or
 `knowledge_edges`. Facts are generated from source snapshots and updated by
 rebuilding, not by arbitrary row mutation.
 
 Cross-organization identifiers return `404`. Read access requires
-`repository.read`; triggering or cancelling a build requires a dedicated
-knowledge-generation permission to be finalized before API implementation.
+`repository.read`. List endpoints are bounded to 100 records; node and edge
+detail endpoints return immutable file/hash/symbol/range evidence summaries,
+never raw source.
 
-## Planned module structure
+The full contract is documented in
+[Knowledge API](../04-api/knowledge-api.md).
+
+## Module structure
 
 ```text
 src/modules/knowledge/
 ├── dto/
 ├── entities/
 ├── enums/
-├── lifecycle/
 ├── persistence/
-├── queue/
+├── repositories/
 ├── services/
-├── workers/
 ├── knowledge.controller.ts
-├── knowledge.service.ts
 └── knowledge.module.ts
 ```
 
@@ -283,8 +284,9 @@ Milestone 4.3 implemented:
 - Atomic publication and current-snapshot behavior
 
 Milestones 4.4–4.6 add architecture, domain, rule, state, transition, event, and
-workflow extraction plus projection. Later milestones add APIs and full
-background processing.
+workflow extraction plus projection. Milestone 4.7 adds published snapshot,
+node, relationship, and evidence queries. Later milestones add full background
+processing.
 
 ## Completion gate
 

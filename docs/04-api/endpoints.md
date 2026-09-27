@@ -418,19 +418,27 @@ Interfaces
 
 Base path:
 
-/api/v1/knowledge
+/api/v1/repositories/{repositoryId}/knowledge
 
 
-Knowledge represents extracted business understanding.
+Knowledge represents immutable, evidence-backed technical and business
+understanding extracted from a repository.
 
-Get Knowledge Graph
-GET /knowledge/graph/{repositoryId}
+List Published Snapshots
+GET /repositories/{repositoryId}/knowledge/snapshots
 
-Get Business Rules
-GET /knowledge/business-rules/{repositoryId}
+Get Current Branch Snapshot
+GET /repositories/{repositoryId}/knowledge/snapshots/current?branchId={branchId}
 
-Generate Knowledge
-POST /knowledge/generate
+List Snapshot Nodes
+GET /repositories/{repositoryId}/knowledge/snapshots/{snapshotId}/nodes
+
+List Snapshot Relationships
+GET /repositories/{repositoryId}/knowledge/snapshots/{snapshotId}/edges
+
+Node and relationship detail endpoints include immutable evidence summaries.
+See `docs/04-api/knowledge-api.md` for filters, response contracts, and
+authorization behavior.
 
 12. AI APIs
 

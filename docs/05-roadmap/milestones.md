@@ -472,7 +472,7 @@ Implemented so far:
 
 ### 4.7 Knowledge APIs
 
-Status: Planned
+Status: Complete
 
 Deliver repository-scoped APIs for:
 
@@ -481,6 +481,15 @@ Deliver repository-scoped APIs for:
 - Domain concepts and business rules
 - Workflows, states, events, and transitions
 - Evidence summaries
+
+Implemented:
+
+- Published snapshot history and current-branch snapshot lookup
+- Snapshot graph totals
+- Paginated node queries with kind and name filters
+- Paginated relationship queries with kind and endpoint filters
+- Node and relationship detail with immutable evidence summaries
+- Tenant-scoped `404` behavior and complete draft-snapshot exclusion
 
 ### 4.8 Background processing
 

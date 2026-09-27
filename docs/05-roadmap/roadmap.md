@@ -79,8 +79,8 @@ Milestone 4.3 now persists durable knowledge builds and invisible draft
 snapshots with typed nodes, edges, evidence, and bounded errors. PostgreSQL
 constraints enforce tenant and Phase 3 source scope, published content is
 immutable, and one transaction validates evidence before publishing a snapshot
-and conditionally selecting it as current. Public knowledge APIs are not
-introduced yet.
+and conditionally selecting it as current. Milestone 4.7 exposes that published
+state through tenant-scoped read APIs while keeping drafts invisible.
 
 Milestone 4.4 now classifies supported TypeScript/JavaScript architecture
 components and resolves calls through local methods, constructor injection,
@@ -210,7 +210,7 @@ Milestones:
 |       4.4 | Call graph and architecture-component extraction                             | Complete |
 |       4.5 | Domain concepts and evidence-backed business rules                           | Complete |
 |       4.6 | Workflows, events, states, and transitions                                   | Complete |
-|       4.7 | Tenant-scoped knowledge and evidence APIs                                    | Planned  |
+|       4.7 | Tenant-scoped knowledge and evidence APIs                                    | Complete |
 |       4.8 | Background processing, retry, cancellation, and recovery                     | Planned  |
 |       4.9 | Tests, performance/security verification, and documentation                  | Planned  |
 
