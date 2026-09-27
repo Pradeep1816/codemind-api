@@ -493,7 +493,7 @@ Implemented:
 
 ### 4.8 Background processing
 
-Status: Planned
+Status: Complete
 
 Deliver:
 
@@ -501,6 +501,17 @@ Deliver:
 - Progress, retries, cancellation, recovery, and graceful shutdown
 - Unpublished batch persistence and atomic publication
 - Current-snapshot race protection when branches advance
+
+Implemented:
+
+- Tenant-scoped build create, list, detail, cancel, and retry APIs
+- PostgreSQL `SKIP LOCKED` claims with renewable ownership leases
+- Configurable polling, heartbeat, retry, and expired-lease recovery policies
+- Full analysis/projector assembly with deterministic identity conflict checks
+- Bounded retry-safe node/edge batches and durable analyzer diagnostics
+- Cooperative cancellation and graceful worker shutdown
+- Evidence validation and atomic publication of invisible draft snapshots
+- Historical publication without current-snapshot replacement after branch movement
 
 ### 4.9 Tests and documentation
 

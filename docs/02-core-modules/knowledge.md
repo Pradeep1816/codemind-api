@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Milestone 4.7 APIs complete
-Version: 2.6
+Status: Milestone 4.8 background processing complete
+Version: 2.7
 Owner: CodeMind Engineering
 Architecture decision:
 [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
@@ -82,8 +82,7 @@ only when its repository branch still points to the build's target commit.
 Milestones 4.4 and 4.5 provide internal projectors for architecture components,
 relationships, domain concepts, and business rules. Repeated domain evidence
 is merged deterministically, while containing components are linked to concepts
-with `represents` and rules with `enforces`. Background worker orchestration
-remains deferred to Milestone 4.8.
+with `represents` and rules with `enforces`.
 
 The first Milestone 4.6 projector adds state and state-transition nodes. A
 `transitions_to` edge is published only when both states are supported by
@@ -99,6 +98,14 @@ The workflow projector adds workflow and ordered workflow-step nodes. A
 controller `contains` its route workflow, the workflow `contains` each step,
 adjacent steps are connected with `precedes`, and resolved call steps `call`
 their target architecture components.
+
+Milestone 4.8 connects all projectors to a PostgreSQL-backed worker. The HTTP
+API creates a queued build from one successful index job and returns
+immediately. A worker claims the build with a renewable lease, runs the bounded
+analysis graph assembler, stores diagnostics, persists retry-safe node and edge
+batches, validates the draft, and publishes it atomically. Automatic retries,
+cooperative cancellation, expired-lease recovery, and graceful shutdown share
+the same durable lifecycle.
 
 ## Responsibilities
 
@@ -163,6 +170,33 @@ sequenceDiagram
 
 Readers filter to published snapshots. They never observe partially persisted
 graphs.
+
+## Worker lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> Queued
+    Queued --> Preparing: claim + lease
+    Preparing --> Analyzing
+    Analyzing --> Validating
+    Validating --> Publishing
+    Publishing --> Succeeded: atomic publish
+    Preparing --> Queued: retryable failure
+    Analyzing --> Queued: retryable failure
+    Validating --> Queued: retryable failure
+    Preparing --> Cancelled: cancellation checkpoint
+    Analyzing --> Cancelled: cancellation checkpoint
+    Queued --> Cancelled: cancel before claim
+    Preparing --> Failed: terminal / attempts exhausted
+    Analyzing --> Failed: terminal / attempts exhausted
+    Validating --> Failed: terminal / attempts exhausted
+```
+
+Claims use `FOR UPDATE SKIP LOCKED`, allowing multiple application processes to
+consume the same durable queue without claiming one build twice. Heartbeats
+extend the lease. Recovery requeues an expired lease while attempts remain and
+otherwise marks the build failed. The worker stops claiming on shutdown and
+turns work interrupted at a checkpoint into a retryable transition.
 
 ## Evidence requirements
 

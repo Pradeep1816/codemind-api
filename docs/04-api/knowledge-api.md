@@ -2,9 +2,10 @@
 
 ## Status
 
-Milestone 4.7 is complete. The API exposes immutable, published knowledge
-snapshots and their typed graph through tenant-scoped, read-only endpoints.
-Draft snapshots and internal build leases are never visible.
+Milestone 4.8 is complete. The API accepts asynchronous knowledge builds and
+exposes immutable, published knowledge snapshots through tenant-scoped
+endpoints. Draft graph content and internal worker lease tokens are never
+visible.
 
 ## Base path
 
@@ -27,8 +28,82 @@ cannot supply or override it.
 | `GET`  | `/snapshots/:snapshotId/nodes/:nodeId`                 | Get a node with evidence summaries        |
 | `GET`  | `/snapshots/:snapshotId/edges`                         | List and filter knowledge relationships   |
 | `GET`  | `/snapshots/:snapshotId/edges/:edgeId`                 | Get a relationship with evidence summaries |
+| `POST` | `/builds`                                              | Queue a build from a successful index job   |
+| `GET`  | `/builds`                                              | List build history and progress             |
+| `GET`  | `/builds/:buildId`                                     | Get one build and its progress              |
+| `POST` | `/builds/:buildId/cancel`                              | Request cooperative cancellation            |
+| `POST` | `/builds/:buildId/retry`                               | Requeue a failed or cancelled build         |
 
 The paths above are relative to the base path.
+
+## Background knowledge builds
+
+Build mutations additionally require `knowledge.manage`. Queueing returns
+`202 Accepted` immediately; a PostgreSQL-backed worker claims and processes the
+build outside the HTTP request lifecycle.
+
+```http
+POST /api/v1/repositories/2/knowledge/builds
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "sourceIndexJobId": 4
+}
+```
+
+The source indexing job must belong to the same organization and repository
+and have status `succeeded`. Only one queued or running knowledge build is
+allowed for a repository branch.
+
+```json
+{
+  "id": 11,
+  "repositoryId": 2,
+  "branchId": 3,
+  "sourceIndexJobId": 4,
+  "trigger": "manual",
+  "status": "running",
+  "phase": "analyzing",
+  "targetCommitSha": "8e008e725d9e411c5bff3a713b91afeaf4613f13",
+  "analyzerBundleVersion": "phase4-v1",
+  "progress": {
+    "percentage": 100,
+    "totalFiles": 42,
+    "processedFiles": 42,
+    "failedFiles": 0,
+    "emittedFacts": 229,
+    "persistedNodes": 93,
+    "persistedEdges": 136,
+    "currentFile": null
+  },
+  "attemptCount": 1,
+  "maxAttempts": 3,
+  "failure": null
+}
+```
+
+Lifecycle states are:
+
+```text
+queued
+  -> running: preparing -> analyzing -> validating -> publishing
+  -> succeeded: finished
+
+running -> queued     (automatic retry)
+running -> failed     (terminal error or attempts exhausted)
+queued/running -> cancelled
+```
+
+Cancellation is cooperative. A queued build is cancelled immediately; a
+running worker observes the request at a heartbeat checkpoint. Retry is
+available only for `failed` or `cancelled` builds and reuses the same invisible
+draft with idempotent fact writes.
+
+The worker records bounded diagnostics, persists nodes and edges in configured
+batches, verifies evidence completeness, and publishes in one transaction. If
+the branch advanced during analysis, the completed snapshot remains historical
+and is not selected as the branch's current snapshot.
 
 ## Snapshot history
 
@@ -172,8 +247,8 @@ values, and node-name search is limited to 200 characters.
 - Draft snapshots are invisible even when their numeric ID is known.
 - Cross-organization repository, snapshot, node, and edge identifiers return
   `404 Not Found`.
-- The API is read-only. Knowledge changes only by publishing a new immutable
-  snapshot.
+- Published graph APIs are read-only. Build endpoints only create or control
+  draft work; graph content changes only through atomic snapshot publication.
 - Raw source text, worker ownership, lease tokens, and internal failure stacks
   are not returned.
 
@@ -185,6 +260,7 @@ values, and node-name search is limited to 200 characters.
 |  `401` | Access token missing, invalid, or expired                 |
 |  `403` | Authenticated role lacks `repository.read`                |
 |  `404` | Repository or published graph resource is not accessible |
+|  `409` | Source job/build state conflicts with the requested action |
 
 ## Related documentation
 

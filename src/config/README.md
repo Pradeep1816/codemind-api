@@ -20,6 +20,7 @@ application startup, and exposes namespaced configuration through NestJS.
 | `git.config.ts`        | Git workspace, local-source, timeout, and clone settings          | `git`        |
 | `indexing.config.ts`   | Indexing workspace, limits, leases, and retry policy              | `indexing`   |
 | `analysis.config.ts`   | Analysis source, fact, diagnostic, and property limits            | `analysis`   |
+| `knowledge.config.ts`  | Knowledge versions, batches, leases, retries, and worker policy   | `knowledge`  |
 | `ai.config.ts`         | AI provider connection settings                                   | `ai`         |
 
 ## Environment Setup
@@ -288,6 +289,45 @@ The `analysis` namespace exposes:
 
 These limits apply before Phase 4 persistence. Analysis reads immutable source
 as untrusted data, never executes it, and discards the text after each file.
+
+### Knowledge Processing
+
+| Variable                                | Required | Default    | Description                                             |
+| --------------------------------------- | -------: | ---------- | ------------------------------------------------------- |
+| `KNOWLEDGE_ANALYZER_BUNDLE_VERSION`     |       No | `phase4-v1` | Reproducible analyzer bundle recorded on each snapshot |
+| `KNOWLEDGE_PERSISTENCE_BATCH_SIZE`      |       No | `500`      | Maximum nodes or edges written per transaction         |
+| `KNOWLEDGE_JOB_LEASE_MS`                |       No | `60000`    | Worker lease duration                                  |
+| `KNOWLEDGE_JOB_RETRY_DELAY_MS`          |       No | `30000`    | Delay before a retry becomes claimable                 |
+| `KNOWLEDGE_JOB_MAX_ATTEMPTS`            |       No | `3`        | Maximum automatic attempts                             |
+| `KNOWLEDGE_JOB_RECOVERY_BATCH_SIZE`     |       No | `100`      | Maximum expired leases recovered per pass              |
+| `KNOWLEDGE_JOB_HEARTBEAT_INTERVAL_MS`   |       No | `15000`    | Heartbeat interval; must be shorter than the lease     |
+| `KNOWLEDGE_WORKER_ENABLED`              |       No | `true`     | Consume knowledge builds in this process               |
+| `KNOWLEDGE_WORKER_ID`                   |       No | Host/PID   | Optional stable worker identity                        |
+| `KNOWLEDGE_WORKER_POLL_INTERVAL_MS`     |       No | `2000`     | Delay after an empty queue poll                        |
+| `KNOWLEDGE_WORKER_RECOVERY_INTERVAL_MS` |       No | `30000`    | Interval between expired-lease recovery passes         |
+
+The `knowledge` namespace exposes:
+
+```typescript
+{
+  analyzerBundleVersion: string;
+  persistenceBatchSize: number;
+  jobLeaseMs: number;
+  jobRetryDelayMs: number;
+  jobMaxAttempts: number;
+  jobRecoveryBatchSize: number;
+  jobHeartbeatIntervalMs: number;
+  workerEnabled: boolean;
+  workerId: string | undefined;
+  workerPollIntervalMs: number;
+  workerRecoveryIntervalMs: number;
+}
+```
+
+Set `KNOWLEDGE_WORKER_ENABLED=false` on API-only processes. At least one
+deployment process must keep it enabled, otherwise builds remain safely
+queued. Lease recovery permits another worker to retry work after a process
+crash without exposing a partial snapshot.
 
 ### AI
 

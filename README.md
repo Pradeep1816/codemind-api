@@ -105,6 +105,9 @@ Implemented:
   `contains`, `precedes`, and component `calls` relationships
 - Tenant-scoped published knowledge snapshot, node, relationship, and evidence
   query APIs
+- Asynchronous knowledge-build APIs with PostgreSQL claims, leases, progress,
+  retries, cancellation, expired-lease recovery, and graceful shutdown
+- Retry-safe graph batching and atomic evidence-validated snapshot publication
 - Database-aware `GET /health` endpoint
 - URI API versioning under `/api/v1`
 - Global request validation

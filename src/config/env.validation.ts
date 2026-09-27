@@ -293,6 +293,66 @@ class EnvironmentVariables {
   @Max(3_600_000)
   INDEXING_WORKER_RECOVERY_INTERVAL_MS = 30_000;
 
+  @IsString()
+  @Matches(/^[A-Za-z0-9._-]{1,100}$/)
+  KNOWLEDGE_ANALYZER_BUNDLE_VERSION = 'phase4-v1';
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(5_000)
+  KNOWLEDGE_PERSISTENCE_BATCH_SIZE = 500;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(5_000)
+  @Max(3_600_000)
+  KNOWLEDGE_JOB_LEASE_MS = 60_000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  @Max(3_600_000)
+  KNOWLEDGE_JOB_RETRY_DELAY_MS = 30_000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10)
+  KNOWLEDGE_JOB_MAX_ATTEMPTS = 3;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(1_000)
+  KNOWLEDGE_JOB_RECOVERY_BATCH_SIZE = 100;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1_000)
+  @Max(300_000)
+  KNOWLEDGE_JOB_HEARTBEAT_INTERVAL_MS = 15_000;
+
+  @IsIn(['true', 'false'])
+  KNOWLEDGE_WORKER_ENABLED = 'true';
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^(?:[A-Za-z0-9._:-]{1,200})?$/)
+  KNOWLEDGE_WORKER_ID?: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(100)
+  @Max(60_000)
+  KNOWLEDGE_WORKER_POLL_INTERVAL_MS = 2_000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1_000)
+  @Max(3_600_000)
+  KNOWLEDGE_WORKER_RECOVERY_INTERVAL_MS = 30_000;
+
   @Type(() => Number)
   @IsInt()
   @Min(1_024)
@@ -411,6 +471,15 @@ export function validateEnvironment(
   ) {
     throw new Error(
       'INDEXING_JOB_HEARTBEAT_INTERVAL_MS must be less than INDEXING_JOB_LEASE_MS',
+    );
+  }
+
+  if (
+    validatedConfiguration.KNOWLEDGE_JOB_HEARTBEAT_INTERVAL_MS >=
+    validatedConfiguration.KNOWLEDGE_JOB_LEASE_MS
+  ) {
+    throw new Error(
+      'KNOWLEDGE_JOB_HEARTBEAT_INTERVAL_MS must be less than KNOWLEDGE_JOB_LEASE_MS',
     );
   }
 

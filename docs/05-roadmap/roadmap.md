@@ -211,7 +211,7 @@ Milestones:
 |       4.5 | Domain concepts and evidence-backed business rules                           | Complete |
 |       4.6 | Workflows, events, states, and transitions                                   | Complete |
 |       4.7 | Tenant-scoped knowledge and evidence APIs                                    | Complete |
-|       4.8 | Background processing, retry, cancellation, and recovery                     | Planned  |
+|       4.8 | Background processing, retry, cancellation, and recovery                     | Complete |
 |       4.9 | Tests, performance/security verification, and documentation                  | Planned  |
 
 Architecture decisions:

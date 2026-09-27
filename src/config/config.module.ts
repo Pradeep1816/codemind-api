@@ -9,6 +9,7 @@ import gitConfig from './git.config';
 import indexingConfig from './indexing.config';
 import invitationConfig from './invitation.config';
 import jwtConfig from './jwt.config';
+import knowledgeConfig from './knowledge.config';
 import rateLimitConfig from './rate-limit.config';
 
 @Module({
@@ -23,6 +24,7 @@ import rateLimitConfig from './rate-limit.config';
         databaseConfig,
         gitConfig,
         indexingConfig,
+        knowledgeConfig,
         jwtConfig,
         invitationConfig,
         rateLimitConfig,
