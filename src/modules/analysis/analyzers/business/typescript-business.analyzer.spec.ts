@@ -4,6 +4,7 @@ import { AnalysisFactKind } from '../../enums/analysis-fact-kind.enum';
 import { BusinessRuleType } from '../../enums/business-rule-type.enum';
 import type { AnalysisFileContext } from '../../types/analysis-context.types';
 import type { AnalysisOutput } from '../../types/analysis-diagnostic.types';
+import type { AnalysisFact } from '../../types/analysis-fact.types';
 import {
   TypeScriptBusinessAnalyzerError,
   TypeScriptBusinessAnalyzerErrorCode,
@@ -203,6 +204,87 @@ export class ExampleService {
           output.kind === AnalysisFactKind.BusinessRule,
       ),
     ).toEqual([]);
+  });
+
+  it('adds reducer callback context, readable targets, and source ranges', () => {
+    const content = `
+export const selectAddressSlice = {
+  reducers: {
+    updateAddress: (state) => {
+      if (state.addressForm) {
+        state.changeLocation = true;
+      }
+    },
+  },
+};
+`;
+    const baseContext = createContext(content);
+    const context: AnalysisFileContext = {
+      ...baseContext,
+      file: {
+        ...baseContext.file,
+        path: 'frontend/src/store/reducer/selectAddressSlice.js',
+        extension: 'js',
+        language: SourceLanguage.JavaScript,
+        symbols: [],
+      },
+      source: {
+        ...baseContext.source,
+        path: 'frontend/src/store/reducer/selectAddressSlice.js',
+      },
+    };
+    const rules = collect(createAnalyzer(), context).filter(
+      (output) =>
+        output.type === 'fact' && output.kind === AnalysisFactKind.BusinessRule,
+    );
+
+    expect(rules).toHaveLength(1);
+    expect(rules[0]).toMatchObject({
+      analyzerVersion: '1.2.0',
+      properties: {
+        condition: {
+          kind: 'property_access_expression',
+          target: 'state.addressForm',
+        },
+        containingSymbolId: null,
+        containingSymbolName: 'selectAddressSlice.reducers.updateAddress',
+        outcome: {
+          kind: 'assignment',
+          target: 'state.changeLocation',
+        },
+        sourcePath: 'frontend/src/store/reducer/selectAddressSlice.js',
+      },
+      evidence: [
+        {
+          codeSymbolId: null,
+          range: {
+            start: { line: 5, column: 7 },
+            end: { line: 7, column: 8 },
+          },
+        },
+      ],
+    });
+  });
+
+  it('assigns a unique fact identity to equivalent rule occurrences', () => {
+    const content = `
+export function updateAddress(state) {
+  if (state.addressForm) {
+    state.changeLocation = true;
+  }
+
+  if (state.addressForm) {
+    state.changeLocation = true;
+  }
+}
+`;
+    const rules = collect(createAnalyzer(), createContext(content)).filter(
+      (output): output is AnalysisFact =>
+        output.type === 'fact' && output.kind === AnalysisFactKind.BusinessRule,
+    );
+
+    expect(rules).toHaveLength(2);
+    expect(new Set(rules.map((rule) => rule.identityKey)).size).toBe(2);
   });
 
   it('stops when source exceeds the configured AST limit', () => {

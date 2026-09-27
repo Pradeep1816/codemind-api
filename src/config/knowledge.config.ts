@@ -6,7 +6,7 @@ function readInteger(name: string, fallback: number): number {
 
 export default registerAs('knowledge', () => ({
   analyzerBundleVersion:
-    process.env.KNOWLEDGE_ANALYZER_BUNDLE_VERSION?.trim() || 'phase4-v1',
+    process.env.KNOWLEDGE_ANALYZER_BUNDLE_VERSION?.trim() || 'phase4-v3',
   persistenceBatchSize: readInteger('KNOWLEDGE_PERSISTENCE_BATCH_SIZE', 500),
   jobLeaseMs: readInteger('KNOWLEDGE_JOB_LEASE_MS', 60_000),
   jobRetryDelayMs: readInteger('KNOWLEDGE_JOB_RETRY_DELAY_MS', 30_000),
