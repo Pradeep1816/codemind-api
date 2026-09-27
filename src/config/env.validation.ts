@@ -6,6 +6,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUrl,
   Matches,
   Max,
   Min,
@@ -52,8 +53,12 @@ class EnvironmentVariables {
   API_VERSION = '1';
 
   @IsOptional()
-  @IsString()
-  CORS_ORIGINS = '';
+  @IsUrl({
+    protocols: ['http', 'https'],
+    require_protocol: true,
+    require_tld: false,
+  })
+  WEB_APP_URL?: string;
 
   @IsOptional()
   @IsIn(['true', 'false'])

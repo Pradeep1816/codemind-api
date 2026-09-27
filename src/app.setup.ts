@@ -15,7 +15,7 @@ export function configureApplication(
   const environment = configService.getOrThrow<string>('app.environment');
   const apiPrefix = configService.getOrThrow<string>('app.apiPrefix');
   const apiVersion = configService.getOrThrow<string>('app.apiVersion');
-  const corsOrigins = configService.getOrThrow<string[]>('app.corsOrigins');
+  const webAppUrl = configService.getOrThrow<string>('app.webAppUrl');
   const corsCredentials = configService.getOrThrow<boolean>(
     'app.corsCredentials',
   );
@@ -54,9 +54,9 @@ export function configureApplication(
     }),
   );
 
-  if (corsOrigins.length > 0) {
+  if (webAppUrl) {
     app.enableCors({
-      origin: corsOrigins,
+      origin: webAppUrl,
       credentials: corsCredentials,
     });
   }

@@ -45,7 +45,7 @@ Do not commit `.env` or real credentials.
 | `NODE_ENV`         |       No | `development` | `development`, `test`, or `production`            |
 | `API_PREFIX`       |       No | `api`         | Global URL prefix without slashes                 |
 | `API_VERSION`      |       No | `1`           | Default numeric URI version                       |
-| `CORS_ORIGINS`     |       No | —             | Comma-separated allowed browser origins           |
+| `WEB_APP_URL`      |       No | —             | Trusted frontend origin allowed to call the API    |
 | `CORS_CREDENTIALS` |       No | `false`       | Allows browser credentials for configured origins |
 | `TRUST_PROXY`      |       No | `false`       | `false` or `loopback` for a trusted local proxy   |
 
@@ -59,14 +59,14 @@ The `app` namespace exposes:
   environment: string;
   apiPrefix: string;
   apiVersion: string;
-  corsOrigins: string[];
+  webAppUrl: string;
   corsCredentials: boolean;
   trustProxy: 'false' | 'loopback';
 }
 ```
 
-CORS remains disabled when `CORS_ORIGINS` is empty. List explicit trusted
-origins in production; do not use a wildcard for authenticated APIs.
+CORS remains disabled when `WEB_APP_URL` is empty. Configure the exact trusted
+frontend origin in production; do not use a wildcard for authenticated APIs.
 
 `TRUST_PROXY=loopback` accepts forwarded client IP information only from a
 loopback reverse proxy. Keep the default `false` when clients connect directly.
