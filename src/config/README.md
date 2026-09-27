@@ -294,7 +294,7 @@ as untrusted data, never executes it, and discards the text after each file.
 
 | Variable                                | Required | Default    | Description                                             |
 | --------------------------------------- | -------: | ---------- | ------------------------------------------------------- |
-| `KNOWLEDGE_ANALYZER_BUNDLE_VERSION`     |       No | `phase4-v2` | Reproducible analyzer bundle recorded on each snapshot |
+| `KNOWLEDGE_ANALYZER_BUNDLE_VERSION`     |       No | `phase4-v3` | Reproducible analyzer bundle recorded on each snapshot |
 | `KNOWLEDGE_PERSISTENCE_BATCH_SIZE`      |       No | `500`      | Maximum nodes or edges written per transaction         |
 | `KNOWLEDGE_JOB_LEASE_MS`                |       No | `60000`    | Worker lease duration                                  |
 | `KNOWLEDGE_JOB_RETRY_DELAY_MS`          |       No | `30000`    | Delay before a retry becomes claimable                 |

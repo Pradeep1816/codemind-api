@@ -84,7 +84,7 @@ interface RulePattern {
 @Injectable()
 export class TypeScriptBusinessAnalyzer implements CodeAnalyzer {
   readonly name = 'typescript-business';
-  readonly version = '1.1.1';
+  readonly version = '1.2.0';
 
   constructor(
     private readonly factFactory: AnalysisFactFactory,
@@ -249,6 +249,7 @@ export class TypeScriptBusinessAnalyzer implements CodeAnalyzer {
             declarationKind: classification.declarationKind,
             name: normalizedName,
             normalizedName: candidate.normalizedName,
+            sourcePath: context.file.path,
             source: classification.source,
           },
           evidence,
@@ -412,6 +413,7 @@ export class TypeScriptBusinessAnalyzer implements CodeAnalyzer {
         containingSymbolName,
         outcome: outcome as unknown as AnalysisPropertyValue,
         ruleType,
+        sourcePath: context.file.path,
         subjectConceptIdentityKeys: subjectConcepts.map(
           (concept) => concept.identityKey,
         ),

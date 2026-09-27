@@ -6,4 +6,6 @@ export enum ArchitectureComponentType {
   Entity = 'entity',
   Provider = 'provider',
   Configuration = 'configuration',
+  SourceFile = 'source_file',
+  CodeSymbol = 'code_symbol',
 }

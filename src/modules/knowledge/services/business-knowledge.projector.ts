@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { AnalysisDerivationType } from '../../analysis/enums/analysis-derivation-type.enum';
 import { AnalysisEvidenceRole } from '../../analysis/enums/analysis-evidence-role.enum';
 import { AnalysisFactKind } from '../../analysis/enums/analysis-fact-kind.enum';
+import { ArchitectureComponentType } from '../../analysis/enums/architecture-component-type.enum';
 import type {
   AnalysisDiagnostic,
   AnalysisOutput,
@@ -23,7 +24,7 @@ import type {
 } from '../persistence/knowledge-persistence.types';
 
 const PROJECTOR_NAME = 'business-knowledge-projector';
-const PROJECTOR_VERSION = '1.1.0';
+const PROJECTOR_VERSION = '1.2.0';
 
 interface ArchitectureDescriptor {
   identityKey: string;
@@ -71,28 +72,25 @@ export class BusinessKnowledgeProjector {
     );
     const nodes: KnowledgeNodeInput[] = [];
     const edges = new Map<string, KnowledgeEdgeInput>();
+    const fallbackComponents = new Map<string, KnowledgeNodeInput>();
 
     for (const group of conceptGroups.values()) {
       const node = this.toConceptNode(group);
       nodes.push(node);
 
       for (const fact of group) {
-        const component = this.findContainingComponent(
-          fact.evidence[0],
-          architecture,
-        );
-
-        if (component) {
-          this.mergeEdge(
-            edges,
-            this.createEdge(
-              component,
-              node,
-              KnowledgeEdgeKind.Represents,
-              fact,
-            ),
+        const component =
+          this.findContainingComponent(fact.evidence[0], architecture) ??
+          this.ensureFallbackComponent(
+            fact,
+            fact.evidence[0],
+            fallbackComponents,
           );
-        }
+
+        this.mergeEdge(
+          edges,
+          this.createEdge(component, node, KnowledgeEdgeKind.Represents, fact),
+        );
       }
     }
 
@@ -107,26 +105,31 @@ export class BusinessKnowledgeProjector {
       nodes.push(node);
 
       for (const groupFact of group) {
-        const component = this.findContainingComponent(
-          groupFact.evidence[0],
-          architecture,
-        );
-
-        if (component) {
-          this.mergeEdge(
-            edges,
-            this.createEdge(
-              component,
-              node,
-              KnowledgeEdgeKind.Enforces,
-              groupFact,
-            ),
+        const component =
+          this.findContainingComponent(groupFact.evidence[0], architecture) ??
+          this.ensureFallbackComponent(
+            groupFact,
+            groupFact.evidence[0],
+            fallbackComponents,
           );
-        }
+
+        this.mergeEdge(
+          edges,
+          this.createEdge(
+            component,
+            node,
+            KnowledgeEdgeKind.Enforces,
+            groupFact,
+          ),
+        );
       }
     }
 
-    return { nodes, edges: [...edges.values()], diagnostics };
+    return {
+      nodes: [...fallbackComponents.values(), ...nodes],
+      edges: [...edges.values()],
+      diagnostics,
+    };
   }
 
   private readArchitecture(
@@ -502,6 +505,86 @@ export class BusinessKnowledgeProjector {
           );
         })[0] ?? null
     );
+  }
+
+  /**
+   * Creates an architectural anchor when a semantic fact belongs to code that
+   * Phase 3 does not model as a class or top-level function. Redux reducer
+   * callbacks nested in object literals are a common example.
+   */
+  private ensureFallbackComponent(
+    fact: AnalysisFact,
+    evidence: AnalysisEvidence,
+    components: Map<string, KnowledgeNodeInput>,
+  ): ArchitectureDescriptor {
+    const sourcePath = this.optionalString(fact.properties.sourcePath);
+    const containingSymbolName = this.optionalString(
+      fact.properties.containingSymbolName,
+    );
+    const componentType = containingSymbolName
+      ? ArchitectureComponentType.CodeSymbol
+      : ArchitectureComponentType.SourceFile;
+    const name =
+      containingSymbolName ??
+      sourcePath ??
+      `Source file #${evidence.indexedFileId}`;
+    const identityKey = this.stableIdentity('architecture_component', [
+      'source_context',
+      String(evidence.indexedFileId),
+      containingSymbolName ?? '',
+    ]);
+    const confidence = containingSymbolName ? 0.9 : 0.75;
+    const mappedEvidence = this.mapEvidenceTuple([evidence]);
+    const properties = {
+      classificationSignals: [
+        containingSymbolName
+          ? 'semantic_fact:containing_symbol'
+          : 'semantic_fact:source_file',
+      ],
+      componentType,
+      indexedFileId: evidence.indexedFileId,
+      name,
+      path: sourcePath,
+      qualifiedName: containingSymbolName,
+      symbolId: evidence.codeSymbolId,
+    };
+    const existing = components.get(identityKey);
+    const mergedEvidence = existing
+      ? this.uniqueKnowledgeEvidence([...existing.evidence, ...mappedEvidence])
+      : mappedEvidence;
+    const node: KnowledgeNodeInput = {
+      kind: KnowledgeNodeKind.ArchitecturalComponent,
+      identityKey,
+      name: this.limitText(name, 512),
+      summary: containingSymbolName
+        ? `Source context for ${containingSymbolName}.`
+        : sourcePath
+          ? `Source context for ${sourcePath}.`
+          : null,
+      derivationType: KnowledgeDerivationType.Heuristic,
+      confidence,
+      analyzerName: PROJECTOR_NAME,
+      analyzerVersion: PROJECTOR_VERSION,
+      contentFingerprint: this.fingerprint({
+        confidence,
+        derivationType: KnowledgeDerivationType.Heuristic,
+        evidence: mergedEvidence,
+        identityKey,
+        kind: KnowledgeNodeKind.ArchitecturalComponent,
+        properties,
+      }),
+      propertySchemaVersion: 1,
+      properties,
+      evidence: mergedEvidence,
+    };
+    components.set(identityKey, node);
+
+    return {
+      identityKey,
+      derivationType: AnalysisDerivationType.Heuristic,
+      confidence,
+      evidence,
+    };
   }
 
   private createEdge(

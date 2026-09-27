@@ -110,6 +110,7 @@ describe('BusinessKnowledgeProjector', () => {
           operation: null,
           target: null,
         },
+        sourcePath: 'src/appointments/appointment.service.ts',
         subjectConceptIdentityKeys: [conceptIdentity],
         subjectConceptNames: ['Appointment'],
       },
@@ -193,9 +194,48 @@ describe('BusinessKnowledgeProjector', () => {
       evidence(181, 220, 14, AnalysisEvidenceRole.Condition),
     ];
     const result = projector.project([rule(), duplicate]);
+    const ruleNode = result.nodes.find(
+      (node) => node.kind === KnowledgeNodeKind.BusinessRule,
+    );
 
-    expect(result.nodes).toHaveLength(1);
-    expect(result.nodes[0]?.evidence).toHaveLength(2);
-    expect(result.nodes[0]?.identityKey).not.toBe(ruleIdentity);
+    expect(result.nodes).toHaveLength(2);
+    expect(ruleNode?.evidence).toHaveLength(2);
+    expect(ruleNode?.identityKey).not.toBe(ruleIdentity);
+    expect(result.edges).toHaveLength(1);
+    expect(result.edges[0]?.evidence).toHaveLength(2);
+  });
+
+  it('anchors an unclassified rule to its containing source context', () => {
+    const projector = new BusinessKnowledgeProjector();
+    const result = projector.project([rule()]);
+    const component = result.nodes.find(
+      (node) => node.kind === KnowledgeNodeKind.ArchitecturalComponent,
+    );
+    const ruleNode = result.nodes.find(
+      (node) => node.kind === KnowledgeNodeKind.BusinessRule,
+    );
+
+    expect(component).toMatchObject({
+      name: 'AppointmentService.book',
+      derivationType: 'heuristic',
+      properties: {
+        componentType: 'code_symbol',
+        path: 'src/appointments/appointment.service.ts',
+        qualifiedName: 'AppointmentService.book',
+      },
+    });
+    expect(result.edges).toEqual([
+      expect.objectContaining({
+        kind: KnowledgeEdgeKind.Enforces,
+        source: {
+          kind: KnowledgeNodeKind.ArchitecturalComponent,
+          identityKey: component?.identityKey,
+        },
+        target: {
+          kind: KnowledgeNodeKind.BusinessRule,
+          identityKey: ruleNode?.identityKey,
+        },
+      }),
+    ]);
   });
 });

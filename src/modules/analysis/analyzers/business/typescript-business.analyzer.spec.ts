@@ -240,7 +240,7 @@ export const selectAddressSlice = {
 
     expect(rules).toHaveLength(1);
     expect(rules[0]).toMatchObject({
-      analyzerVersion: '1.1.1',
+      analyzerVersion: '1.2.0',
       properties: {
         condition: {
           kind: 'property_access_expression',
@@ -252,6 +252,7 @@ export const selectAddressSlice = {
           kind: 'assignment',
           target: 'state.changeLocation',
         },
+        sourcePath: 'frontend/src/store/reducer/selectAddressSlice.js',
       },
       evidence: [
         {

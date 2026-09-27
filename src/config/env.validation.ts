@@ -300,7 +300,7 @@ class EnvironmentVariables {
 
   @IsString()
   @Matches(/^[A-Za-z0-9._-]{1,100}$/)
-  KNOWLEDGE_ANALYZER_BUNDLE_VERSION = 'phase4-v2';
+  KNOWLEDGE_ANALYZER_BUNDLE_VERSION = 'phase4-v3';
 
   @Type(() => Number)
   @IsInt()
