@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Milestone 4.6 state extraction in progress
-Version: 2.2
+Status: Milestone 4.6 event and state extraction in progress
+Version: 2.3
 Owner: CodeMind Engineering
 Architecture decision:
 [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
@@ -214,14 +214,17 @@ They do not write knowledge entities directly.
 src/modules/analysis/analyzers/business/
 ├── typescript-business.analyzer.ts
 ├── typescript-business-analyzer.errors.ts
+├── typescript-event.analyzer.ts
+├── typescript-event-analyzer.errors.ts
 ├── typescript-state.analyzer.ts
 └── typescript-state-analyzer.errors.ts
 ```
 
 The TypeScript/JavaScript business analyzer emits concept and rule facts. The
 state analyzer performs its own bounded pass and emits states plus explicit
-transitions. Workflow and domain-event analyzers are introduced only with
-implemented behavior and service tests.
+transitions. The event analyzer extracts explicit publication and handler
+contracts. Workflow analyzers are introduced only with implemented behavior
+and service tests.
 
 ## Implemented state boundary
 
@@ -238,6 +241,22 @@ state, but it does not create a `transitions_to` graph edge. Inequality guards,
 computed properties, nested data-flow inference, switch fall-through, and
 cross-function transition composition remain unsupported rather than guessed.
 
+## Implemented event boundary
+
+The initial event pass recognizes:
+
+- Literal topics passed to `emit()` or `emitAsync()`
+- Matching literal-topic `@OnEvent()` method contracts
+- Constructed event objects passed to `publish()`
+- Constructed event arrays passed to `publishAll()`
+- Type references declared by `@EventsHandler()`
+
+Resolved publications create component-to-event `triggers` edges. Resolved
+handler contracts create handler-to-event `handles` edges. Dynamic topics,
+event variables, computed constructor expressions, empty handler contracts, and
+unsupported `publishAll` elements are retained as unresolved facts with
+diagnostics and do not become authoritative event nodes.
+
 ## Implemented rule boundary
 
 Milestone 4.5 recognizes guarded `throw`/`return` outcomes, semantically
@@ -252,7 +271,7 @@ The following remain unsupported rather than guessed:
 - Runtime-computed property names and reflective control flow
 - Interprocedural conditions requiring data-flow execution
 - Legal or accounting intent that is not represented by source structure
-- Workflows and event/handler pairing (remaining Milestone 4.6 work)
+- Ordered workflows and workflow steps (remaining Milestone 4.6 work)
 
 ## Resource and security limits
 

@@ -121,6 +121,12 @@ describe('AnalysisService', () => {
         supports: jest.fn().mockReturnValue(false),
         analyze: jest.fn().mockReturnValue([]),
       },
+      {
+        name: 'unsupported-event-analyzer',
+        version: '1.0.0',
+        supports: jest.fn().mockReturnValue(false),
+        analyze: jest.fn().mockReturnValue([]),
+      },
     );
 
     return {

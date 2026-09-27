@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Milestone 4.6 state projection in progress
-Version: 2.3
+Status: Milestone 4.6 event and state projection in progress
+Version: 2.4
 Owner: CodeMind Engineering
 Architecture decision:
 [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
@@ -89,6 +89,11 @@ The first Milestone 4.6 projector adds state and state-transition nodes. A
 `transitions_to` edge is published only when both states are supported by
 evidence; unknown-source assignments remain visible transition nodes without a
 fabricated source edge.
+
+The event projector adds domain-event and event-handler nodes. Publication call
+evidence creates `triggers` edges from containing components, while resolved
+decorator contracts create `handles` edges from handlers. Dynamic references
+remain analysis output and are not promoted to domain-event nodes.
 
 ## Responsibilities
 
@@ -272,8 +277,8 @@ Milestone 4.3 implemented:
 - Entities, constraints, indexes, and migrations
 - Atomic publication and current-snapshot behavior
 
-Milestones 4.4–4.6 add architecture, domain, rule, and initial state extraction
-plus projection. Later milestones add workflows/events, APIs, and full
+Milestones 4.4–4.6 add architecture, domain, rule, state, transition, and event
+extraction plus projection. Later milestones add workflows, APIs, and full
 background processing.
 
 ## Completion gate

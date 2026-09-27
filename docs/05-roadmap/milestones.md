@@ -461,6 +461,9 @@ Implemented so far:
 - Equality-guarded transitions with unknown-source preservation
 - State and transition knowledge nodes with immutable evidence
 - Proven `transitions_to` and containing-component `enforces` relationships
+- Literal-topic and constructed-type event publications
+- `OnEvent` and `EventsHandler` contracts with unresolved dynamic preservation
+- Domain-event/event-handler nodes plus proven `triggers` and `handles` edges
 
 ### 4.7 Knowledge APIs
 

@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Milestone 4.6 state extraction in progress
-Version: 2.4
+Status: Milestone 4.6 event and state extraction in progress
+Version: 2.5
 Owner: CodeMind Engineering
 Architecture decision:
 [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
@@ -167,6 +167,13 @@ Milestone 4.2 provides:
 - `StateKnowledgeProjector`, owned by `KnowledgeModule`, which creates state and
   transition nodes, component `enforces` edges, and `transitions_to` edges only
   for transitions with both a proven source and target state.
+- `TypeScriptEventAnalyzer`, version `1.0.0`, which extracts literal-topic
+  `emit`/`OnEvent` contracts and constructed-type `publish`/`publishAll`/
+  `EventsHandler` contracts. Dynamic references remain unresolved facts with
+  diagnostics.
+- `EventKnowledgeProjector`, owned by `KnowledgeModule`, which merges event
+  evidence, creates event and handler nodes, and emits `triggers` and `handles`
+  relationships only from resolved contracts.
 
 The read port accepts the current file inventory associated with the requested
 successful index job. It rejects a historical job after a later index has
@@ -242,10 +249,15 @@ The analyzer deliberately does not infer intent from arbitrary branches,
 comments, import order, string literals, or name similarity alone. It does not
 claim accounting, legal, scheduling, or authorization meaning beyond the
 observed condition, outcome, identifiers, and containing symbol. Complex data
-flow, interprocedural rule composition, workflows, and events remain Milestone
-4.6 work. State extraction currently supports enum members, qualified enum
+flow, interprocedural rule composition, and workflows remain Milestone 4.6
+work. State extraction currently supports enum members, qualified enum
 assignments, and bounded simple string assignments to fields named `status` or
 `state`.
+
+Event extraction currently supports bounded literal topics and constructed
+event types. Runtime topic constants, event objects passed through variables,
+computed event types, wildcard topic semantics, and cross-framework routing
+remain explicitly unresolved.
 
 ## Determinism and confidence
 
@@ -293,6 +305,7 @@ src/modules/analysis/
 ├── analyzers/
 │   ├── business/
 │   │   ├── typescript-business.analyzer.ts
+│   │   ├── typescript-event.analyzer.ts
 │   │   └── typescript-state.analyzer.ts
 │   └── typescript/
 │       └── typescript-technical.analyzer.ts

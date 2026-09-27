@@ -6,6 +6,7 @@ import { AnalysisFactFactory } from './analysis-fact.factory';
 import { AnalysisService } from './analysis.service';
 import { ArchitectureAnalysisService } from './architecture/architecture-analysis.service';
 import { TypeScriptBusinessAnalyzer } from './analyzers/business/typescript-business.analyzer';
+import { TypeScriptEventAnalyzer } from './analyzers/business/typescript-event.analyzer';
 import { TypeScriptStateAnalyzer } from './analyzers/business/typescript-state.analyzer';
 import { TypeScriptTechnicalAnalyzer } from './analyzers/typescript/typescript-technical.analyzer';
 
@@ -17,6 +18,7 @@ import { TypeScriptTechnicalAnalyzer } from './analyzers/typescript/typescript-t
     TypeScriptTechnicalAnalyzer,
     TypeScriptBusinessAnalyzer,
     TypeScriptStateAnalyzer,
+    TypeScriptEventAnalyzer,
     ArchitectureAnalysisService,
   ],
   exports: [AnalysisService, ArchitectureAnalysisService],

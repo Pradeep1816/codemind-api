@@ -11,6 +11,7 @@ import { KnowledgeSnapshotEntity } from './entities/knowledge-snapshot.entity';
 import { KnowledgePersistenceRepository } from './persistence/knowledge-persistence.repository';
 import { ArchitectureKnowledgeProjector } from './services/architecture-knowledge.projector';
 import { BusinessKnowledgeProjector } from './services/business-knowledge.projector';
+import { EventKnowledgeProjector } from './services/event-knowledge.projector';
 import { KnowledgePersistenceService } from './services/knowledge-persistence.service';
 import { StateKnowledgeProjector } from './services/state-knowledge.projector';
 
@@ -33,12 +34,14 @@ import { StateKnowledgeProjector } from './services/state-knowledge.projector';
     ArchitectureKnowledgeProjector,
     BusinessKnowledgeProjector,
     StateKnowledgeProjector,
+    EventKnowledgeProjector,
   ],
   exports: [
     KnowledgePersistenceService,
     ArchitectureKnowledgeProjector,
     BusinessKnowledgeProjector,
     StateKnowledgeProjector,
+    EventKnowledgeProjector,
   ],
 })
 export class KnowledgeModule {}

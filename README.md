@@ -98,6 +98,8 @@ Implemented:
 - Knowledge projection for component `represents` and `enforces` relationships
 - Evidence-backed enum states and explicit state transitions, with
   `transitions_to` edges only when both source and target states are proven
+- Explicit event publication and handler extraction with evidence-backed
+  `triggers` and `handles` relationships
 - Database-aware `GET /health` endpoint
 - URI API versioning under `/api/v1`
 - Global request validation

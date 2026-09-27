@@ -9,4 +9,6 @@ export enum AnalysisFactKind {
   BusinessRule = 'business_rule',
   State = 'state',
   StateTransition = 'state_transition',
+  DomainEvent = 'domain_event',
+  EventHandler = 'event_handler',
 }
