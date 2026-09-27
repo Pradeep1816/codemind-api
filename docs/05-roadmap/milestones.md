@@ -446,14 +446,14 @@ Delivered:
 
 ### 4.6 Workflows, events, states, and transitions
 
-Status: In progress
+Status: Complete
 
 Deliver:
 
 - Ordered workflow and workflow-step facts
 - Domain events and handlers
 - State values and evidence-backed transitions
-- Bounded traversal and branching
+- Bounded traversal with explicit branch limitations
 
 Implemented so far:
 
@@ -464,6 +464,11 @@ Implemented so far:
 - Literal-topic and constructed-type event publications
 - `OnEvent` and `EventsHandler` contracts with unresolved dynamic preservation
 - Domain-event/event-handler nodes plus proven `triggers` and `handles` edges
+- Route-backed workflows with deterministic direct-call step ordering
+- Workflow/step nodes plus `contains`, `precedes`, and resolved `calls` edges
+- Snapshot, total-step, and per-workflow resource limits
+- Explicit exclusion of unresolved, ambiguous, recursive, and branch-sensitive
+  steps
 
 ### 4.7 Knowledge APIs
 

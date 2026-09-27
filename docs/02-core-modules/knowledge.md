@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Milestone 4.6 event and state projection in progress
-Version: 2.4
+Status: Milestone 4.6 projection complete
+Version: 2.5
 Owner: CodeMind Engineering
 Architecture decision:
 [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
@@ -94,6 +94,11 @@ The event projector adds domain-event and event-handler nodes. Publication call
 evidence creates `triggers` edges from containing components, while resolved
 decorator contracts create `handles` edges from handlers. Dynamic references
 remain analysis output and are not promoted to domain-event nodes.
+
+The workflow projector adds workflow and ordered workflow-step nodes. A
+controller `contains` its route workflow, the workflow `contains` each step,
+adjacent steps are connected with `precedes`, and resolved call steps `call`
+their target architecture components.
 
 ## Responsibilities
 
@@ -277,8 +282,8 @@ Milestone 4.3 implemented:
 - Entities, constraints, indexes, and migrations
 - Atomic publication and current-snapshot behavior
 
-Milestones 4.4–4.6 add architecture, domain, rule, state, transition, and event
-extraction plus projection. Later milestones add workflows, APIs, and full
+Milestones 4.4–4.6 add architecture, domain, rule, state, transition, event, and
+workflow extraction plus projection. Later milestones add APIs and full
 background processing.
 
 ## Completion gate

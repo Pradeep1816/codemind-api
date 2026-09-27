@@ -38,6 +38,16 @@ import {
 const ANALYZER_NAME = 'typescript-architecture';
 const ANALYZER_VERSION = '1.0.0';
 const MAX_REPORTED_CANDIDATES = 50;
+const ROUTE_DECORATORS = new Set([
+  'All',
+  'Delete',
+  'Get',
+  'Head',
+  'Options',
+  'Patch',
+  'Post',
+  'Put',
+]);
 
 interface ArchitectureIndex {
   files: readonly CodeIntelligenceFile[];
@@ -165,6 +175,12 @@ export class ArchitectureAnalysisService {
       injectionTargets,
       outputs,
     );
+
+    for (const decorator of decorators) {
+      if (this.isRouteDecorator(decorator)) {
+        this.appendOutput(outputs, decorator);
+      }
+    }
 
     for (const component of components) {
       this.appendOutput(outputs, component.fact);
@@ -945,6 +961,15 @@ export class ArchitectureAnalysisService {
     }
 
     return grouped;
+  }
+
+  private isRouteDecorator(fact: AnalysisFact): boolean {
+    const name = this.readString(fact.properties.name)?.split('.').at(-1);
+    return (
+      fact.properties.targetKind === 'method' &&
+      name !== undefined &&
+      ROUTE_DECORATORS.has(name)
+    );
   }
 
   private appendOutput(

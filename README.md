@@ -34,8 +34,9 @@ MCP and developer tools
 
 CodeMind has completed Phase 3 indexing and code intelligence. Phase 4,
 knowledge graph and business-logic extraction, is in progress with its
-architecture, persistence foundation, domain concepts, and deterministic
-business-rule extraction implemented.
+architecture, persistence foundation, call graph, domain concepts, business
+rules, states, events, and route-backed workflows implemented. Knowledge APIs
+and background publication remain pending.
 
 Implemented:
 
@@ -100,6 +101,8 @@ Implemented:
   `transitions_to` edges only when both source and target states are proven
 - Explicit event publication and handler extraction with evidence-backed
   `triggers` and `handles` relationships
+- Route-backed workflows with ordered resolved-call steps and evidence-backed
+  `contains`, `precedes`, and component `calls` relationships
 - Database-aware `GET /health` endpoint
 - URI API versioning under `/api/v1`
 - Global request validation
@@ -112,8 +115,8 @@ Not implemented yet:
 - Invitation email delivery and invitation resend/revoke APIs
 - Password reset, verified email, and MFA
 - Organization settings APIs
-- Function-call resolution and advanced static analysis
-- Knowledge generation and search
+- Advanced interprocedural and runtime call resolution
+- Knowledge generation APIs, background processing, and search
 - AI provider integration
 - MCP server
 

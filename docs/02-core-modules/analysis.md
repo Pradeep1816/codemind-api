@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Milestone 4.6 event and state extraction in progress
-Version: 2.5
+Status: Milestone 4.6 extraction complete
+Version: 2.6
 Owner: CodeMind Engineering
 Architecture decision:
 [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
@@ -67,6 +67,8 @@ include:
 - Evidence-backed domain concepts from supported declarations
 - Validation, permission, calculation, state-constraint, eligibility, and
   scheduling rule candidates
+- Explicit states, transitions, domain events, and event handlers
+- Route-backed workflows with ordered direct-call steps
 
 Facts contain stable identity, source evidence, analyzer identity, derivation
 type, confidence, and bounded typed properties. They contain no compiler AST
@@ -174,6 +176,13 @@ Milestone 4.2 provides:
 - `EventKnowledgeProjector`, owned by `KnowledgeModule`, which merges event
   evidence, creates event and handler nodes, and emits `triggers` and `handles`
   relationships only from resolved contracts.
+- `WorkflowAnalysisService`, version `1.0.0`, which creates one workflow per
+  supported HTTP route and orders only directly resolved calls from that exact
+  route method. Unresolved and ambiguous calls are counted but never promoted
+  to steps.
+- `WorkflowKnowledgeProjector`, owned by `KnowledgeModule`, which creates
+  workflow and step nodes plus component/workflow `contains`, ordered
+  `precedes`, and resolved step/component `calls` relationships.
 
 The read port accepts the current file inventory associated with the requested
 successful index job. It rejects a historical job after a later index has
@@ -202,11 +211,13 @@ knowledge history independently in Milestone 4.3.
 - Classify architecture roles using explicit framework and naming evidence.
 - Preserve unresolved textual facts instead of guessing.
 
-### Pass 4: Business candidates
+### Pass 4: Business and workflow candidates
 
 - Convert supported guarded conditions and rounding calls into rule candidates.
 - Normalize concept names from supported declarations and attach matching
   concept identities to rule properties.
+- Create bounded direct-call workflows from explicit HTTP route decorators and
+  repository-wide call resolution.
 - Emit confidence and derivation metadata for every inference.
 
 The knowledge module validates, persists, and publishes the resulting fact set.
@@ -249,8 +260,8 @@ The analyzer deliberately does not infer intent from arbitrary branches,
 comments, import order, string literals, or name similarity alone. It does not
 claim accounting, legal, scheduling, or authorization meaning beyond the
 observed condition, outcome, identifiers, and containing symbol. Complex data
-flow, interprocedural rule composition, and workflows remain Milestone 4.6
-work. State extraction currently supports enum members, qualified enum
+flow and interprocedural rule composition remain unsupported. State extraction
+currently supports enum members, qualified enum
 assignments, and bounded simple string assignments to fields named `status` or
 `state`.
 
@@ -258,6 +269,13 @@ Event extraction currently supports bounded literal topics and constructed
 event types. Runtime topic constants, event objects passed through variables,
 computed event types, wildcard topic semantics, and cross-framework routing
 remain explicitly unresolved.
+
+Workflow extraction supports Nest HTTP method decorators (`Get`, `Post`,
+`Put`, `Patch`, `Delete`, `Options`, `Head`, and `All`) on a classified
+controller method. Each workflow contains an entrypoint step followed by
+resolved calls ordered by source offset. It does not recursively traverse
+downstream method bodies, infer branch execution, or claim that source order
+across asynchronous callbacks is runtime order.
 
 ## Determinism and confidence
 
@@ -311,6 +329,8 @@ src/modules/analysis/
 │       └── typescript-technical.analyzer.ts
 ├── architecture/
 │   └── architecture-analysis.service.ts
+├── workflow/
+│   └── workflow-analysis.service.ts
 ├── enums/
 ├── interfaces/
 │   └── code-analyzer.interface.ts

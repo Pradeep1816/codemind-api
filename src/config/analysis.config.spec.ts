@@ -13,6 +13,9 @@ describe('Analysis configuration', () => {
     'ANALYSIS_MAX_ARCHITECTURE_SYMBOLS',
     'ANALYSIS_MAX_ARCHITECTURE_DEPENDENCIES',
     'ANALYSIS_MAX_ARCHITECTURE_OUTPUTS',
+    'ANALYSIS_MAX_WORKFLOWS',
+    'ANALYSIS_MAX_WORKFLOW_STEPS',
+    'ANALYSIS_MAX_WORKFLOW_STEPS_PER_WORKFLOW',
   ] as const;
   const originalValues = new Map(
     variableNames.map((name) => [name, process.env[name]]),
@@ -40,6 +43,9 @@ describe('Analysis configuration', () => {
     process.env.ANALYSIS_MAX_ARCHITECTURE_SYMBOLS = '5000';
     process.env.ANALYSIS_MAX_ARCHITECTURE_DEPENDENCIES = '10000';
     process.env.ANALYSIS_MAX_ARCHITECTURE_OUTPUTS = '20000';
+    process.env.ANALYSIS_MAX_WORKFLOWS = '250';
+    process.env.ANALYSIS_MAX_WORKFLOW_STEPS = '5000';
+    process.env.ANALYSIS_MAX_WORKFLOW_STEPS_PER_WORKFLOW = '100';
 
     expect(analysisConfig()).toEqual({
       maxTotalSourceBytes: 1_048_576,
@@ -51,6 +57,9 @@ describe('Analysis configuration', () => {
       maxArchitectureSymbols: 5_000,
       maxArchitectureDependencies: 10_000,
       maxArchitectureOutputs: 20_000,
+      maxWorkflows: 250,
+      maxWorkflowSteps: 5_000,
+      maxWorkflowStepsPerWorkflow: 100,
     });
   });
 
@@ -71,6 +80,9 @@ describe('Analysis configuration', () => {
         ANALYSIS_MAX_ARCHITECTURE_SYMBOLS: '0',
         ANALYSIS_MAX_ARCHITECTURE_DEPENDENCIES: '0',
         ANALYSIS_MAX_ARCHITECTURE_OUTPUTS: '0',
+        ANALYSIS_MAX_WORKFLOWS: '0',
+        ANALYSIS_MAX_WORKFLOW_STEPS: '0',
+        ANALYSIS_MAX_WORKFLOW_STEPS_PER_WORKFLOW: '0',
       }),
     ).toThrow('Environment validation failed');
   });

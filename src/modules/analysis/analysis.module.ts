@@ -9,6 +9,7 @@ import { TypeScriptBusinessAnalyzer } from './analyzers/business/typescript-busi
 import { TypeScriptEventAnalyzer } from './analyzers/business/typescript-event.analyzer';
 import { TypeScriptStateAnalyzer } from './analyzers/business/typescript-state.analyzer';
 import { TypeScriptTechnicalAnalyzer } from './analyzers/typescript/typescript-technical.analyzer';
+import { WorkflowAnalysisService } from './workflow/workflow-analysis.service';
 
 @Module({
   imports: [ConfigModule.forFeature(analysisConfig), IndexingModule],
@@ -20,7 +21,12 @@ import { TypeScriptTechnicalAnalyzer } from './analyzers/typescript/typescript-t
     TypeScriptStateAnalyzer,
     TypeScriptEventAnalyzer,
     ArchitectureAnalysisService,
+    WorkflowAnalysisService,
   ],
-  exports: [AnalysisService, ArchitectureAnalysisService],
+  exports: [
+    AnalysisService,
+    ArchitectureAnalysisService,
+    WorkflowAnalysisService,
+  ],
 })
 export class AnalysisModule {}

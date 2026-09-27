@@ -29,4 +29,10 @@ export default registerAs('analysis', () => ({
     'ANALYSIS_MAX_ARCHITECTURE_OUTPUTS',
     500_000,
   ),
+  maxWorkflows: readInteger('ANALYSIS_MAX_WORKFLOWS', 10_000),
+  maxWorkflowSteps: readInteger('ANALYSIS_MAX_WORKFLOW_STEPS', 100_000),
+  maxWorkflowStepsPerWorkflow: readInteger(
+    'ANALYSIS_MAX_WORKFLOW_STEPS_PER_WORKFLOW',
+    1_000,
+  ),
 }));

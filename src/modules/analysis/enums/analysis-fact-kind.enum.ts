@@ -11,4 +11,6 @@ export enum AnalysisFactKind {
   StateTransition = 'state_transition',
   DomainEvent = 'domain_event',
   EventHandler = 'event_handler',
+  Workflow = 'workflow',
+  WorkflowStep = 'workflow_step',
 }

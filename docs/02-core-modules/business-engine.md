@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Milestone 4.6 event and state extraction in progress
-Version: 2.3
+Status: Milestone 4.6 deterministic extraction complete
+Version: 2.4
 Owner: CodeMind Engineering
 Architecture decision:
 [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
@@ -223,8 +223,9 @@ src/modules/analysis/analyzers/business/
 The TypeScript/JavaScript business analyzer emits concept and rule facts. The
 state analyzer performs its own bounded pass and emits states plus explicit
 transitions. The event analyzer extracts explicit publication and handler
-contracts. Workflow analyzers are introduced only with implemented behavior
-and service tests.
+contracts. The repository-wide `WorkflowAnalysisService` consumes resolved
+architecture output after these file-level passes. It does not parse source a
+fourth time.
 
 ## Implemented state boundary
 
@@ -257,6 +258,19 @@ event variables, computed constructor expressions, empty handler contracts, and
 unsupported `publishAll` elements are retained as unresolved facts with
 diagnostics and do not become authoritative event nodes.
 
+## Implemented workflow boundary
+
+The workflow pass recognizes Nest HTTP method decorators as explicit entry
+points. It creates an entrypoint step and then appends calls whose source symbol
+is exactly the route method and whose repository-wide resolution is
+unambiguous. Call-site offsets provide deterministic ordering.
+
+The implementation enforces snapshot, per-workflow, and total-step limits.
+Unresolved and ambiguous calls remain available through call-resolution facts
+and workflow counts but are not converted into steps. Recursive downstream
+traversal, conditional branch execution, loops, callbacks, and promise timing
+remain unsupported rather than guessed.
+
 ## Implemented rule boundary
 
 Milestone 4.5 recognizes guarded `throw`/`return` outcomes, semantically
@@ -271,7 +285,7 @@ The following remain unsupported rather than guessed:
 - Runtime-computed property names and reflective control flow
 - Interprocedural conditions requiring data-flow execution
 - Legal or accounting intent that is not represented by source structure
-- Ordered workflows and workflow steps (remaining Milestone 4.6 work)
+- Recursive or branch-sensitive workflow expansion beyond direct route calls
 
 ## Resource and security limits
 

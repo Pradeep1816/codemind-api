@@ -14,6 +14,7 @@ import { BusinessKnowledgeProjector } from './services/business-knowledge.projec
 import { EventKnowledgeProjector } from './services/event-knowledge.projector';
 import { KnowledgePersistenceService } from './services/knowledge-persistence.service';
 import { StateKnowledgeProjector } from './services/state-knowledge.projector';
+import { WorkflowKnowledgeProjector } from './services/workflow-knowledge.projector';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import { StateKnowledgeProjector } from './services/state-knowledge.projector';
     BusinessKnowledgeProjector,
     StateKnowledgeProjector,
     EventKnowledgeProjector,
+    WorkflowKnowledgeProjector,
   ],
   exports: [
     KnowledgePersistenceService,
@@ -42,6 +44,7 @@ import { StateKnowledgeProjector } from './services/state-knowledge.projector';
     BusinessKnowledgeProjector,
     StateKnowledgeProjector,
     EventKnowledgeProjector,
+    WorkflowKnowledgeProjector,
   ],
 })
 export class KnowledgeModule {}

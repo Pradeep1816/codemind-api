@@ -203,6 +203,22 @@ describe('ArchitectureAnalysisService', () => {
         exports: ['DoctorService'],
       }),
       decoratorFact(controllerClass, files[1], 'Controller'),
+      baseFact(
+        AnalysisFactKind.Decorator,
+        'decorator:route:post',
+        {
+          arguments: ['doctors'],
+          name: 'Post',
+          targetKind: 'method',
+          targetName: 'schedule',
+        },
+        evidence(
+          controllerMethod,
+          files[1],
+          AnalysisEvidenceRole.Decorator,
+          110,
+        ),
+      ),
       decoratorFact(serviceClass, files[2], 'Injectable'),
       decoratorFact(repositoryClass, files[3], 'Injectable'),
       injectionFact(
@@ -428,6 +444,14 @@ describe('ArchitectureAnalysisService', () => {
       resolution: CallResolutionStatus.Resolved,
       targetSymbolId: 6,
     });
+    expect(
+      facts.some(
+        (fact) =>
+          fact.kind === AnalysisFactKind.Decorator &&
+          fact.properties.name === 'Post' &&
+          fact.properties.targetKind === 'method',
+      ),
+    ).toBe(true);
     expect(facts.every((fact) => fact.evidence.length > 0)).toBe(true);
   });
 

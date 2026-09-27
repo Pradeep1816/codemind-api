@@ -347,6 +347,24 @@ class EnvironmentVariables {
   @Max(10_000_000)
   ANALYSIS_MAX_ARCHITECTURE_OUTPUTS = 500_000;
 
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(1_000_000)
+  ANALYSIS_MAX_WORKFLOWS = 10_000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(10_000_000)
+  ANALYSIS_MAX_WORKFLOW_STEPS = 100_000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100_000)
+  ANALYSIS_MAX_WORKFLOW_STEPS_PER_WORKFLOW = 1_000;
+
   @IsEnum(AiProvider)
   AI_PROVIDER = AiProvider.OpenAi;
 

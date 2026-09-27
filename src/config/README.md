@@ -263,6 +263,9 @@ only from validated organization, repository, and job IDs.
 | `ANALYSIS_MAX_ARCHITECTURE_FILES`        |       No | `100000`    | Maximum files in one architecture pass          |
 | `ANALYSIS_MAX_ARCHITECTURE_DEPENDENCIES` |       No | `500000`    | Maximum dependencies in one architecture pass   |
 | `ANALYSIS_MAX_ARCHITECTURE_OUTPUTS`      |       No | `500000`    | Maximum outputs from one architecture pass      |
+| `ANALYSIS_MAX_WORKFLOWS`                 |       No | `10000`     | Maximum workflows in one snapshot               |
+| `ANALYSIS_MAX_WORKFLOW_STEPS`            |       No | `100000`    | Maximum workflow steps in one snapshot          |
+| `ANALYSIS_MAX_WORKFLOW_STEPS_PER_WORKFLOW` |     No | `1000`      | Maximum direct steps in one workflow             |
 
 The `analysis` namespace exposes:
 
@@ -277,6 +280,9 @@ The `analysis` namespace exposes:
   maxArchitectureFiles: number;
   maxArchitectureDependencies: number;
   maxArchitectureOutputs: number;
+  maxWorkflows: number;
+  maxWorkflowSteps: number;
+  maxWorkflowStepsPerWorkflow: number;
 }
 ```
 
