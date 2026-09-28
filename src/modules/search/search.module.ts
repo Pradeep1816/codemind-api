@@ -13,6 +13,7 @@ import { SearchProjectionService } from './projection/search-projection.service'
 import { SearchGraphExpansionRepository } from './query/search-graph-expansion.repository';
 import { SearchQueryRepository } from './query/search-query.repository';
 import { SearchQueryService } from './query/search-query.service';
+import { SearchRankingService } from './ranking/search-ranking.service';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { SearchQueryService } from './query/search-query.service';
     SearchProjectionRepository,
     SearchProjectionService,
     SearchGraphExpansionRepository,
+    SearchRankingService,
     SearchQueryRepository,
     SearchQueryService,
   ],

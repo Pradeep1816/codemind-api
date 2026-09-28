@@ -72,6 +72,25 @@ export interface SearchResultItem extends SearchDocumentResultItem {
   match: SearchMatchSignals;
 }
 
+export type SearchScoreSignalSource = 'exact' | 'lexical' | 'graph';
+
+export interface SearchScoreSignal {
+  source: SearchScoreSignalSource;
+  name: string;
+  contribution: number;
+  description: string;
+  seedDocumentId?: number;
+}
+
+export interface RankedSearchResultItem extends SearchResultItem {
+  ranking: {
+    lexicalScore: number;
+    graphScore: number;
+    totalScore: number;
+    signals: SearchScoreSignal[];
+  };
+}
+
 export type SearchGraphSource = 'code_dependency' | 'knowledge_edge';
 export type SearchGraphDirection = 'incoming' | 'outgoing';
 
@@ -111,7 +130,13 @@ export interface SearchQueryResult {
     language: SourceLanguage | null;
     kind: SearchDocumentKind | null;
   };
-  data: SearchResultItem[];
+  data: RankedSearchResultItem[];
+  ranking: {
+    candidateCount: number;
+    deduplicatedCount: number;
+    returnedCount: number;
+    truncated: boolean;
+  };
   graphExpansion: {
     depth: 1;
     seedsConsidered: number;

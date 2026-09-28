@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 import { SourceLanguage } from '../../indexing/enums/source-language.enum';
 import { RepositoriesService } from '../../repositories/repositories.service';
 import { SearchDocumentSourceType } from '../enums/search-document-source-type.enum';
+import { SearchRankingService } from '../ranking/search-ranking.service';
 import { SearchGraphExpansionRepository } from './search-graph-expansion.repository';
 import { SearchQueryRepository } from './search-query.repository';
 import { SearchQueryService } from './search-query.service';
@@ -63,6 +64,12 @@ describe('SearchQueryService', () => {
       truncated: false,
       data: [],
     });
+    expect(result.ranking).toEqual({
+      candidateCount: 0,
+      deduplicatedCount: 0,
+      returnedCount: 0,
+      truncated: false,
+    });
     expect(result).toMatchObject({
       query: {
         original: 'DoctorScheduleService',
@@ -113,7 +120,9 @@ describe('SearchQueryService', () => {
   it('expands only the configured number of lexical seeds', async () => {
     const queryRepository = repository();
     queryRepository.search.mockResolvedValue([
-      Array.from({ length: 12 }, (_, index) => ({ id: index + 1 })),
+      Array.from({ length: 12 }, (_, index) =>
+        searchResult(index + 1, `Result ${index + 1}`),
+      ),
       12,
     ]);
     const graph = graphRepository();
@@ -122,7 +131,7 @@ describe('SearchQueryService', () => {
       data: [
         {
           seedDocumentId: 1,
-          document: { id: 20 },
+          document: searchDocument(20, 'Related result'),
           relationship: {
             source: 'code_dependency',
             kind: 'import',
@@ -170,6 +179,7 @@ describe('SearchQueryService', () => {
       repositoriesService as unknown as RepositoriesService,
       queryRepository as unknown as SearchQueryRepository,
       graph as unknown as SearchGraphExpansionRepository,
+      new SearchRankingService(),
     );
   }
 
@@ -199,6 +209,41 @@ describe('SearchQueryService', () => {
   function graphRepository() {
     return {
       expand: jest.fn().mockResolvedValue({ data: [], truncated: false }),
+    };
+  }
+
+  function searchResult(id: number, title: string) {
+    return {
+      ...searchDocument(id, title),
+      score: 10,
+      match: {
+        exactIdentifier: false,
+        exactTitle: false,
+        exactPath: false,
+        titlePrefix: false,
+        identifierPrefix: false,
+        pathContains: false,
+        lexical: true,
+      },
+    };
+  }
+
+  function searchDocument(id: number, title: string) {
+    return {
+      id,
+      sourceType: SearchDocumentSourceType.Symbol,
+      title,
+      contentPreview: title,
+      path: `src/result-${id}.ts`,
+      language: SourceLanguage.TypeScript,
+      kind: 'class',
+      source: {
+        indexedFileId: id,
+        fileHashId: id,
+        codeSymbolId: id,
+        knowledgeNodeId: null,
+      },
+      metadata: {},
     };
   }
 });

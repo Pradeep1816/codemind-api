@@ -110,7 +110,9 @@ title, and path matching plus weighted PostgreSQL full-text retrieval, bounded
 filters/pagination, deterministic ordering, and source provenance. Phase 5.5
 adds bounded one-hop traversal across Phase 3 dependencies and Phase 4
 knowledge relationships without duplicating either authoritative graph.
-Ranking fusion and deduplication are next.
+Phase 5.6 now fuses exact, lexical, and graph signals into a deterministic,
+deduplicated result list with bounded graph influence and score explanations.
+Tenant-scoped search APIs are next.
 
 Architecture decisions:
 
@@ -276,8 +278,8 @@ Milestones:
 |       5.3 | Projection builder and atomic publication              | Complete |
 |       5.4 | Exact identifier, path, symbol, and lexical search     | Complete |
 |       5.5 | Bounded dependency and knowledge-graph expansion       | Complete |
-|       5.6 | Ranking, deduplication, filters, and explanations      | Next     |
-|       5.7 | Tenant-scoped search APIs                              | Planned  |
+|       5.6 | Ranking, deduplication, filters, and explanations      | Complete |
+|       5.7 | Tenant-scoped search APIs                              | Next     |
 |       5.8 | Web search experience                                  | Planned  |
 |       5.9 | Quality, security, performance tests and documentation | Planned  |
 

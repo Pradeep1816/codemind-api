@@ -11,6 +11,7 @@ import { SourceLanguage } from '../../indexing/enums/source-language.enum';
 import { KnowledgeNodeKind } from '../../knowledge/enums/knowledge-node-kind.enum';
 import { RepositoriesService } from '../../repositories/repositories.service';
 import { SearchDocumentSourceType } from '../enums/search-document-source-type.enum';
+import { SearchRankingService } from '../ranking/search-ranking.service';
 import { normalizeTechnicalSearchText } from '../utils/search-text.utils';
 import { SearchGraphExpansionRepository } from './search-graph-expansion.repository';
 import { SearchQueryRepository } from './search-query.repository';
@@ -36,6 +37,7 @@ export class SearchQueryService {
     private readonly repositoriesService: RepositoriesService,
     private readonly queryRepository: SearchQueryRepository,
     private readonly graphExpansionRepository: SearchGraphExpansionRepository,
+    private readonly rankingService: SearchRankingService,
   ) {}
 
   /** Searches only the current immutable projection within one tenant scope. */
@@ -82,6 +84,11 @@ export class SearchQueryService {
       kind: input.kind,
     });
     const seedLimitTruncated = data.length > seedDocumentIds.length;
+    const ranking = this.rankingService.rank(
+      data,
+      graphExpansion.data,
+      normalizedInput.limit,
+    );
 
     return {
       searchIndex,
@@ -94,7 +101,13 @@ export class SearchQueryService {
         language: input.language ?? null,
         kind: input.kind ?? null,
       },
-      data,
+      data: ranking.data,
+      ranking: {
+        candidateCount: ranking.candidateCount,
+        deduplicatedCount: ranking.deduplicatedCount,
+        returnedCount: ranking.data.length,
+        truncated: ranking.truncated,
+      },
       graphExpansion: {
         depth: 1,
         seedsConsidered: seedDocumentIds.length,

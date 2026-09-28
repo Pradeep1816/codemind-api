@@ -8,8 +8,8 @@ located; it does not generate AI answers and it does not replace the indexing
 or knowledge sources of truth.
 
 Status: Phase 5 in progress. Architecture, persistence, projection building,
-exact/lexical retrieval, and bounded graph expansion are implemented. Ranking
-fusion and deduplication are next.
+exact/lexical retrieval, bounded graph expansion, and explainable ranking are
+implemented. Tenant-scoped search APIs are next.
 
 ## Responsibilities
 
@@ -139,8 +139,8 @@ kept in source control.
 |       5.3 | Projection builder and atomic publication          | Complete |
 |       5.4 | Exact identifier, path, symbol, and lexical search | Complete |
 |       5.5 | Bounded dependency and knowledge-graph expansion   | Complete |
-|       5.6 | Ranking, deduplication, filters, and explanations  | Next     |
-|       5.7 | Tenant-scoped search APIs                          | Planned  |
+|       5.6 | Ranking, deduplication, filters, and explanations  | Complete |
+|       5.7 | Tenant-scoped search APIs                          | Next     |
 |       5.8 | Web search experience                              | Planned  |
 |       5.9 | Quality, security, performance tests and docs      | Planned  |
 
@@ -216,5 +216,29 @@ hop:
 Graph candidates are returned in a separate `graphExpansion` block with the
 seed document ID, relationship source, kind, direction, depth, complete source
 provenance, and truncation state. Lexical pagination remains unchanged.
-Milestone 5.6 will combine lexical and graph signals into one deduplicated,
+Milestone 5.6 combines lexical and graph signals into one deduplicated,
 explainable ranked result list.
+
+## Implemented ranking behavior
+
+Milestone 5.6 returns one deterministic result list from the bounded lexical
+and graph candidate sets:
+
+- Exact identifier, title, path, prefix, containment, and PostgreSQL full-text
+  scores remain visible as individual explanation signals.
+- Graph contributions inherit relevance from their lexical seed, distinguish
+  structural dependencies from knowledge relationships, and are capped so
+  graph connectivity cannot overwhelm direct query evidence.
+- Results are deduplicated by immutable search-document ID across lexical
+  matches and all graph paths.
+- Stable ordering uses total score, lexical score, source type, title, and
+  document ID.
+- Every result reports lexical, graph, and total scores plus human-readable
+  signal descriptions and graph seed IDs.
+- Ranking metadata reports candidate, deduplicated, returned, and truncated
+  counts.
+
+Fusion is intentionally bounded to the requested lexical page and its graph
+neighbors. Pagination totals continue to describe the lexical match universe;
+the future public API will expose this distinction explicitly rather than
+presenting graph candidates as independently pageable matches.

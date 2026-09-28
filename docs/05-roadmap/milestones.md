@@ -625,16 +625,24 @@ and passes alongside the unit suite, lint, and production build.
 
 ### 5.6 Ranking and result fusion
 
-Status: Next
+Status: Complete
 
 Fuse exact, lexical, and graph signals into one deterministic, deduplicated
 result list with score explanations.
+
+Delivered:
+
+- Exact, lexical, and relevance-inherited graph score fusion
+- Global document-ID deduplication across the bounded candidate set
+- Capped graph influence and deterministic stable tiebreakers
+- Per-result score totals and human-readable signal explanations
+- Candidate, deduplication, return-count, and truncation metadata
+- Focused ranking-service tests and PostgreSQL integration assertions
 
 ### 5.7–5.9 Retrieval and delivery
 
 Planned:
 
-- Ranking, deduplication, filters, and score explanations
 - Tenant-scoped search APIs and web experience
 - Quality corpus, security, PostgreSQL integration, and performance tests
 

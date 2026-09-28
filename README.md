@@ -38,7 +38,9 @@ search projection schema are implemented. File, symbol, and knowledge-node
 projections can now be built, atomically published, and queried through exact
 identifier/path plus PostgreSQL full-text retrieval. Lexical seeds can also be
 expanded through bounded structural dependencies and knowledge relationships;
-ranking fusion and deduplication are next.
+exact, lexical, and graph candidates are now fused into a deterministic,
+deduplicated result list with score explanations. Tenant-scoped search APIs
+are next.
 
 Implemented:
 

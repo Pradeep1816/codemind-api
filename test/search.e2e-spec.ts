@@ -190,6 +190,23 @@ describe('Search projection (e2e)', () => {
     });
     expect(typeof exact.data[0]?.source.codeSymbolId).toBe('number');
     expect(exact.query.normalized).toBe('calculate rounding window');
+    expect(typeof exact.data[0]?.ranking.lexicalScore).toBe('number');
+    expect(typeof exact.data[0]?.ranking.graphScore).toBe('number');
+    expect(exact.data[0]?.ranking.totalScore).toBe(exact.data[0]?.score);
+    const exactIdentifierSignal = exact.data[0]?.ranking.signals.find(
+      (signal) => signal.name === 'exactIdentifier',
+    );
+    expect(exactIdentifierSignal).toMatchObject({
+      source: 'exact',
+      name: 'exactIdentifier',
+      contribution: 120,
+    });
+    expect(new Set(exact.data.map((item) => item.id)).size).toBe(
+      exact.data.length,
+    );
+    expect(exact.ranking.candidateCount).toBeGreaterThanOrEqual(
+      exact.ranking.deduplicatedCount,
+    );
     const codeNeighbor = exact.graphExpansion.data.find(
       (candidate) =>
         candidate.document.title === 'src/doctor-schedule.service.ts',
