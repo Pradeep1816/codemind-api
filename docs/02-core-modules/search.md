@@ -7,8 +7,8 @@ rankable retrieval projection. It answers where relevant code or knowledge is
 located; it does not generate AI answers and it does not replace the indexing
 or knowledge sources of truth.
 
-Status: Phase 5 in progress. Architecture and persistence foundation are
-implemented; projection building and query APIs are next.
+Status: Phase 5 in progress. Architecture, persistence, and projection building
+are implemented; lexical retrieval is next.
 
 ## Responsibilities
 
@@ -135,10 +135,34 @@ kept in source control.
 | --------: | -------------------------------------------------- | -------- |
 |       5.1 | Architecture, boundaries, ranking and engine ADR   | Complete |
 |       5.2 | Versioned search-index and document schema         | Complete |
-|       5.3 | Projection builder and atomic publication          | Next     |
-|       5.4 | Exact identifier, path, symbol, and lexical search | Planned  |
+|       5.3 | Projection builder and atomic publication          | Complete |
+|       5.4 | Exact identifier, path, symbol, and lexical search | Next     |
 |       5.5 | Bounded dependency and knowledge-graph expansion   | Planned  |
 |       5.6 | Ranking, deduplication, filters, and explanations  | Planned  |
 |       5.7 | Tenant-scoped search APIs                          | Planned  |
 |       5.8 | Web search experience                              | Planned  |
 |       5.9 | Quality, security, performance tests and docs      | Planned  |
+
+## Implemented projection behavior
+
+Milestone 5.3 builds one deterministic projection from a published knowledge
+snapshot and its successful Phase 3 index job:
+
+- Reads current file versions through the Phase 3 code-intelligence port
+- Reads bounded immutable UTF-8 blobs through the hardened source-reader port
+- Normalizes camelCase, PascalCase, snake_case, paths, and punctuation into
+  lexical terms without executing source code
+- Produces one file document, one document per symbol, and one document per
+  knowledge node
+- Extracts bounded scalar terms from knowledge properties
+- Enforces per-document, total-byte, total-document, and batch limits
+- Serializes builds per branch with a PostgreSQL advisory lock
+- Clears retryable drafts, upserts deterministic batches, and publishes in one
+  transaction
+- Reuses an identical published projection by indexer version and configuration
+  digest
+- Publishes a historical projection without selecting it as current when its
+  branch or knowledge snapshot has advanced
+
+The service is exported for the retrieval/API orchestration added by later
+milestones. Search projection building is not exposed as an HTTP endpoint yet.

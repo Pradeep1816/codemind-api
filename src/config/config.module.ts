@@ -11,6 +11,7 @@ import invitationConfig from './invitation.config';
 import jwtConfig from './jwt.config';
 import knowledgeConfig from './knowledge.config';
 import rateLimitConfig from './rate-limit.config';
+import searchConfig from './search.config';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import rateLimitConfig from './rate-limit.config';
         gitConfig,
         indexingConfig,
         knowledgeConfig,
+        searchConfig,
         jwtConfig,
         invitationConfig,
         rateLimitConfig,

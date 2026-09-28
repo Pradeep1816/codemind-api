@@ -128,7 +128,7 @@ export class SearchDocumentEntity {
   kind!: string | null;
 
   @Column({ type: 'jsonb', default: () => "'{}'::jsonb" })
-  metadata!: Record<string, unknown>;
+  metadata!: Record<string, string | number | boolean | null>;
 
   @Column({
     name: 'search_vector',

@@ -574,16 +574,30 @@ Delivered:
 
 ### 5.3 Search projection builder
 
+Status: Complete
+
+Delivered:
+
+- Bounded immutable source reads through existing Phase 3 ports
+- File, symbol, and knowledge-node document builders
+- Technical identifier and knowledge-property term normalization
+- Configured document, byte, and persistence-batch limits
+- Cross-process branch build serialization
+- Retry-safe draft replacement and deterministic batch upserts
+- Atomic publication, current-branch selection, and identical-build reuse
+- Focused service tests and real-PostgreSQL projection coverage
+
+### 5.4 Exact and lexical retrieval
+
 Status: Next
 
-Build bounded, retry-safe file, symbol, and knowledge documents and publish a
-complete search index atomically.
+Query the current published projection by identifier, path, full-text terms,
+source type, language, and kind with stable ranking and pagination.
 
-### 5.4–5.9 Retrieval and delivery
+### 5.5–5.9 Retrieval and delivery
 
 Planned:
 
-- Exact identifier, path, symbol, and lexical retrieval
 - Bounded dependency and knowledge-graph expansion
 - Ranking, deduplication, filters, and score explanations
 - Tenant-scoped search APIs and web experience

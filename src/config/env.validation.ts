@@ -358,6 +358,34 @@ class EnvironmentVariables {
   @Max(3_600_000)
   KNOWLEDGE_WORKER_RECOVERY_INTERVAL_MS = 30_000;
 
+  @IsString()
+  @Matches(/^[A-Za-z0-9._-]{1,100}$/)
+  SEARCH_INDEXER_VERSION = 'phase5-v1';
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(5_000)
+  SEARCH_PERSISTENCE_BATCH_SIZE = 250;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(5_000_000)
+  SEARCH_MAX_DOCUMENTS = 1_000_000;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1_024)
+  @Max(131_072)
+  SEARCH_MAX_DOCUMENT_CONTENT_BYTES = 131_072;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1_024)
+  @Max(2_147_483_647)
+  SEARCH_MAX_TOTAL_CONTENT_BYTES = 268_435_456;
+
   @Type(() => Number)
   @IsInt()
   @Min(1_024)

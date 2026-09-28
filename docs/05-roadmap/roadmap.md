@@ -103,7 +103,9 @@ Phase 5.1 establishes a PostgreSQL-first search architecture with immutable,
 atomically published projections. Phase 5.2 adds migration-backed search
 indexes and bounded file, symbol, and knowledge-node documents with exact
 source provenance, tenant/commit validation, weighted full-text vectors, and
-GIN indexing. Projection construction and query behavior begin in 5.3.
+GIN indexing. Phase 5.3 now builds bounded file, symbol, and knowledge-node
+documents from immutable sources, serializes concurrent branch builds, and
+publishes complete projections atomically. Exact and lexical retrieval is next.
 
 Architecture decisions:
 
@@ -266,8 +268,8 @@ Milestones:
 | --------: | ---------------------------------------------------- | -------- |
 |       5.1 | Architecture, boundaries, ranking and engine decision | Complete |
 |       5.2 | Versioned search-index and document schema            | Complete |
-|       5.3 | Projection builder and atomic publication             | Next     |
-|       5.4 | Exact identifier, path, symbol, and lexical search    | Planned  |
+|       5.3 | Projection builder and atomic publication             | Complete |
+|       5.4 | Exact identifier, path, symbol, and lexical search    | Next     |
 |       5.5 | Bounded dependency and knowledge-graph expansion      | Planned  |
 |       5.6 | Ranking, deduplication, filters, and explanations     | Planned  |
 |       5.7 | Tenant-scoped search APIs                             | Planned  |

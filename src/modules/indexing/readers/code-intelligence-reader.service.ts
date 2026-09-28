@@ -273,6 +273,7 @@ export class CodeIntelligenceReaderService implements CodeIntelligenceReader {
       exported: symbol.exported,
       defaultExport: symbol.defaultExport,
       signature: symbol.signature,
+      documentation: symbol.documentation,
       startLine: symbol.startLine,
       startColumn: symbol.startColumn,
       startOffset: symbol.startOffset,

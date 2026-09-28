@@ -34,8 +34,8 @@ MCP and developer tools
 
 CodeMind has completed Phase 4 knowledge-graph and business-logic extraction.
 Phase 5 search is in progress: its PostgreSQL-first architecture and versioned
-search projection schema are implemented, with projection construction and
-retrieval APIs next.
+search projection schema are implemented. File, symbol, and knowledge-node
+projections can now be built and atomically published; retrieval APIs are next.
 
 Implemented:
 

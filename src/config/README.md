@@ -21,6 +21,7 @@ application startup, and exposes namespaced configuration through NestJS.
 | `indexing.config.ts`   | Indexing workspace, limits, leases, and retry policy              | `indexing`   |
 | `analysis.config.ts`   | Analysis source, fact, diagnostic, and property limits            | `analysis`   |
 | `knowledge.config.ts`  | Knowledge versions, batches, leases, retries, and worker policy   | `knowledge`  |
+| `search.config.ts`     | Search projection version, batch, document, and byte limits       | `search`     |
 | `ai.config.ts`         | AI provider connection settings                                   | `ai`         |
 
 ## Environment Setup
@@ -328,6 +329,32 @@ Set `KNOWLEDGE_WORKER_ENABLED=false` on API-only processes. At least one
 deployment process must keep it enabled, otherwise builds remain safely
 queued. Lease recovery permits another worker to retry work after a process
 crash without exposing a partial snapshot.
+
+### Search Projection
+
+| Variable                            | Required | Default     | Description                                      |
+| ----------------------------------- | -------: | ----------- | ------------------------------------------------ |
+| `SEARCH_INDEXER_VERSION`            |       No | `phase5-v1` | Reproducible projection algorithm version        |
+| `SEARCH_PERSISTENCE_BATCH_SIZE`     |       No | `250`       | Maximum documents written per transaction        |
+| `SEARCH_MAX_DOCUMENTS`              |       No | `1000000`   | Maximum documents in one projection              |
+| `SEARCH_MAX_DOCUMENT_CONTENT_BYTES` |       No | `131072`    | Maximum searchable UTF-8 bytes per document      |
+| `SEARCH_MAX_TOTAL_CONTENT_BYTES`    |       No | `268435456` | Maximum combined content bytes per projection    |
+
+The `search` namespace exposes:
+
+```typescript
+{
+  indexerVersion: string;
+  persistenceBatchSize: number;
+  maxDocuments: number;
+  maxDocumentContentBytes: number;
+  maxTotalContentBytes: number;
+}
+```
+
+The per-document byte limit cannot exceed the database-enforced 128 KiB cap.
+Projection content is derived from immutable repository and knowledge sources;
+it is never executed.
 
 ### AI
 

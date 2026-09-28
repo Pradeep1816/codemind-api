@@ -48,6 +48,7 @@ export interface CodeIntelligenceSymbol extends CodeIntelligenceSourceRange {
   exported: boolean;
   defaultExport: boolean;
   signature: string | null;
+  documentation?: string | null;
 }
 
 export interface CodeIntelligenceDependency extends CodeIntelligenceSourceRange {
