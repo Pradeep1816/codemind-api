@@ -589,16 +589,31 @@ Delivered:
 
 ### 5.4 Exact and lexical retrieval
 
+Status: Complete
+
+Delivered:
+
+- Current published-index selection within tenant/repository/branch scope
+- Exact identifier, title, and repository-path matching
+- Shared camelCase, PascalCase, snake_case, and punctuation normalization
+- Weighted PostgreSQL full-text retrieval
+- Source-type, language, and kind filters
+- Bounded pagination and deterministic score/tiebreak ordering
+- Match signals plus immutable source provenance on every result
+- Migration-managed path and symbol-name lookup indexes
+- Focused service tests and real-PostgreSQL ranking/filter coverage
+
+### 5.5 Graph-aware expansion
+
 Status: Next
 
-Query the current published projection by identifier, path, full-text terms,
-source type, language, and kind with stable ranking and pagination.
+Expand lexical seeds through bounded Phase 3 dependencies and Phase 4 knowledge
+relationships without changing the authoritative graphs.
 
-### 5.5–5.9 Retrieval and delivery
+### 5.6–5.9 Retrieval and delivery
 
 Planned:
 
-- Bounded dependency and knowledge-graph expansion
 - Ranking, deduplication, filters, and score explanations
 - Tenant-scoped search APIs and web experience
 - Quality corpus, security, PostgreSQL integration, and performance tests

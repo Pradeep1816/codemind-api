@@ -105,7 +105,10 @@ indexes and bounded file, symbol, and knowledge-node documents with exact
 source provenance, tenant/commit validation, weighted full-text vectors, and
 GIN indexing. Phase 5.3 now builds bounded file, symbol, and knowledge-node
 documents from immutable sources, serializes concurrent branch builds, and
-publishes complete projections atomically. Exact and lexical retrieval is next.
+publishes complete projections atomically. Phase 5.4 adds exact identifier,
+title, and path matching plus weighted PostgreSQL full-text retrieval, bounded
+filters/pagination, deterministic ordering, and source provenance. Bounded
+graph expansion is next.
 
 Architecture decisions:
 
@@ -269,8 +272,8 @@ Milestones:
 |       5.1 | Architecture, boundaries, ranking and engine decision | Complete |
 |       5.2 | Versioned search-index and document schema            | Complete |
 |       5.3 | Projection builder and atomic publication             | Complete |
-|       5.4 | Exact identifier, path, symbol, and lexical search    | Next     |
-|       5.5 | Bounded dependency and knowledge-graph expansion      | Planned  |
+|       5.4 | Exact identifier, path, symbol, and lexical search    | Complete |
+|       5.5 | Bounded dependency and knowledge-graph expansion      | Next     |
 |       5.6 | Ranking, deduplication, filters, and explanations     | Planned  |
 |       5.7 | Tenant-scoped search APIs                             | Planned  |
 |       5.8 | Web search experience                                 | Planned  |

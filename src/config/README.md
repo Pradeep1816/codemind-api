@@ -339,6 +339,8 @@ crash without exposing a partial snapshot.
 | `SEARCH_MAX_DOCUMENTS`              |       No | `1000000`   | Maximum documents in one projection              |
 | `SEARCH_MAX_DOCUMENT_CONTENT_BYTES` |       No | `131072`    | Maximum searchable UTF-8 bytes per document      |
 | `SEARCH_MAX_TOTAL_CONTENT_BYTES`    |       No | `268435456` | Maximum combined content bytes per projection    |
+| `SEARCH_MAX_QUERY_LENGTH`           |       No | `200`       | Maximum trimmed query length                     |
+| `SEARCH_MAX_RESULTS_PER_PAGE`       |       No | `100`       | Maximum results returned on one page             |
 
 The `search` namespace exposes:
 
@@ -349,6 +351,8 @@ The `search` namespace exposes:
   maxDocuments: number;
   maxDocumentContentBytes: number;
   maxTotalContentBytes: number;
+  maxQueryLength: number;
+  maxResultsPerPage: number;
 }
 ```
 

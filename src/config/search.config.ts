@@ -16,4 +16,6 @@ export default registerAs('search', () => ({
     'SEARCH_MAX_TOTAL_CONTENT_BYTES',
     268_435_456,
   ),
+  maxQueryLength: readInteger('SEARCH_MAX_QUERY_LENGTH', 200),
+  maxResultsPerPage: readInteger('SEARCH_MAX_RESULTS_PER_PAGE', 100),
 }));

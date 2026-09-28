@@ -40,8 +40,10 @@ import {
 import { GitRepositoryState } from '../src/modules/repositories/git/git.types';
 import { SearchDocumentEntity } from '../src/modules/search/entities/search-document.entity';
 import { SearchIndexEntity } from '../src/modules/search/entities/search-index.entity';
+import { SearchDocumentSourceType } from '../src/modules/search/enums/search-document-source-type.enum';
 import { SearchIndexStatus } from '../src/modules/search/enums/search-index-status.enum';
 import { SearchProjectionService } from '../src/modules/search/projection/search-projection.service';
+import { SearchQueryService } from '../src/modules/search/query/search-query.service';
 import { resetE2eDatabase } from './support/database';
 import { createE2eApplication, E2eGitService } from './support/e2e-application';
 
@@ -58,6 +60,7 @@ describe('Search projection (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let searchService: SearchProjectionService;
+  let searchQueryService: SearchQueryService;
   let knowledgeService: KnowledgePersistenceService;
 
   beforeAll(async () => {
@@ -78,6 +81,7 @@ describe('Search projection (e2e)', () => {
 
     ({ app, dataSource } = await createE2eApplication(gitService));
     searchService = app.get(SearchProjectionService);
+    searchQueryService = app.get(SearchQueryService);
     knowledgeService = app.get(KnowledgePersistenceService);
   });
 
@@ -168,6 +172,41 @@ describe('Search projection (e2e)', () => {
       searchIndexId: built.searchIndexId,
       reused: true,
       documentCount: 3,
+    });
+
+    const exact = await searchQueryService.search({
+      organizationId: fixture.organizationId,
+      repositoryId: fixture.repositoryId,
+      branchId: fixture.branchId,
+      query: 'calculateRoundingWindow',
+    });
+    expect(exact.data[0]).toMatchObject({
+      sourceType: 'symbol',
+      title: 'DoctorScheduleService.calculateRoundingWindow',
+      match: { exactIdentifier: true, lexical: true },
+    });
+    expect(typeof exact.data[0]?.source.codeSymbolId).toBe('number');
+    expect(exact.query.normalized).toBe('calculate rounding window');
+
+    const filtered = await searchQueryService.search({
+      organizationId: fixture.organizationId,
+      repositoryId: fixture.repositoryId,
+      branchId: fixture.branchId,
+      query: 'rounding',
+      sourceType: SearchDocumentSourceType.KnowledgeNode,
+      page: 1,
+      limit: 1,
+    });
+    expect(filtered.data).toHaveLength(1);
+    expect(filtered.data[0]).toMatchObject({
+      sourceType: 'knowledge_node',
+      title: 'DoctorScheduleRoundingRule',
+    });
+    expect(filtered.pagination).toEqual({
+      page: 1,
+      limit: 1,
+      total: 1,
+      totalPages: 1,
     });
   });
 

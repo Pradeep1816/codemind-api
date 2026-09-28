@@ -21,6 +21,8 @@ describe('SearchProjectionService', () => {
     maxDocuments: 100,
     maxDocumentContentBytes: 4_096,
     maxTotalContentBytes: 100_000,
+    maxQueryLength: 200,
+    maxResultsPerPage: 100,
   };
 
   it('builds file, symbol, and knowledge documents before atomic publication', async () => {
