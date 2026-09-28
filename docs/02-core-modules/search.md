@@ -8,7 +8,8 @@ located; it does not generate AI answers and it does not replace the indexing
 or knowledge sources of truth.
 
 Status: Phase 5 in progress. Architecture, persistence, projection building,
-and exact/lexical retrieval are implemented; graph expansion is next.
+exact/lexical retrieval, and bounded graph expansion are implemented. Ranking
+fusion and deduplication are next.
 
 ## Responsibilities
 
@@ -137,8 +138,8 @@ kept in source control.
 |       5.2 | Versioned search-index and document schema         | Complete |
 |       5.3 | Projection builder and atomic publication          | Complete |
 |       5.4 | Exact identifier, path, symbol, and lexical search | Complete |
-|       5.5 | Bounded dependency and knowledge-graph expansion   | Next     |
-|       5.6 | Ranking, deduplication, filters, and explanations  | Planned  |
+|       5.5 | Bounded dependency and knowledge-graph expansion   | Complete |
+|       5.6 | Ranking, deduplication, filters, and explanations  | Next     |
 |       5.7 | Tenant-scoped search APIs                          | Planned  |
 |       5.8 | Web search experience                              | Planned  |
 |       5.9 | Quality, security, performance tests and docs      | Planned  |
@@ -193,3 +194,27 @@ clients cannot provide raw `tsquery`, SQL, or ranking expressions.
 
 The query service is an internal exported boundary until the permission-guarded
 HTTP endpoints are added in Milestone 5.7.
+
+## Implemented graph-expansion behavior
+
+Milestone 5.5 expands the strongest lexical results through one immutable graph
+hop:
+
+- File and symbol seeds traverse incoming and outgoing Phase 3 code
+  dependencies.
+- Knowledge-node seeds traverse incoming and outgoing Phase 4 knowledge edges.
+- Every neighbor must have a document in the same published search index.
+- Code relationships are restricted to the same organization, repository, and
+  branch; knowledge relationships are additionally restricted to the exact
+  published knowledge snapshot.
+- Source-type, language, and kind filters also apply to graph candidates.
+- Seed count, neighbors per seed, and total candidates are independently
+  bounded by validated environment configuration.
+- Duplicate seed/neighbor pairs choose one deterministic relationship, and all
+  rows use stable ordering.
+
+Graph candidates are returned in a separate `graphExpansion` block with the
+seed document ID, relationship source, kind, direction, depth, complete source
+provenance, and truncation state. Lexical pagination remains unchanged.
+Milestone 5.6 will combine lexical and graph signals into one deduplicated,
+explainable ranked result list.

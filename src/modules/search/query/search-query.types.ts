@@ -30,6 +30,7 @@ export interface SearchQueryOptions {
 
 export interface SearchIndexSummary {
   id: number;
+  organizationId: string;
   repositoryId: number;
   branchId: number;
   knowledgeSnapshotId: number;
@@ -49,7 +50,7 @@ export interface SearchMatchSignals {
   lexical: boolean;
 }
 
-export interface SearchResultItem {
+export interface SearchDocumentResultItem {
   id: number;
   sourceType: SearchDocumentSourceType;
   title: string;
@@ -57,8 +58,6 @@ export interface SearchResultItem {
   path: string | null;
   language: string | null;
   kind: string | null;
-  score: number;
-  match: SearchMatchSignals;
   source: {
     indexedFileId: number | null;
     fileHashId: number | null;
@@ -66,6 +65,39 @@ export interface SearchResultItem {
     knowledgeNodeId: number | null;
   };
   metadata: Record<string, string | number | boolean | null>;
+}
+
+export interface SearchResultItem extends SearchDocumentResultItem {
+  score: number;
+  match: SearchMatchSignals;
+}
+
+export type SearchGraphSource = 'code_dependency' | 'knowledge_edge';
+export type SearchGraphDirection = 'incoming' | 'outgoing';
+
+export interface SearchGraphExpansionOptions {
+  organizationId: string;
+  repositoryId: number;
+  branchId: number;
+  searchIndexId: number;
+  knowledgeSnapshotId: number;
+  seedDocumentIds: number[];
+  maxNeighborsPerSeed: number;
+  maxTotalCandidates: number;
+  sourceType?: SearchDocumentSourceType;
+  language?: SourceLanguage;
+  kind?: SearchDocumentKind;
+}
+
+export interface SearchGraphCandidate {
+  seedDocumentId: number;
+  document: SearchDocumentResultItem;
+  relationship: {
+    source: SearchGraphSource;
+    kind: string;
+    direction: SearchGraphDirection;
+    depth: 1;
+  };
 }
 
 export interface SearchQueryResult {
@@ -80,6 +112,15 @@ export interface SearchQueryResult {
     kind: SearchDocumentKind | null;
   };
   data: SearchResultItem[];
+  graphExpansion: {
+    depth: 1;
+    seedsConsidered: number;
+    maxSeeds: number;
+    maxNeighborsPerSeed: number;
+    maxTotalCandidates: number;
+    truncated: boolean;
+    data: SearchGraphCandidate[];
+  };
   pagination: {
     page: number;
     limit: number;

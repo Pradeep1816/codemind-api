@@ -2,15 +2,15 @@
 
 ## Current delivery state
 
-| Phase                                      | Status   |
-| ------------------------------------------ | -------- |
-| Phase 1 — Platform & Identity              | Complete |
-| Phase 2 — Repository Management            | Complete |
-| Phase 3 — Indexing & Code Intelligence     | Complete |
-| Phase 4 — Knowledge Graph & Business Logic | Complete |
+| Phase                                      | Status      |
+| ------------------------------------------ | ----------- |
+| Phase 1 — Platform & Identity              | Complete    |
+| Phase 2 — Repository Management            | Complete    |
+| Phase 3 — Indexing & Code Intelligence     | Complete    |
+| Phase 4 — Knowledge Graph & Business Logic | Complete    |
 | Phase 5 — Search Engine                    | In progress |
-| Phases 6–7                                 | Planned  |
-| Phase 8                                    | Future   |
+| Phases 6–7                                 | Planned     |
+| Phase 8                                    | Future      |
 
 Milestones 3.1 through 3.12 are implemented. They define the indexing data model,
 durable queued-job API, immutable commit verification, and isolated job
@@ -32,7 +32,7 @@ Phase 4 handoff documentation.
 
 ## Phase 1 — Platform & Identity
 
-Status: Complete
+Status: In progress
 
 Acceptance outcomes:
 
@@ -605,12 +605,32 @@ Delivered:
 
 ### 5.5 Graph-aware expansion
 
-Status: Next
+Status: Complete
 
 Expand lexical seeds through bounded Phase 3 dependencies and Phase 4 knowledge
 relationships without changing the authoritative graphs.
 
-### 5.6–5.9 Retrieval and delivery
+Delivered:
+
+- One-hop incoming and outgoing code-dependency expansion
+- One-hop incoming and outgoing knowledge-edge expansion
+- Exact tenant, branch, search-index, and knowledge-snapshot scoping
+- Deterministic seed/neighbor deduplication and ordering
+- Independent seed, per-seed neighbor, and total-candidate limits
+- Filter-preserving graph candidates with provenance and truncation metadata
+- Focused service tests and PostgreSQL E2E coverage for both graph sources
+
+The focused PostgreSQL E2E quality gate covers both authoritative graph sources
+and passes alongside the unit suite, lint, and production build.
+
+### 5.6 Ranking and result fusion
+
+Status: Next
+
+Fuse exact, lexical, and graph signals into one deterministic, deduplicated
+result list with score explanations.
+
+### 5.7–5.9 Retrieval and delivery
 
 Planned:
 

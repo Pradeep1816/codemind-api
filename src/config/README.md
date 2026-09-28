@@ -46,7 +46,7 @@ Do not commit `.env` or real credentials.
 | `NODE_ENV`         |       No | `development` | `development`, `test`, or `production`            |
 | `API_PREFIX`       |       No | `api`         | Global URL prefix without slashes                 |
 | `API_VERSION`      |       No | `1`           | Default numeric URI version                       |
-| `WEB_APP_URL`      |       No | —             | Trusted frontend origin allowed to call the API    |
+| `WEB_APP_URL`      |       No | —             | Trusted frontend origin allowed to call the API   |
 | `CORS_CREDENTIALS` |       No | `false`       | Allows browser credentials for configured origins |
 | `TRUST_PROXY`      |       No | `false`       | `false` or `loopback` for a trusted local proxy   |
 
@@ -254,20 +254,20 @@ only from validated organization, repository, and job IDs.
 
 ### Analysis
 
-| Variable                                 | Required | Default     | Description                                     |
-| ---------------------------------------- | -------: | ----------- | ----------------------------------------------- |
-| `ANALYSIS_MAX_TOTAL_SOURCE_BYTES`        |       No | `536870912` | Maximum immutable source bytes per snapshot     |
-| `ANALYSIS_MAX_FACTS_PER_FILE`            |       No | `20000`     | Maximum facts emitted for one source file       |
-| `ANALYSIS_MAX_DIAGNOSTICS_PER_FILE`      |       No | `1000`      | Maximum diagnostics emitted for one source file |
-| `ANALYSIS_MAX_AST_NODES_PER_FILE`        |       No | `200000`    | Maximum compiler AST nodes visited per file     |
-| `ANALYSIS_MAX_PROPERTY_BYTES`            |       No | `16384`     | Maximum serialized property bytes for one fact  |
-| `ANALYSIS_MAX_ARCHITECTURE_SYMBOLS`      |       No | `250000`    | Maximum symbols in one architecture pass        |
-| `ANALYSIS_MAX_ARCHITECTURE_FILES`        |       No | `100000`    | Maximum files in one architecture pass          |
-| `ANALYSIS_MAX_ARCHITECTURE_DEPENDENCIES` |       No | `500000`    | Maximum dependencies in one architecture pass   |
-| `ANALYSIS_MAX_ARCHITECTURE_OUTPUTS`      |       No | `500000`    | Maximum outputs from one architecture pass      |
-| `ANALYSIS_MAX_WORKFLOWS`                 |       No | `10000`     | Maximum workflows in one snapshot               |
-| `ANALYSIS_MAX_WORKFLOW_STEPS`            |       No | `100000`    | Maximum workflow steps in one snapshot          |
-| `ANALYSIS_MAX_WORKFLOW_STEPS_PER_WORKFLOW` |     No | `1000`      | Maximum direct steps in one workflow             |
+| Variable                                   | Required | Default     | Description                                     |
+| ------------------------------------------ | -------: | ----------- | ----------------------------------------------- |
+| `ANALYSIS_MAX_TOTAL_SOURCE_BYTES`          |       No | `536870912` | Maximum immutable source bytes per snapshot     |
+| `ANALYSIS_MAX_FACTS_PER_FILE`              |       No | `20000`     | Maximum facts emitted for one source file       |
+| `ANALYSIS_MAX_DIAGNOSTICS_PER_FILE`        |       No | `1000`      | Maximum diagnostics emitted for one source file |
+| `ANALYSIS_MAX_AST_NODES_PER_FILE`          |       No | `200000`    | Maximum compiler AST nodes visited per file     |
+| `ANALYSIS_MAX_PROPERTY_BYTES`              |       No | `16384`     | Maximum serialized property bytes for one fact  |
+| `ANALYSIS_MAX_ARCHITECTURE_SYMBOLS`        |       No | `250000`    | Maximum symbols in one architecture pass        |
+| `ANALYSIS_MAX_ARCHITECTURE_FILES`          |       No | `100000`    | Maximum files in one architecture pass          |
+| `ANALYSIS_MAX_ARCHITECTURE_DEPENDENCIES`   |       No | `500000`    | Maximum dependencies in one architecture pass   |
+| `ANALYSIS_MAX_ARCHITECTURE_OUTPUTS`        |       No | `500000`    | Maximum outputs from one architecture pass      |
+| `ANALYSIS_MAX_WORKFLOWS`                   |       No | `10000`     | Maximum workflows in one snapshot               |
+| `ANALYSIS_MAX_WORKFLOW_STEPS`              |       No | `100000`    | Maximum workflow steps in one snapshot          |
+| `ANALYSIS_MAX_WORKFLOW_STEPS_PER_WORKFLOW` |       No | `1000`      | Maximum direct steps in one workflow            |
 
 The `analysis` namespace exposes:
 
@@ -293,19 +293,19 @@ as untrusted data, never executes it, and discards the text after each file.
 
 ### Knowledge Processing
 
-| Variable                                | Required | Default    | Description                                             |
-| --------------------------------------- | -------: | ---------- | ------------------------------------------------------- |
+| Variable                                | Required | Default     | Description                                            |
+| --------------------------------------- | -------: | ----------- | ------------------------------------------------------ |
 | `KNOWLEDGE_ANALYZER_BUNDLE_VERSION`     |       No | `phase4-v3` | Reproducible analyzer bundle recorded on each snapshot |
-| `KNOWLEDGE_PERSISTENCE_BATCH_SIZE`      |       No | `500`      | Maximum nodes or edges written per transaction         |
-| `KNOWLEDGE_JOB_LEASE_MS`                |       No | `60000`    | Worker lease duration                                  |
-| `KNOWLEDGE_JOB_RETRY_DELAY_MS`          |       No | `30000`    | Delay before a retry becomes claimable                 |
-| `KNOWLEDGE_JOB_MAX_ATTEMPTS`            |       No | `3`        | Maximum automatic attempts                             |
-| `KNOWLEDGE_JOB_RECOVERY_BATCH_SIZE`     |       No | `100`      | Maximum expired leases recovered per pass              |
-| `KNOWLEDGE_JOB_HEARTBEAT_INTERVAL_MS`   |       No | `15000`    | Heartbeat interval; must be shorter than the lease     |
-| `KNOWLEDGE_WORKER_ENABLED`              |       No | `true`     | Consume knowledge builds in this process               |
-| `KNOWLEDGE_WORKER_ID`                   |       No | Host/PID   | Optional stable worker identity                        |
-| `KNOWLEDGE_WORKER_POLL_INTERVAL_MS`     |       No | `2000`     | Delay after an empty queue poll                        |
-| `KNOWLEDGE_WORKER_RECOVERY_INTERVAL_MS` |       No | `30000`    | Interval between expired-lease recovery passes         |
+| `KNOWLEDGE_PERSISTENCE_BATCH_SIZE`      |       No | `500`       | Maximum nodes or edges written per transaction         |
+| `KNOWLEDGE_JOB_LEASE_MS`                |       No | `60000`     | Worker lease duration                                  |
+| `KNOWLEDGE_JOB_RETRY_DELAY_MS`          |       No | `30000`     | Delay before a retry becomes claimable                 |
+| `KNOWLEDGE_JOB_MAX_ATTEMPTS`            |       No | `3`         | Maximum automatic attempts                             |
+| `KNOWLEDGE_JOB_RECOVERY_BATCH_SIZE`     |       No | `100`       | Maximum expired leases recovered per pass              |
+| `KNOWLEDGE_JOB_HEARTBEAT_INTERVAL_MS`   |       No | `15000`     | Heartbeat interval; must be shorter than the lease     |
+| `KNOWLEDGE_WORKER_ENABLED`              |       No | `true`      | Consume knowledge builds in this process               |
+| `KNOWLEDGE_WORKER_ID`                   |       No | Host/PID    | Optional stable worker identity                        |
+| `KNOWLEDGE_WORKER_POLL_INTERVAL_MS`     |       No | `2000`      | Delay after an empty queue poll                        |
+| `KNOWLEDGE_WORKER_RECOVERY_INTERVAL_MS` |       No | `30000`     | Interval between expired-lease recovery passes         |
 
 The `knowledge` namespace exposes:
 
@@ -332,15 +332,18 @@ crash without exposing a partial snapshot.
 
 ### Search Projection
 
-| Variable                            | Required | Default     | Description                                      |
-| ----------------------------------- | -------: | ----------- | ------------------------------------------------ |
-| `SEARCH_INDEXER_VERSION`            |       No | `phase5-v1` | Reproducible projection algorithm version        |
-| `SEARCH_PERSISTENCE_BATCH_SIZE`     |       No | `250`       | Maximum documents written per transaction        |
-| `SEARCH_MAX_DOCUMENTS`              |       No | `1000000`   | Maximum documents in one projection              |
-| `SEARCH_MAX_DOCUMENT_CONTENT_BYTES` |       No | `131072`    | Maximum searchable UTF-8 bytes per document      |
-| `SEARCH_MAX_TOTAL_CONTENT_BYTES`    |       No | `268435456` | Maximum combined content bytes per projection    |
-| `SEARCH_MAX_QUERY_LENGTH`           |       No | `200`       | Maximum trimmed query length                     |
-| `SEARCH_MAX_RESULTS_PER_PAGE`       |       No | `100`       | Maximum results returned on one page             |
+| Variable                              | Required | Default     | Description                                   |
+| ------------------------------------- | -------: | ----------- | --------------------------------------------- |
+| `SEARCH_INDEXER_VERSION`              |       No | `phase5-v1` | Reproducible projection algorithm version     |
+| `SEARCH_PERSISTENCE_BATCH_SIZE`       |       No | `250`       | Maximum documents written per transaction     |
+| `SEARCH_MAX_DOCUMENTS`                |       No | `1000000`   | Maximum documents in one projection           |
+| `SEARCH_MAX_DOCUMENT_CONTENT_BYTES`   |       No | `131072`    | Maximum searchable UTF-8 bytes per document   |
+| `SEARCH_MAX_TOTAL_CONTENT_BYTES`      |       No | `268435456` | Maximum combined content bytes per projection |
+| `SEARCH_MAX_QUERY_LENGTH`             |       No | `200`       | Maximum trimmed query length                  |
+| `SEARCH_MAX_RESULTS_PER_PAGE`         |       No | `100`       | Maximum results returned on one page          |
+| `SEARCH_GRAPH_MAX_SEEDS`              |       No | `10`        | Maximum lexical seeds expanded per request    |
+| `SEARCH_GRAPH_MAX_NEIGHBORS_PER_SEED` |       No | `5`         | Maximum one-hop neighbors per lexical seed    |
+| `SEARCH_GRAPH_MAX_TOTAL_CANDIDATES`   |       No | `50`        | Maximum graph candidates returned per request |
 
 The `search` namespace exposes:
 
@@ -353,6 +356,9 @@ The `search` namespace exposes:
   maxTotalContentBytes: number;
   maxQueryLength: number;
   maxResultsPerPage: number;
+  graphMaxSeeds: number;
+  graphMaxNeighborsPerSeed: number;
+  graphMaxTotalCandidates: number;
 }
 ```
 

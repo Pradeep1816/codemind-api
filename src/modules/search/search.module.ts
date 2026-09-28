@@ -10,6 +10,7 @@ import { SearchIndexEntity } from './entities/search-index.entity';
 import { SearchDocumentBuilderService } from './projection/search-document-builder.service';
 import { SearchProjectionRepository } from './projection/search-projection.repository';
 import { SearchProjectionService } from './projection/search-projection.service';
+import { SearchGraphExpansionRepository } from './query/search-graph-expansion.repository';
 import { SearchQueryRepository } from './query/search-query.repository';
 import { SearchQueryService } from './query/search-query.service';
 
@@ -25,6 +26,7 @@ import { SearchQueryService } from './query/search-query.service';
     SearchDocumentBuilderService,
     SearchProjectionRepository,
     SearchProjectionService,
+    SearchGraphExpansionRepository,
     SearchQueryRepository,
     SearchQueryService,
   ],

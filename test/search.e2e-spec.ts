@@ -1,12 +1,14 @@
 import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import { CodeDependencyEntity } from '../src/modules/indexing/entities/code-dependency.entity';
 import { CodeSymbolEntity } from '../src/modules/indexing/entities/code-symbol.entity';
 import { FileHashEntity } from '../src/modules/indexing/entities/file-hash.entity';
 import { IndexJobEntity } from '../src/modules/indexing/entities/index-job.entity';
 import { IndexedFileEntity } from '../src/modules/indexing/entities/indexed-file.entity';
 import { CodeSymbolKind } from '../src/modules/indexing/enums/code-symbol-kind.enum';
 import { CodeSymbolVisibility } from '../src/modules/indexing/enums/code-symbol-visibility.enum';
+import { CodeDependencyKind } from '../src/modules/indexing/enums/code-dependency-kind.enum';
 import { FileHashAlgorithm } from '../src/modules/indexing/enums/file-hash-algorithm.enum';
 import { IndexedFileStatus } from '../src/modules/indexing/enums/indexed-file-status.enum';
 import { IndexJobPhase } from '../src/modules/indexing/enums/index-job-phase.enum';
@@ -20,6 +22,7 @@ import { KnowledgeBuildStatus } from '../src/modules/knowledge/enums/knowledge-b
 import { KnowledgeBuildTrigger } from '../src/modules/knowledge/enums/knowledge-build-trigger.enum';
 import { KnowledgeDerivationType } from '../src/modules/knowledge/enums/knowledge-derivation-type.enum';
 import { KnowledgeEvidenceRole } from '../src/modules/knowledge/enums/knowledge-evidence-role.enum';
+import { KnowledgeEdgeKind } from '../src/modules/knowledge/enums/knowledge-edge-kind.enum';
 import { KnowledgeNodeKind } from '../src/modules/knowledge/enums/knowledge-node-kind.enum';
 import { KnowledgePersistenceService } from '../src/modules/knowledge/services/knowledge-persistence.service';
 import {
@@ -118,12 +121,12 @@ describe('Search projection (e2e)', () => {
       targetCommitSha,
       isCurrent: true,
       reused: false,
-      documentCount: 3,
+      documentCount: 4,
       documents: {
         files: 1,
         symbols: 1,
-        knowledgeNodes: 1,
-        total: 3,
+        knowledgeNodes: 2,
+        total: 4,
       },
     });
 
@@ -133,7 +136,7 @@ describe('Search projection (e2e)', () => {
     expect(searchIndex).toMatchObject({
       status: SearchIndexStatus.Published,
       isCurrent: true,
-      documentCount: 3,
+      documentCount: 4,
     });
 
     const lexicalMatches = await dataSource.query<
@@ -171,7 +174,7 @@ describe('Search projection (e2e)', () => {
     expect(reused).toMatchObject({
       searchIndexId: built.searchIndexId,
       reused: true,
-      documentCount: 3,
+      documentCount: 4,
     });
 
     const exact = await searchQueryService.search({
@@ -187,6 +190,22 @@ describe('Search projection (e2e)', () => {
     });
     expect(typeof exact.data[0]?.source.codeSymbolId).toBe('number');
     expect(exact.query.normalized).toBe('calculate rounding window');
+    const codeNeighbor = exact.graphExpansion.data.find(
+      (candidate) =>
+        candidate.document.title === 'src/doctor-schedule.service.ts',
+    );
+    expect(codeNeighbor).toMatchObject({
+      document: {
+        sourceType: SearchDocumentSourceType.File,
+        title: 'src/doctor-schedule.service.ts',
+      },
+      relationship: {
+        source: 'code_dependency',
+        kind: 'import',
+        direction: 'outgoing',
+        depth: 1,
+      },
+    });
 
     const filtered = await searchQueryService.search({
       organizationId: fixture.organizationId,
@@ -207,6 +226,21 @@ describe('Search projection (e2e)', () => {
       limit: 1,
       total: 1,
       totalPages: 1,
+    });
+    const knowledgeNeighbor = filtered.graphExpansion.data.find(
+      (candidate) => candidate.document.title === 'ScheduleWindow',
+    );
+    expect(knowledgeNeighbor).toMatchObject({
+      document: {
+        sourceType: SearchDocumentSourceType.KnowledgeNode,
+        title: 'ScheduleWindow',
+      },
+      relationship: {
+        source: 'knowledge_edge',
+        kind: 'represents',
+        direction: 'outgoing',
+        depth: 1,
+      },
     });
   });
 
@@ -261,7 +295,7 @@ describe('Search projection (e2e)', () => {
       skippedFiles: 0,
       failedFiles: 0,
       processedSymbols: 1,
-      processedDependencies: 0,
+      processedDependencies: 1,
       attemptCount: 1,
       maxAttempts: 3,
       claimedBy: null,
@@ -325,6 +359,30 @@ describe('Search projection (e2e)', () => {
       endColumn: 8,
       endOffset: Math.min(source.length, 140),
     });
+    await dataSource.getRepository(CodeDependencyEntity).save({
+      organizationId: organization.id,
+      repositoryId: repository.id,
+      branchId: branch.id,
+      sourceIndexedFileId: indexedFile.id,
+      sourceFileHashId: fileHash.id,
+      sourceSymbolId: symbol.id,
+      observedByJobId: indexJob.id,
+      identityHash: '6'.repeat(64),
+      kind: CodeDependencyKind.Import,
+      moduleSpecifier: './doctor-schedule.service',
+      targetName: 'DoctorScheduleService',
+      localName: 'DoctorScheduleService',
+      typeOnly: false,
+      targetIndexedFileId: indexedFile.id,
+      targetFileHashId: fileHash.id,
+      targetSymbolId: null,
+      startLine: 1,
+      startColumn: 1,
+      startOffset: 0,
+      endLine: 1,
+      endColumn: 10,
+      endOffset: 9,
+    });
     const created = await knowledgeService.createBuild({
       organizationId: organization.id,
       repositoryId: repository.id,
@@ -386,8 +444,73 @@ describe('Search projection (e2e)', () => {
             },
           ],
         },
+        {
+          identityKey: 'concept:schedule-window',
+          kind: KnowledgeNodeKind.DomainConcept,
+          name: 'ScheduleWindow',
+          summary: 'A bounded interval used when arranging appointments.',
+          derivationType: KnowledgeDerivationType.Deterministic,
+          confidence: 1,
+          analyzerName: 'search-e2e-analyzer',
+          analyzerVersion: '1.0.0',
+          contentFingerprint: '7'.repeat(64),
+          propertySchemaVersion: 1,
+          properties: { intervalMinutes: 15 },
+          evidence: [
+            {
+              indexedFileId: indexedFile.id,
+              fileHashId: fileHash.id,
+              codeSymbolId: symbol.id,
+              role: KnowledgeEvidenceRole.Condition,
+              range: {
+                startLine: 3,
+                startColumn: 7,
+                startOffset: 46,
+                endLine: 5,
+                endColumn: 8,
+                endOffset: Math.min(source.length, 140),
+              },
+            },
+          ],
+        },
       ],
-      edges: [],
+      edges: [
+        {
+          identityKey: 'represents:doctor-schedule-rounding:schedule-window',
+          kind: KnowledgeEdgeKind.Represents,
+          source: {
+            kind: KnowledgeNodeKind.BusinessRule,
+            identityKey: 'rule:doctor-schedule-rounding',
+          },
+          target: {
+            kind: KnowledgeNodeKind.DomainConcept,
+            identityKey: 'concept:schedule-window',
+          },
+          derivationType: KnowledgeDerivationType.Deterministic,
+          confidence: 1,
+          analyzerName: 'search-e2e-analyzer',
+          analyzerVersion: '1.0.0',
+          contentFingerprint: '8'.repeat(64),
+          propertySchemaVersion: 1,
+          properties: {},
+          evidence: [
+            {
+              indexedFileId: indexedFile.id,
+              fileHashId: fileHash.id,
+              codeSymbolId: symbol.id,
+              role: KnowledgeEvidenceRole.Condition,
+              range: {
+                startLine: 3,
+                startColumn: 7,
+                startOffset: 46,
+                endLine: 5,
+                endColumn: 8,
+                endOffset: Math.min(source.length, 140),
+              },
+            },
+          ],
+        },
+      ],
     });
     await dataSource.getRepository(KnowledgeBuildEntity).update(
       { id: created.buildId },

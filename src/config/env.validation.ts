@@ -400,6 +400,24 @@ class EnvironmentVariables {
 
   @Type(() => Number)
   @IsInt()
+  @Min(1)
+  @Max(100)
+  SEARCH_GRAPH_MAX_SEEDS = 10;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  SEARCH_GRAPH_MAX_NEIGHBORS_PER_SEED = 5;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(500)
+  SEARCH_GRAPH_MAX_TOTAL_CANDIDATES = 50;
+
+  @Type(() => Number)
+  @IsInt()
   @Min(1_024)
   @Max(10_737_418_240)
   ANALYSIS_MAX_TOTAL_SOURCE_BYTES = 536_870_912;

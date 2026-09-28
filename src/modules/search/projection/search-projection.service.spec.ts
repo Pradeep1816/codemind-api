@@ -23,6 +23,9 @@ describe('SearchProjectionService', () => {
     maxTotalContentBytes: 100_000,
     maxQueryLength: 200,
     maxResultsPerPage: 100,
+    graphMaxSeeds: 10,
+    graphMaxNeighborsPerSeed: 5,
+    graphMaxTotalCandidates: 50,
   };
 
   it('builds file, symbol, and knowledge documents before atomic publication', async () => {

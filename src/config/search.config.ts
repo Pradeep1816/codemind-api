@@ -18,4 +18,10 @@ export default registerAs('search', () => ({
   ),
   maxQueryLength: readInteger('SEARCH_MAX_QUERY_LENGTH', 200),
   maxResultsPerPage: readInteger('SEARCH_MAX_RESULTS_PER_PAGE', 100),
+  graphMaxSeeds: readInteger('SEARCH_GRAPH_MAX_SEEDS', 10),
+  graphMaxNeighborsPerSeed: readInteger(
+    'SEARCH_GRAPH_MAX_NEIGHBORS_PER_SEED',
+    5,
+  ),
+  graphMaxTotalCandidates: readInteger('SEARCH_GRAPH_MAX_TOTAL_CANDIDATES', 50),
 }));

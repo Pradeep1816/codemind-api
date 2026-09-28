@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 import { SourceLanguage } from '../../indexing/enums/source-language.enum';
 import { RepositoriesService } from '../../repositories/repositories.service';
 import { SearchDocumentSourceType } from '../enums/search-document-source-type.enum';
+import { SearchGraphExpansionRepository } from './search-graph-expansion.repository';
 import { SearchQueryRepository } from './search-query.repository';
 import { SearchQueryService } from './search-query.service';
 
@@ -15,6 +16,9 @@ describe('SearchQueryService', () => {
     maxTotalContentBytes: 1_000_000,
     maxQueryLength: 200,
     maxResultsPerPage: 100,
+    graphMaxSeeds: 10,
+    graphMaxNeighborsPerSeed: 5,
+    graphMaxTotalCandidates: 50,
   };
 
   it('normalizes a technical query and returns stable pagination metadata', async () => {
@@ -49,6 +53,15 @@ describe('SearchQueryService', () => {
       sourceType: SearchDocumentSourceType.Symbol,
       language: SourceLanguage.TypeScript,
       kind: 'class',
+    });
+    expect(result.graphExpansion).toEqual({
+      depth: 1,
+      seedsConsidered: 0,
+      maxSeeds: 10,
+      maxNeighborsPerSeed: 5,
+      maxTotalCandidates: 50,
+      truncated: false,
+      data: [],
     });
     expect(result).toMatchObject({
       query: {
@@ -97,14 +110,66 @@ describe('SearchQueryService', () => {
     expect(queryRepository.search).not.toHaveBeenCalled();
   });
 
+  it('expands only the configured number of lexical seeds', async () => {
+    const queryRepository = repository();
+    queryRepository.search.mockResolvedValue([
+      Array.from({ length: 12 }, (_, index) => ({ id: index + 1 })),
+      12,
+    ]);
+    const graph = graphRepository();
+    graph.expand.mockResolvedValue({
+      truncated: true,
+      data: [
+        {
+          seedDocumentId: 1,
+          document: { id: 20 },
+          relationship: {
+            source: 'code_dependency',
+            kind: 'import',
+            direction: 'outgoing',
+            depth: 1,
+          },
+        },
+      ],
+    });
+    const service = createService(repositories(), queryRepository, graph);
+
+    const result = await service.search({
+      organizationId,
+      repositoryId: 2,
+      branchId: 3,
+      query: 'doctor',
+    });
+
+    expect(graph.expand).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId,
+        repositoryId: 2,
+        branchId: 3,
+        searchIndexId: 11,
+        knowledgeSnapshotId: 8,
+        seedDocumentIds: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+        maxNeighborsPerSeed: 5,
+        maxTotalCandidates: 50,
+      }),
+    );
+    expect(result.graphExpansion).toMatchObject({
+      depth: 1,
+      seedsConsidered: 10,
+      truncated: true,
+    });
+  });
+
   function createService(
     repositoriesService: ReturnType<typeof repositories>,
     queryRepository: ReturnType<typeof repository>,
+    graph: ReturnType<typeof graphRepository> = graphRepository(),
   ): SearchQueryService {
     return new SearchQueryService(
       configuration,
       repositoriesService as unknown as RepositoriesService,
       queryRepository as unknown as SearchQueryRepository,
+      graph as unknown as SearchGraphExpansionRepository,
     );
   }
 
@@ -118,6 +183,7 @@ describe('SearchQueryService', () => {
     return {
       findCurrentIndex: jest.fn().mockResolvedValue({
         id: 11,
+        organizationId,
         repositoryId: 2,
         branchId: 3,
         knowledgeSnapshotId: 8,
@@ -127,6 +193,12 @@ describe('SearchQueryService', () => {
         publishedAt: new Date('2026-09-28T08:00:00.000Z'),
       }),
       search: jest.fn().mockResolvedValue([[], 21]),
+    };
+  }
+
+  function graphRepository() {
+    return {
+      expand: jest.fn().mockResolvedValue({ data: [], truncated: false }),
     };
   }
 });

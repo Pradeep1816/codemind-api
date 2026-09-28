@@ -126,6 +126,7 @@ export class SearchQueryRepository {
 
     return {
       id: index.id,
+      organizationId: index.organizationId,
       repositoryId: index.repositoryId,
       branchId: index.branchId,
       knowledgeSnapshotId: index.knowledgeSnapshotId,

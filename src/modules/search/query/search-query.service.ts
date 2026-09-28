@@ -12,6 +12,7 @@ import { KnowledgeNodeKind } from '../../knowledge/enums/knowledge-node-kind.enu
 import { RepositoriesService } from '../../repositories/repositories.service';
 import { SearchDocumentSourceType } from '../enums/search-document-source-type.enum';
 import { normalizeTechnicalSearchText } from '../utils/search-text.utils';
+import { SearchGraphExpansionRepository } from './search-graph-expansion.repository';
 import { SearchQueryRepository } from './search-query.repository';
 import {
   SearchDocumentKind,
@@ -34,6 +35,7 @@ export class SearchQueryService {
     private readonly configuration: ConfigType<typeof searchConfig>,
     private readonly repositoriesService: RepositoriesService,
     private readonly queryRepository: SearchQueryRepository,
+    private readonly graphExpansionRepository: SearchGraphExpansionRepository,
   ) {}
 
   /** Searches only the current immutable projection within one tenant scope. */
@@ -63,6 +65,23 @@ export class SearchQueryService {
       language: input.language,
       kind: input.kind,
     });
+    const seedDocumentIds = data
+      .slice(0, this.configuration.graphMaxSeeds)
+      .map((result) => result.id);
+    const graphExpansion = await this.graphExpansionRepository.expand({
+      organizationId: searchIndex.organizationId,
+      repositoryId: searchIndex.repositoryId,
+      branchId: searchIndex.branchId,
+      searchIndexId: searchIndex.id,
+      knowledgeSnapshotId: searchIndex.knowledgeSnapshotId,
+      seedDocumentIds,
+      maxNeighborsPerSeed: this.configuration.graphMaxNeighborsPerSeed,
+      maxTotalCandidates: this.configuration.graphMaxTotalCandidates,
+      sourceType: input.sourceType,
+      language: input.language,
+      kind: input.kind,
+    });
+    const seedLimitTruncated = data.length > seedDocumentIds.length;
 
     return {
       searchIndex,
@@ -76,6 +95,15 @@ export class SearchQueryService {
         kind: input.kind ?? null,
       },
       data,
+      graphExpansion: {
+        depth: 1,
+        seedsConsidered: seedDocumentIds.length,
+        maxSeeds: this.configuration.graphMaxSeeds,
+        maxNeighborsPerSeed: this.configuration.graphMaxNeighborsPerSeed,
+        maxTotalCandidates: this.configuration.graphMaxTotalCandidates,
+        truncated: seedLimitTruncated || graphExpansion.truncated,
+        data: graphExpansion.data,
+      },
       pagination: {
         page: normalizedInput.page,
         limit: normalizedInput.limit,

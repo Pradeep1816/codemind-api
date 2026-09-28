@@ -29,16 +29,16 @@ The product goal is:
 
 ## Phase overview
 
-| Phase | Name                             | Outcome                                                       | Status   |
-| ----: | -------------------------------- | ------------------------------------------------------------- | -------- |
-|     1 | Platform & Identity              | Secure multi-tenant backend foundation                        | Complete |
-|     2 | Repository Management            | Register, share, synchronize, and inspect repositories        | Complete |
-|     3 | Indexing & Code Intelligence     | Convert Git source into structured code metadata              | Complete |
-|     4 | Knowledge Graph & Business Logic | Convert code structure into navigable system knowledge        | Complete |
+| Phase | Name                             | Outcome                                                       | Status      |
+| ----: | -------------------------------- | ------------------------------------------------------------- | ----------- |
+|     1 | Platform & Identity              | Secure multi-tenant backend foundation                        | Complete    |
+|     2 | Repository Management            | Register, share, synchronize, and inspect repositories        | Complete    |
+|     3 | Indexing & Code Intelligence     | Convert Git source into structured code metadata              | Complete    |
+|     4 | Knowledge Graph & Business Logic | Convert code structure into navigable system knowledge        | Complete    |
 |     5 | Search Engine                    | Retrieve precise lexical, symbol, graph, and semantic context | In progress |
-|     6 | AI Assistant (RAG)               | Answer and reason from retrieved CodeMind knowledge           | Planned  |
-|     7 | MCP Server                       | Expose CodeMind safely to external AI tools                   | Planned  |
-|     8 | Enterprise & Observability       | Operate securely at organizational scale                      | Future   |
+|     6 | AI Assistant (RAG)               | Answer and reason from retrieved CodeMind knowledge           | Planned     |
+|     7 | MCP Server                       | Expose CodeMind safely to external AI tools                   | Planned     |
+|     8 | Enterprise & Observability       | Operate securely at organizational scale                      | Future      |
 
 ## Current checkpoint
 
@@ -107,8 +107,10 @@ GIN indexing. Phase 5.3 now builds bounded file, symbol, and knowledge-node
 documents from immutable sources, serializes concurrent branch builds, and
 publishes complete projections atomically. Phase 5.4 adds exact identifier,
 title, and path matching plus weighted PostgreSQL full-text retrieval, bounded
-filters/pagination, deterministic ordering, and source provenance. Bounded
-graph expansion is next.
+filters/pagination, deterministic ordering, and source provenance. Phase 5.5
+adds bounded one-hop traversal across Phase 3 dependencies and Phase 4
+knowledge relationships without duplicating either authoritative graph.
+Ranking fusion and deduplication are next.
 
 Architecture decisions:
 
@@ -267,16 +269,16 @@ Goal: retrieve the smallest, most relevant source-grounded context.
 
 Milestones:
 
-| Milestone | Scope                                                | Status   |
-| --------: | ---------------------------------------------------- | -------- |
-|       5.1 | Architecture, boundaries, ranking and engine decision | Complete |
-|       5.2 | Versioned search-index and document schema            | Complete |
-|       5.3 | Projection builder and atomic publication             | Complete |
-|       5.4 | Exact identifier, path, symbol, and lexical search    | Complete |
-|       5.5 | Bounded dependency and knowledge-graph expansion      | Next     |
-|       5.6 | Ranking, deduplication, filters, and explanations     | Planned  |
-|       5.7 | Tenant-scoped search APIs                             | Planned  |
-|       5.8 | Web search experience                                 | Planned  |
+| Milestone | Scope                                                  | Status   |
+| --------: | ------------------------------------------------------ | -------- |
+|       5.1 | Architecture, boundaries, ranking and engine decision  | Complete |
+|       5.2 | Versioned search-index and document schema             | Complete |
+|       5.3 | Projection builder and atomic publication              | Complete |
+|       5.4 | Exact identifier, path, symbol, and lexical search     | Complete |
+|       5.5 | Bounded dependency and knowledge-graph expansion       | Complete |
+|       5.6 | Ranking, deduplication, filters, and explanations      | Next     |
+|       5.7 | Tenant-scoped search APIs                              | Planned  |
+|       5.8 | Web search experience                                  | Planned  |
 |       5.9 | Quality, security, performance tests and documentation | Planned  |
 
 Planned capabilities:
