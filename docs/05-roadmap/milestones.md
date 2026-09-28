@@ -639,11 +639,26 @@ Delivered:
 - Candidate, deduplication, return-count, and truncation metadata
 - Focused ranking-service tests and PostgreSQL integration assertions
 
-### 5.7–5.9 Retrieval and delivery
+### 5.7 Tenant-scoped Search API
+
+Status: Complete
+
+Delivered:
+
+- Versioned repository Search endpoint
+- Access-token-derived organization scope
+- `repository.read` plus `search.use` authorization
+- Validated query, branch, pagination, source, language, and kind parameters
+- Ranked, deduplicated results with immutable provenance
+- Authentication, validation, successful retrieval, and tenant-isolation E2E
+  coverage
+- Public API contract documentation
+
+### 5.8–5.9 Search experience and quality
 
 Planned:
 
-- Tenant-scoped search APIs and web experience
+- Web search experience
 - Quality corpus, security, PostgreSQL integration, and performance tests
 
 ## Later phases

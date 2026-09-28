@@ -4,7 +4,7 @@ import { DataSource, Repository } from 'typeorm';
 import { SearchIndexEntity } from '../entities/search-index.entity';
 import { SearchIndexStatus } from '../enums/search-index-status.enum';
 import {
-  SearchIndexSummary,
+  ScopedSearchIndexSummary,
   SearchQueryOptions,
   SearchResultItem,
 } from './search-query.types';
@@ -109,7 +109,7 @@ export class SearchQueryRepository {
     organizationId: string,
     repositoryId: number,
     branchId: number,
-  ): Promise<SearchIndexSummary | null> {
+  ): Promise<ScopedSearchIndexSummary | null> {
     const index = await this.searchIndexRepository.findOne({
       where: {
         organizationId,

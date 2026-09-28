@@ -30,7 +30,6 @@ export interface SearchQueryOptions {
 
 export interface SearchIndexSummary {
   id: number;
-  organizationId: string;
   repositoryId: number;
   branchId: number;
   knowledgeSnapshotId: number;
@@ -38,6 +37,10 @@ export interface SearchIndexSummary {
   targetCommitSha: string;
   indexerVersion: string;
   publishedAt: Date;
+}
+
+export interface ScopedSearchIndexSummary extends SearchIndexSummary {
+  organizationId: string;
 }
 
 export interface SearchMatchSignals {

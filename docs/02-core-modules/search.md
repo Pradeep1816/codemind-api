@@ -9,7 +9,8 @@ or knowledge sources of truth.
 
 Status: Phase 5 in progress. Architecture, persistence, projection building,
 exact/lexical retrieval, bounded graph expansion, and explainable ranking are
-implemented. Tenant-scoped search APIs are next.
+implemented and exposed through a tenant-scoped API. The web search experience
+is next.
 
 ## Responsibilities
 
@@ -140,8 +141,8 @@ kept in source control.
 |       5.4 | Exact identifier, path, symbol, and lexical search | Complete |
 |       5.5 | Bounded dependency and knowledge-graph expansion   | Complete |
 |       5.6 | Ranking, deduplication, filters, and explanations  | Complete |
-|       5.7 | Tenant-scoped search APIs                          | Next     |
-|       5.8 | Web search experience                              | Planned  |
+|       5.7 | Tenant-scoped search APIs                          | Complete |
+|       5.8 | Web search experience                              | Next     |
 |       5.9 | Quality, security, performance tests and docs      | Planned  |
 
 ## Implemented projection behavior
@@ -192,8 +193,8 @@ pagination. Query text is trimmed, length checked, and normalized with the same
 technical-token rules used by projection building. SQL remains parameterized;
 clients cannot provide raw `tsquery`, SQL, or ranking expressions.
 
-The query service is an internal exported boundary until the permission-guarded
-HTTP endpoints are added in Milestone 5.7.
+The query service remains an exported internal boundary and is also consumed by
+the permission-guarded HTTP endpoint added in Milestone 5.7.
 
 ## Implemented graph-expansion behavior
 
@@ -240,5 +241,17 @@ and graph candidate sets:
 
 Fusion is intentionally bounded to the requested lexical page and its graph
 neighbors. Pagination totals continue to describe the lexical match universe;
-the future public API will expose this distinction explicitly rather than
-presenting graph candidates as independently pageable matches.
+the public API exposes this distinction explicitly rather than presenting
+graph candidates as independently pageable matches.
+
+## Implemented HTTP boundary
+
+Milestone 5.7 exposes `GET /api/v1/repositories/:repositoryId/search`. The
+controller requires `repository.read` plus `search.use`, derives organization
+scope from the authenticated access token, and accepts validated branch,
+query, filter, and pagination parameters. Unknown parameters are rejected.
+
+Cross-organization repository identifiers return `404`, and branches without a
+current published search index return `404`. The public response omits internal
+organization scope while retaining repository, branch, commit, source-index,
+knowledge-snapshot, ranking, and source-provenance information.

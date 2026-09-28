@@ -17,8 +17,10 @@ import { SearchGraphExpansionRepository } from './search-graph-expansion.reposit
 import { SearchQueryRepository } from './search-query.repository';
 import {
   SearchDocumentKind,
+  SearchIndexSummary,
   SearchQueryInput,
   SearchQueryResult,
+  ScopedSearchIndexSummary,
 } from './search-query.types';
 
 const UUID_PATTERN =
@@ -91,7 +93,7 @@ export class SearchQueryService {
     );
 
     return {
-      searchIndex,
+      searchIndex: this.toPublicIndexSummary(searchIndex),
       query: {
         original: normalizedInput.exactQuery,
         normalized: normalizedInput.normalizedQuery,
@@ -161,5 +163,20 @@ export class SearchQueryService {
 
   private isPositiveInteger(value: number): boolean {
     return Number.isSafeInteger(value) && value > 0;
+  }
+
+  private toPublicIndexSummary(
+    index: ScopedSearchIndexSummary,
+  ): SearchIndexSummary {
+    return {
+      id: index.id,
+      repositoryId: index.repositoryId,
+      branchId: index.branchId,
+      knowledgeSnapshotId: index.knowledgeSnapshotId,
+      sourceIndexJobId: index.sourceIndexJobId,
+      targetCommitSha: index.targetCommitSha,
+      indexerVersion: index.indexerVersion,
+      publishedAt: index.publishedAt,
+    };
   }
 }

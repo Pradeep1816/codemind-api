@@ -14,6 +14,7 @@ import { SearchGraphExpansionRepository } from './query/search-graph-expansion.r
 import { SearchQueryRepository } from './query/search-query.repository';
 import { SearchQueryService } from './query/search-query.service';
 import { SearchRankingService } from './ranking/search-ranking.service';
+import { SearchController } from './search.controller';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { SearchRankingService } from './ranking/search-ranking.service';
     RepositoriesModule,
     TypeOrmModule.forFeature([SearchIndexEntity, SearchDocumentEntity]),
   ],
+  controllers: [SearchController],
   providers: [
     SearchDocumentBuilderService,
     SearchProjectionRepository,

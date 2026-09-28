@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
+import request from 'supertest';
+import type { App } from 'supertest/types';
 import { CodeDependencyEntity } from '../src/modules/indexing/entities/code-dependency.entity';
 import { CodeSymbolEntity } from '../src/modules/indexing/entities/code-symbol.entity';
 import { FileHashEntity } from '../src/modules/indexing/entities/file-hash.entity';
@@ -26,11 +28,6 @@ import { KnowledgeEdgeKind } from '../src/modules/knowledge/enums/knowledge-edge
 import { KnowledgeNodeKind } from '../src/modules/knowledge/enums/knowledge-node-kind.enum';
 import { KnowledgePersistenceService } from '../src/modules/knowledge/services/knowledge-persistence.service';
 import {
-  OrganizationEntity,
-  OrganizationPlan,
-  OrganizationStatus,
-} from '../src/modules/organizations/entities/organization.entity';
-import {
   BranchStatus,
   RepositoryBranchEntity,
 } from '../src/modules/repositories/entities/repository-branch.entity';
@@ -47,6 +44,8 @@ import { SearchDocumentSourceType } from '../src/modules/search/enums/search-doc
 import { SearchIndexStatus } from '../src/modules/search/enums/search-index-status.enum';
 import { SearchProjectionService } from '../src/modules/search/projection/search-projection.service';
 import { SearchQueryService } from '../src/modules/search/query/search-query.service';
+import type { SearchQueryResult } from '../src/modules/search/query/search-query.types';
+import { registerAndLoginOwner } from './support/auth';
 import { resetE2eDatabase } from './support/database';
 import { createE2eApplication, E2eGitService } from './support/e2e-application';
 
@@ -62,6 +61,7 @@ describe('Search projection (e2e)', () => {
   `);
   let app: INestApplication;
   let dataSource: DataSource;
+  let httpServer: App;
   let searchService: SearchProjectionService;
   let searchQueryService: SearchQueryService;
   let knowledgeService: KnowledgePersistenceService;
@@ -82,7 +82,7 @@ describe('Search projection (e2e)', () => {
       ),
     };
 
-    ({ app, dataSource } = await createE2eApplication(gitService));
+    ({ app, dataSource, httpServer } = await createE2eApplication(gitService));
     searchService = app.get(SearchProjectionService);
     searchQueryService = app.get(SearchQueryService);
     knowledgeService = app.get(KnowledgePersistenceService);
@@ -105,7 +105,12 @@ describe('Search projection (e2e)', () => {
   });
 
   it('builds, publishes, reuses, and protects a source-grounded projection', async () => {
-    const fixture = await createPublishedKnowledgeFixture();
+    const runIdentity = `search-${Date.now().toString(36)}`;
+    const owner = await registerAndLoginOwner(httpServer, runIdentity);
+    const fixture = await createPublishedKnowledgeFixture(
+      owner.organizationId,
+      owner.userId,
+    );
 
     const built = await searchService.build({
       organizationId: fixture.organizationId,
@@ -259,26 +264,73 @@ describe('Search projection (e2e)', () => {
         depth: 1,
       },
     });
+
+    await request(httpServer)
+      .get(`/api/v1/repositories/${fixture.repositoryId}/search`)
+      .query({ branchId: fixture.branchId, query: 'rounding' })
+      .expect(401);
+
+    await request(httpServer)
+      .get(`/api/v1/repositories/${fixture.repositoryId}/search`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .query({
+        branchId: fixture.branchId,
+        query: 'rounding',
+        organizationId: owner.organizationId,
+      })
+      .expect(400);
+
+    const apiResponse = await request(httpServer)
+      .get(`/api/v1/repositories/${fixture.repositoryId}/search`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .query({
+        branchId: fixture.branchId,
+        query: 'calculateRoundingWindow',
+        sourceType: SearchDocumentSourceType.Symbol,
+        language: SourceLanguage.TypeScript,
+        kind: CodeSymbolKind.Method,
+        page: 1,
+        limit: 10,
+      })
+      .expect(200);
+    const apiResult = apiResponse.body as SearchQueryResult;
+
+    expect(apiResult.searchIndex).not.toHaveProperty('organizationId');
+    expect(apiResult.data[0]).toMatchObject({
+      sourceType: SearchDocumentSourceType.Symbol,
+      title: 'DoctorScheduleService.calculateRoundingWindow',
+      match: { exactIdentifier: true },
+      ranking: { totalScore: apiResult.data[0]?.score },
+    });
+    expect(apiResult.searchIndex).toMatchObject({
+      repositoryId: fixture.repositoryId,
+      branchId: fixture.branchId,
+    });
+
+    const foreignOwner = await registerAndLoginOwner(
+      httpServer,
+      `${runIdentity}-foreign`,
+    );
+    await request(httpServer)
+      .get(`/api/v1/repositories/${fixture.repositoryId}/search`)
+      .set('Authorization', `Bearer ${foreignOwner.accessToken}`)
+      .query({ branchId: fixture.branchId, query: 'rounding' })
+      .expect(404);
   });
 
-  async function createPublishedKnowledgeFixture(): Promise<{
+  async function createPublishedKnowledgeFixture(
+    organizationId: string,
+    ownerUserId: string,
+  ): Promise<{
     organizationId: string;
     repositoryId: number;
     branchId: number;
     indexJobId: number;
     knowledgeSnapshotId: number;
   }> {
-    const organization = await dataSource
-      .getRepository(OrganizationEntity)
-      .save({
-        name: 'Search E2E Organization',
-        slug: `search-e2e-${randomUUID()}`,
-        plan: OrganizationPlan.Free,
-        status: OrganizationStatus.Active,
-      });
     const repository = await dataSource.getRepository(RepositoryEntity).save({
-      organizationId: organization.id,
-      createdByUserId: null,
+      organizationId,
+      createdByUserId: ownerUserId,
       name: 'Search E2E Repository',
       provider: RepositoryProvider.Generic,
       remoteUrl: `https://example.test/${randomUUID()}.git`,
@@ -297,10 +349,10 @@ describe('Search projection (e2e)', () => {
       lastIndexedAt: new Date(),
     });
     const indexJob = await dataSource.getRepository(IndexJobEntity).save({
-      organizationId: organization.id,
+      organizationId,
       repositoryId: repository.id,
       branchId: branch.id,
-      requestedByUserId: null,
+      requestedByUserId: ownerUserId,
       retryOfJobId: null,
       trigger: IndexJobTrigger.Manual,
       mode: IndexingMode.Incremental,
@@ -328,7 +380,7 @@ describe('Search projection (e2e)', () => {
       currentFile: null,
     });
     const indexedFile = await dataSource.getRepository(IndexedFileEntity).save({
-      organizationId: organization.id,
+      organizationId,
       repositoryId: repository.id,
       branchId: branch.id,
       lastSeenJobId: indexJob.id,
@@ -341,7 +393,7 @@ describe('Search projection (e2e)', () => {
       lastSeenCommitSha: targetCommitSha,
     });
     const fileHash = await dataSource.getRepository(FileHashEntity).save({
-      organizationId: organization.id,
+      organizationId,
       indexedFileId: indexedFile.id,
       observedByJobId: indexJob.id,
       analyzedByJobId: indexJob.id,
@@ -355,7 +407,7 @@ describe('Search projection (e2e)', () => {
       .getRepository(IndexedFileEntity)
       .update({ id: indexedFile.id }, { currentFileHashId: fileHash.id });
     const symbol = await dataSource.getRepository(CodeSymbolEntity).save({
-      organizationId: organization.id,
+      organizationId,
       repositoryId: repository.id,
       branchId: branch.id,
       indexedFileId: indexedFile.id,
@@ -377,7 +429,7 @@ describe('Search projection (e2e)', () => {
       endOffset: Math.min(source.length, 140),
     });
     await dataSource.getRepository(CodeDependencyEntity).save({
-      organizationId: organization.id,
+      organizationId,
       repositoryId: repository.id,
       branchId: branch.id,
       sourceIndexedFileId: indexedFile.id,
@@ -401,11 +453,11 @@ describe('Search projection (e2e)', () => {
       endOffset: 9,
     });
     const created = await knowledgeService.createBuild({
-      organizationId: organization.id,
+      organizationId,
       repositoryId: repository.id,
       branchId: branch.id,
       sourceIndexJobId: indexJob.id,
-      requestedByUserId: null,
+      requestedByUserId: ownerUserId,
       trigger: KnowledgeBuildTrigger.Manual,
       analyzerBundleVersion: 'search-e2e-v1',
       configurationDigest: '4'.repeat(64),
@@ -427,7 +479,7 @@ describe('Search projection (e2e)', () => {
       },
     );
     await knowledgeService.persistGraphBatch({
-      organizationId: organization.id,
+      organizationId,
       repositoryId: repository.id,
       buildId: created.buildId,
       leaseToken,
@@ -538,14 +590,14 @@ describe('Search projection (e2e)', () => {
       },
     );
     const published = await knowledgeService.publishSnapshot({
-      organizationId: organization.id,
+      organizationId,
       repositoryId: repository.id,
       buildId: created.buildId,
       leaseToken,
     });
 
     return {
-      organizationId: organization.id,
+      organizationId,
       repositoryId: repository.id,
       branchId: branch.id,
       indexJobId: indexJob.id,

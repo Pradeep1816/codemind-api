@@ -112,7 +112,8 @@ adds bounded one-hop traversal across Phase 3 dependencies and Phase 4
 knowledge relationships without duplicating either authoritative graph.
 Phase 5.6 now fuses exact, lexical, and graph signals into a deterministic,
 deduplicated result list with bounded graph influence and score explanations.
-Tenant-scoped search APIs are next.
+Phase 5.7 exposes that pipeline through a validated, permission-guarded,
+tenant-scoped repository Search API. The web search experience is next.
 
 Architecture decisions:
 
@@ -279,8 +280,8 @@ Milestones:
 |       5.4 | Exact identifier, path, symbol, and lexical search     | Complete |
 |       5.5 | Bounded dependency and knowledge-graph expansion       | Complete |
 |       5.6 | Ranking, deduplication, filters, and explanations      | Complete |
-|       5.7 | Tenant-scoped search APIs                              | Next     |
-|       5.8 | Web search experience                                  | Planned  |
+|       5.7 | Tenant-scoped search APIs                              | Complete |
+|       5.8 | Web search experience                                  | Next     |
 |       5.9 | Quality, security, performance tests and documentation | Planned  |
 
 Planned capabilities:
@@ -296,6 +297,7 @@ Canonical Phase 5 documents:
 
 - [Search module](../02-core-modules/search.md)
 - [Search database schema](../03-database/search.md)
+- [Search API](../04-api/search-api.md)
 - [ADR-006: Search Strategy](../06-adrs/006-search-strategy.md)
 
 ## Phase 6 — AI Assistant (RAG)

@@ -16,20 +16,15 @@ src/
 ├── documentation/
 ├── mcp/
 └── jobs/
+
 # CodeMind API Endpoints
 
-
 ## 1. Introduction
-
 
 This document defines all public API endpoints exposed by
 CodeMind.
 
-
 The API is organized by business capability:
-
-
-
 
 Authentication
 
@@ -55,71 +50,39 @@ MCP
 
 Jobs
 
-
-
-
 All APIs follow:
-
-
 
 /api/v1/{resource}
 
-
-
-
 Example:
 
-
-
 GET /api/v1/repositories
-
-
-
 
 ---
 
 # 2. Common API Format
 
-
 ## Request Headers
 
-
-
 Required:
-
-
 
 Authorization: Bearer <token>
 
 Content-Type: application/json
 
-
-
-
 Optional:
-
-
 
 X-Request-ID
 
 X-Organization-ID
 
-
-
-
 ---
-
-
 
 ## Success Response
 
-
-
 Format:
 
-
-
-```json
+````json
 {
  "success": true,
  "data": {}
@@ -276,7 +239,7 @@ Registration request:
   "remoteUrl": "https://github.com/company/payment-service.git",
   "defaultBranch": "main"
 }
-```
+````
 
 The URL must use HTTPS and cannot contain credentials, query parameters, or a
 fragment. List filters include `page`, `limit`, `search`, `provider`, and
@@ -306,7 +269,6 @@ Base path:
 Get Repository Overview
 GET /repositories/{id}/analysis
 
-
 Returns:
 
 Languages
@@ -324,13 +286,13 @@ Base path:
 /api/v1/repositories/{repositoryId}/index-jobs
 ```
 
-| Method | Path | Purpose |
-|---|---|---|
-| `POST` | `/repositories/{repositoryId}/index-jobs` | Queue one synchronized branch snapshot |
-| `GET` | `/repositories/{repositoryId}/index-jobs` | List repository jobs |
-| `GET` | `/repositories/{repositoryId}/index-jobs/{jobId}` | Read one job |
-| `POST` | `/repositories/{repositoryId}/index-jobs/{jobId}/cancel` | Request cancellation |
-| `POST` | `/repositories/{repositoryId}/index-jobs/{jobId}/retry` | Retry failed/cancelled work as a new job |
+| Method | Path                                                     | Purpose                                  |
+| ------ | -------------------------------------------------------- | ---------------------------------------- |
+| `POST` | `/repositories/{repositoryId}/index-jobs`                | Queue one synchronized branch snapshot   |
+| `GET`  | `/repositories/{repositoryId}/index-jobs`                | List repository jobs                     |
+| `GET`  | `/repositories/{repositoryId}/index-jobs/{jobId}`        | Read one job                             |
+| `POST` | `/repositories/{repositoryId}/index-jobs/{jobId}/cancel` | Request cancellation                     |
+| `POST` | `/repositories/{repositoryId}/index-jobs/{jobId}/retry`  | Retry failed/cancelled work as a new job |
 
 Create body:
 
@@ -356,7 +318,6 @@ Base path:
 Parse File
 POST /parser/file
 
-
 Used internally by indexing workers.
 
 Request:
@@ -370,56 +331,61 @@ Returns:
 AST
 Symbols
 Imports
-Functions
-10. Search APIs
+Functions 10. Search APIs
 
 Base path:
 
-/api/v1/search
+/api/v1/repositories/{repositoryId}/search
 
-Code Search
-GET /search/code
+Repository Search
+GET /repositories/{repositoryId}/search
 
+Required permissions:
+
+- repository.read
+- search.use
+
+Required query parameters:
+
+- branchId
+- query
+
+Optional query parameters:
+
+- page
+- limit
+- sourceType
+- language
+- kind
 
 Example:
 
-?q=payment calculation
-
+?branchId=2&query=payment%20calculation&sourceType=symbol
 
 Response:
 
 {
-"results":[
- {
- "file":"payment.service.ts",
- "score":0.94
- }
+"data": [
+{
+"title": "PaymentService.calculateTotal",
+"path": "src/payment/payment.service.ts",
+"sourceType": "symbol",
+"score": 201.5,
+"ranking": {
+"lexicalScore": 201.5,
+"graphScore": 0,
+"totalScore": 201.5
+}
+}
 ]
 }
-Semantic Search
-POST /search/semantic
 
-
-Request:
-
-{
-"query":"where invoice is generated"
-}
-Symbol Search
-GET /search/symbols
-
-
-Search:
-
-Classes
-Functions
-Interfaces
-11. Knowledge APIs
+See [Search API](search-api.md) for validation, response metadata, security,
+and error details. 11. Knowledge APIs
 
 Base path:
 
 /api/v1/repositories/{repositoryId}/knowledge
-
 
 Knowledge represents immutable, evidence-backed technical and business
 understanding extracted from a repository.
@@ -449,7 +415,6 @@ Base path:
 Ask CodeMind
 POST /ai/chat
 
-
 Request:
 
 {
@@ -471,7 +436,6 @@ POST /ai/explain
 Impact Analysis
 POST /ai/impact-analysis
 
-
 Example:
 
 Question:
@@ -487,7 +451,6 @@ Base path:
 Generate Documentation
 POST /documentation/generate
 
-
 Generates:
 
 README
@@ -502,7 +465,6 @@ GET /documentation/{repositoryId}
 Base path:
 
 /api/v1/mcp
-
 
 MCP exposes CodeMind intelligence to AI tools.
 
@@ -521,12 +483,10 @@ Base path:
 
 /api/v1/jobs
 
-
 Used for async operations.
 
 Get Job Status
 GET /jobs/{id}
-
 
 Response:
 
@@ -541,9 +501,8 @@ List Jobs
 GET /jobs
 
 16. Health APIs
-Application Health
-GET /health
-
+    Application Health
+    GET /health
 
 Response:
 
@@ -553,8 +512,7 @@ Response:
 "database":"connected",
 
 "queue":"connected"
-}
-17. Future API Modules
+} 17. Future API Modules
 
 Future:
 
@@ -569,7 +527,7 @@ Future:
 /api/v1/migrations
 
 18. Endpoint Design Principles
-Resource Based
+    Resource Based
 
 Use nouns:
 
@@ -578,7 +536,6 @@ Use nouns:
 /users
 
 /jobs
-
 
 Not:
 
@@ -590,7 +547,7 @@ Long operations use:
 
 Job Queue
 
-+
+-
 
 Status API
 

@@ -88,6 +88,7 @@ export class SearchRankingService {
   private fromLexical(result: SearchResultItem): MutableRankedResult {
     const signals: SearchScoreSignal[] = [];
     let explainedScore = 0;
+    const lexicalScore = this.round(result.score);
 
     for (const [name, contribution, description] of EXACT_SIGNAL_WEIGHTS) {
       if (result.match[name]) {
@@ -116,10 +117,11 @@ export class SearchRankingService {
 
     return {
       ...result,
+      score: lexicalScore,
       ranking: {
-        lexicalScore: this.round(result.score),
+        lexicalScore,
         graphScore: 0,
-        totalScore: this.round(result.score),
+        totalScore: lexicalScore,
         signals,
       },
     };

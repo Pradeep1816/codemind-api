@@ -59,6 +59,17 @@ describe('SearchRankingService', () => {
     expect(ranked.truncated).toBe(true);
   });
 
+  it('exposes the same deterministic precision for score and total score', () => {
+    const ranked = service.rank(
+      [result(1, 'Precise result', 201.66666716337204)],
+      [],
+      10,
+    );
+
+    expect(ranked.data[0]?.score).toBe(201.666667);
+    expect(ranked.data[0]?.ranking.totalScore).toBe(201.666667);
+  });
+
   function result(
     id: number,
     title: string,
