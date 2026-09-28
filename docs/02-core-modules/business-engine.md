@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Milestone 4.6 deterministic extraction complete
-Version: 2.4
+Status: Phase 4 complete
+Version: 2.5
 Owner: CodeMind Engineering
 Architecture decision:
 [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
@@ -318,3 +318,9 @@ Both milestones require:
 - Tenant isolation
 - Unit and PostgreSQL integration coverage
 - Documentation of unsupported and ambiguous cases
+
+Milestone 4.9 satisfies this gate with analyzer and projector service coverage
+plus a real-PostgreSQL processor/persistence suite. The suite verifies
+idempotent publication input, evidence and tenant boundaries, draft exclusion,
+and bounded graph persistence. Unsupported dynamic, recursive, or
+branch-sensitive behavior remains explicit rather than inferred.

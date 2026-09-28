@@ -3,8 +3,8 @@
 ## Document information
 
 Status: Active
-Version: 2.3
-Updated: 2026-09-26
+Version: 2.4
+Updated: 2026-09-28
 Owner: CodeMind Engineering
 
 ## Vision
@@ -29,16 +29,16 @@ The product goal is:
 
 ## Phase overview
 
-| Phase | Name                             | Outcome                                                       | Status      |
-| ----: | -------------------------------- | ------------------------------------------------------------- | ----------- |
-|     1 | Platform & Identity              | Secure multi-tenant backend foundation                        | Complete    |
-|     2 | Repository Management            | Register, share, synchronize, and inspect repositories        | Complete    |
-|     3 | Indexing & Code Intelligence     | Convert Git source into structured code metadata              | Complete    |
-|     4 | Knowledge Graph & Business Logic | Convert code structure into navigable system knowledge        | In progress |
-|     5 | Search Engine                    | Retrieve precise lexical, symbol, graph, and semantic context | Planned     |
-|     6 | AI Assistant (RAG)               | Answer and reason from retrieved CodeMind knowledge           | Planned     |
-|     7 | MCP Server                       | Expose CodeMind safely to external AI tools                   | Planned     |
-|     8 | Enterprise & Observability       | Operate securely at organizational scale                      | Future      |
+| Phase | Name                             | Outcome                                                       | Status   |
+| ----: | -------------------------------- | ------------------------------------------------------------- | -------- |
+|     1 | Platform & Identity              | Secure multi-tenant backend foundation                        | Complete |
+|     2 | Repository Management            | Register, share, synchronize, and inspect repositories        | Complete |
+|     3 | Indexing & Code Intelligence     | Convert Git source into structured code metadata              | Complete |
+|     4 | Knowledge Graph & Business Logic | Convert code structure into navigable system knowledge        | Complete |
+|     5 | Search Engine                    | Retrieve precise lexical, symbol, graph, and semantic context | Planned  |
+|     6 | AI Assistant (RAG)               | Answer and reason from retrieved CodeMind knowledge           | Planned  |
+|     7 | MCP Server                       | Expose CodeMind safely to external AI tools                   | Planned  |
+|     8 | Enterprise & Observability       | Operate securely at organizational scale                      | Future   |
 
 ## Current checkpoint
 
@@ -89,6 +89,15 @@ produces containment and dependency relationships. Every call retains an
 explicit resolved, unresolved, or ambiguous result, and the Knowledge module
 projects publishable component and relationship facts into the 4.3 persistence
 contract.
+
+Milestones 4.5 and 4.6 add deterministic domain concepts, business rules,
+states, transitions, events, handlers, and bounded workflows. Milestone 4.8
+runs graph construction through a durable claimed worker with retries,
+cancellation, recovery, progress, and atomic publication. Milestone 4.9 closes
+Phase 4 with focused analyzer/projector coverage and a real-PostgreSQL suite for
+claimed processing, retry idempotency, identity conflicts, evidence and tenant
+scope, draft visibility, publication immutability, branch movement, and a
+bounded 199-fact persistence baseline.
 
 Architecture decisions:
 
@@ -212,7 +221,7 @@ Milestones:
 |       4.6 | Workflows, events, states, and transitions                                   | Complete |
 |       4.7 | Tenant-scoped knowledge and evidence APIs                                    | Complete |
 |       4.8 | Background processing, retry, cancellation, and recovery                     | Complete |
-|       4.9 | Tests, performance/security verification, and documentation                  | Planned  |
+|       4.9 | Tests, performance/security verification, and documentation                  | Complete |
 
 Architecture decisions:
 
@@ -224,7 +233,7 @@ Architecture decisions:
 - Business extraction begins as an analysis subdomain, not another NestJS
   module.
 
-Planned capabilities:
+Delivered capabilities:
 
 - Resolved cross-file and cross-module graph
 - Domain concepts and service/repository/controller relationships

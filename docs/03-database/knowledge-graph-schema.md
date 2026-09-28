@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Implemented in Milestone 4.3
-Version: 1.1
+Status: Phase 4 implemented and verified
+Version: 1.2
 Owner: CodeMind Engineering
 Architecture decision:
 [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
@@ -308,5 +308,8 @@ Those decisions require measured queries or belong to later phases.
 3. PostgreSQL integration coverage verifies snapshot publication, evidence
    completeness and source-version integrity, immutability, and branch-move
    behavior.
-4. Lifecycle retry and current-snapshot concurrency coverage expands with the
-   Milestone 4.8 worker implementation.
+4. Milestone 4.8 added the durable worker lifecycle, retry, cancellation, and
+   recovery path.
+5. Milestone 4.9 verifies retry-safe batches, conflicting identity rollback,
+   tenant and source-evidence scope, draft exclusion, claimed processor
+   publication, and a bounded 199-fact PostgreSQL persistence baseline.

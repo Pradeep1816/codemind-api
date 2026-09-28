@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Milestone 4.8 background processing complete
-Version: 2.7
+Status: Phase 4 complete
+Version: 2.8
 Owner: CodeMind Engineering
 Architecture decision:
 [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
@@ -319,12 +319,12 @@ Milestone 4.3 implemented:
 
 Milestones 4.4–4.6 add architecture, domain, rule, state, transition, event, and
 workflow extraction plus projection. Milestone 4.7 adds published snapshot,
-node, relationship, and evidence queries. Later milestones add full background
-processing.
+node, relationship, and evidence queries. Milestone 4.8 adds durable background
+processing, and Milestone 4.9 closes the verification and documentation gate.
 
 ## Completion gate
 
-The knowledge foundation is complete only when:
+The knowledge foundation is complete because:
 
 - A successful index job can produce one immutable knowledge snapshot.
 - Every published node and edge has valid Phase 3 evidence.
@@ -333,3 +333,8 @@ The knowledge foundation is complete only when:
 - Cross-tenant reads and writes are impossible at service and query boundaries.
 - Migrations produce no TypeORM schema drift.
 - Unit and PostgreSQL integration tests cover publication and evidence rules.
+
+The PostgreSQL suite additionally covers claimed processor execution,
+retry-idempotent graph batches, conflicting identity rollback, foreign source
+evidence rejection, draft invisibility, cross-tenant query isolation, branch
+movement, immutable published content, and a bounded 100-node/99-edge batch.

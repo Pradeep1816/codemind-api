@@ -2,14 +2,14 @@
 
 ## Current delivery state
 
-| Phase                                      | Status      |
-| ------------------------------------------ | ----------- |
-| Phase 1 — Platform & Identity              | Complete    |
-| Phase 2 — Repository Management            | Complete    |
-| Phase 3 — Indexing & Code Intelligence     | Complete    |
-| Phase 4 — Knowledge Graph & Business Logic | In progress |
-| Phases 5–7                                 | Planned     |
-| Phase 8                                    | Future      |
+| Phase                                      | Status   |
+| ------------------------------------------ | -------- |
+| Phase 1 — Platform & Identity              | Complete |
+| Phase 2 — Repository Management            | Complete |
+| Phase 3 — Indexing & Code Intelligence     | Complete |
+| Phase 4 — Knowledge Graph & Business Logic | Complete |
+| Phases 5–7                                 | Planned  |
+| Phase 8                                    | Future   |
 
 Milestones 3.1 through 3.12 are implemented. They define the indexing data model,
 durable queued-job API, immutable commit verification, and isolated job
@@ -363,7 +363,7 @@ yarn test:e2e --runInBand
 
 ## Phase 4 — Knowledge Graph & Business Logic
 
-Status: In progress
+Status: Complete
 
 Goal: derive commit-scoped technical and business knowledge from successful
 Phase 3 snapshots without duplicating structural truth.
@@ -515,14 +515,17 @@ Implemented:
 
 ### 4.9 Tests and documentation
 
-Status: Planned
+Status: Complete
 
-Deliver:
+Delivered:
 
 - Analyzer fixtures and malformed/ambiguous source tests
 - Publication, evidence, lifecycle, and tenant-isolation tests
-- PostgreSQL E2E pipeline coverage
-- Bounded graph traversal and performance baselines
+- PostgreSQL E2E coverage for the claimed processor, lifecycle, persistence,
+  publication, and query boundaries
+- Retry-idempotent batches and conflicting identity rollback
+- Foreign source-evidence rejection, draft invisibility, and cross-tenant reads
+- Bounded 100-node/99-edge PostgreSQL persistence baseline
 - API, module, schema, ADR, and roadmap completion review
 
 ## Phase 4 completion gate
@@ -532,9 +535,9 @@ snapshot containing architecture, domain, rule, workflow, state, and event
 facts for a supported TypeScript/JavaScript repository, with evidence for every
 published node and edge.
 
-The result must be tenant-scoped, commit-scoped, reproducible by analyzer
-version, migration-backed, atomically published, and covered by unit plus
-PostgreSQL integration tests.
+The result is tenant-scoped, commit-scoped, reproducible by analyzer version,
+migration-backed, atomically published, and covered by unit plus PostgreSQL
+integration tests.
 
 ## Later phases
 

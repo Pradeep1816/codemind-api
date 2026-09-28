@@ -381,3 +381,15 @@ Trade-offs:
 |       4.7 | Tenant-scoped knowledge and evidence APIs                                 |
 |       4.8 | Background processing, retries, cancellation, and publication recovery    |
 |       4.9 | Unit, PostgreSQL E2E, performance, security, and documentation completion |
+
+## Phase 4 verification outcome
+
+Milestone 4.9 confirms this decision with service/analyzer coverage and a
+real-PostgreSQL suite. The database suite exercises the claimed processor,
+lifecycle transitions, retry-idempotent persistence, identity conflict
+rollback, evidence and tenant isolation, draft exclusion, immutable
+publication, branch movement, and a bounded 100-node/99-edge graph batch.
+
+Phase 4 is complete. Lexical, graph, and semantic retrieval over the published
+knowledge boundary proceeds in Phase 5 without changing Phase 3 structural
+truth or Phase 4 snapshot immutability.

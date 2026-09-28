@@ -2,8 +2,8 @@
 
 ## Document information
 
-Status: Milestone 4.6 extraction complete
-Version: 2.6
+Status: Phase 4 complete
+Version: 2.7
 Owner: CodeMind Engineering
 Architecture decision:
 [ADR-014](../06-adrs/014-knowledge-analysis-architecture.md)
@@ -367,3 +367,13 @@ Status: Complete
 - Unsupported or ambiguous relationships remain explicit and unresolved.
 - Analyzer resource limits and failure ownership are documented and tested.
 - No Phase 4 database migration is created until the fact contract is stable.
+
+## Phase 4 verification
+
+Milestone 4.9 verifies the analysis boundary through focused service and
+analyzer fixtures for supported, malformed, unresolved, and ambiguous source.
+Resource-limit, duplicate-identity, evidence-scope, and deterministic
+fingerprint behavior are covered without executing repository code.
+
+The PostgreSQL knowledge suite then verifies that projected facts remain
+retry-safe, tenant-scoped, evidence-backed, and invisible until publication.

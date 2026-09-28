@@ -1,4 +1,5 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { performance } from 'node:perf_hooks';
 import { INestApplication } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import { FileHashEntity } from '../src/modules/indexing/entities/file-hash.entity';
@@ -27,7 +28,11 @@ import {
   KnowledgeEvidenceInput,
   KnowledgeNodeInput,
 } from '../src/modules/knowledge/persistence/knowledge-persistence.types';
+import { KnowledgeBuildLifecycleService } from '../src/modules/knowledge/lifecycle/knowledge-build-lifecycle.service';
+import { KnowledgeProcessor } from '../src/modules/knowledge/queue/knowledge.processor';
+import { KnowledgeGraphBuilderService } from '../src/modules/knowledge/services/knowledge-graph-builder.service';
 import { KnowledgePersistenceService } from '../src/modules/knowledge/services/knowledge-persistence.service';
+import { KnowledgeQueryService } from '../src/modules/knowledge/services/knowledge-query.service';
 import {
   OrganizationEntity,
   OrganizationPlan,
@@ -62,11 +67,15 @@ describe('Knowledge persistence (e2e)', () => {
   let app: INestApplication;
   let dataSource: DataSource;
   let service: KnowledgePersistenceService;
+  let lifecycleService: KnowledgeBuildLifecycleService;
+  let queryService: KnowledgeQueryService;
   let fixture: KnowledgeFixture;
 
   beforeAll(async () => {
     ({ app, dataSource } = await createE2eApplication());
     service = app.get(KnowledgePersistenceService);
+    lifecycleService = app.get(KnowledgeBuildLifecycleService);
+    queryService = app.get(KnowledgeQueryService);
   });
 
   beforeEach(async () => {
@@ -199,6 +208,176 @@ describe('Knowledge persistence (e2e)', () => {
       service.persistGraphBatch({ ...owned, nodes: [nodes[0]], edges: [] }),
     ).rejects.toThrow('knowledge evidence source scope is invalid');
     expect(await dataSource.getRepository(KnowledgeNodeEntity).count()).toBe(0);
+  });
+
+  it('persists an identical graph batch idempotently when a worker retries it', async () => {
+    const owned = await createRunningBuild('retry-safe-v1');
+    const { nodes, edges } = createGraph();
+
+    await service.persistGraphBatch({ ...owned, nodes, edges });
+    const retried = await service.persistGraphBatch({ ...owned, nodes, edges });
+
+    expect(retried).toMatchObject({
+      persistedNodes: 2,
+      persistedEdges: 1,
+    });
+    await expect(readGraphCounts(retried.snapshotId)).resolves.toEqual({
+      nodes: 2,
+      edges: 1,
+      evidence: 1,
+      nodeEvidence: 2,
+      edgeEvidence: 1,
+    });
+  });
+
+  it('rolls back a conflicting identity without changing the stored fact', async () => {
+    const owned = await createRunningBuild('identity-conflict-v1');
+    const { nodes } = createGraph();
+
+    await service.persistGraphBatch({
+      ...owned,
+      nodes: [nodes[0]],
+      edges: [],
+    });
+    await expect(
+      service.persistGraphBatch({
+        ...owned,
+        nodes: [
+          {
+            ...nodes[0],
+            name: 'ConflictingDoctorService',
+            contentFingerprint: '9'.repeat(64),
+          },
+        ],
+        edges: [],
+      }),
+    ).rejects.toThrow('Knowledge node identity has conflicting content');
+
+    const stored = await dataSource
+      .getRepository(KnowledgeNodeEntity)
+      .findOneByOrFail({ identityKey: nodes[0].identityKey });
+    expect(stored.name).toBe('DoctorService');
+    expect(await dataSource.getRepository(KnowledgeNodeEntity).count()).toBe(1);
+  });
+
+  it('rejects evidence owned by another organization and repository', async () => {
+    const foreign = await createFixture();
+    const owned = await createRunningBuild('tenant-evidence-v1');
+    const { nodes } = createGraph({
+      indexedFileId: foreign.indexedFileId,
+      fileHashId: foreign.fileHashId,
+    });
+
+    await expect(
+      service.persistGraphBatch({
+        ...owned,
+        nodes: [nodes[0]],
+        edges: [],
+      }),
+    ).rejects.toThrow('knowledge evidence source scope is invalid');
+    expect(await dataSource.getRepository(KnowledgeNodeEntity).count()).toBe(0);
+  });
+
+  it('keeps drafts invisible and prevents cross-tenant published reads', async () => {
+    const owned = await createRunningBuild('tenant-query-v1');
+    const { nodes, edges } = createGraph();
+    const draft = await readSnapshot(owned.buildId);
+
+    await expect(
+      queryService.findSnapshot(
+        fixture.organizationId,
+        fixture.repositoryId,
+        draft.id,
+      ),
+    ).rejects.toThrow('Knowledge snapshot was not found');
+
+    await service.persistGraphBatch({ ...owned, nodes, edges });
+    await advanceToPublishing(owned.buildId);
+    const published = await service.publishSnapshot(owned);
+
+    await expect(
+      queryService.findSnapshot(
+        fixture.organizationId,
+        fixture.repositoryId,
+        published.snapshotId,
+      ),
+    ).resolves.toMatchObject({ id: published.snapshotId, isCurrent: true });
+    await expect(
+      queryService.findSnapshot(
+        randomUUID(),
+        fixture.repositoryId,
+        published.snapshotId,
+      ),
+    ).rejects.toThrow('Knowledge snapshot was not found');
+  });
+
+  it('runs the claimed processor lifecycle through atomic publication', async () => {
+    const created = await service.createBuild({
+      organizationId: fixture.organizationId,
+      repositoryId: fixture.repositoryId,
+      branchId: fixture.branchId,
+      sourceIndexJobId: fixture.indexJobId,
+      requestedByUserId: null,
+      trigger: KnowledgeBuildTrigger.Manual,
+      analyzerBundleVersion: 'processor-e2e-v1',
+      configurationDigest,
+      maxAttempts: 3,
+    });
+    const claimed = await lifecycleService.claimNext('knowledge-e2e-worker');
+
+    expect(claimed).not.toBeNull();
+    if (!claimed) {
+      throw new Error('Expected the knowledge build to be claimed');
+    }
+
+    const graph = createGraph();
+    const graphBuilder = {
+      build: jest.fn().mockResolvedValue({
+        ...graph,
+        diagnostics: [],
+      }),
+    };
+    const processor = new KnowledgeProcessor(
+      {
+        persistenceBatchSize: 1,
+        jobHeartbeatIntervalMs: 60_000,
+      } as never,
+      lifecycleService,
+      graphBuilder as unknown as KnowledgeGraphBuilderService,
+      service,
+    );
+
+    await processor.process(claimed, () => false);
+
+    await expect(
+      dataSource
+        .getRepository(KnowledgeBuildEntity)
+        .findOneByOrFail({ id: created.buildId }),
+    ).resolves.toMatchObject({
+      status: KnowledgeBuildStatus.Succeeded,
+      phase: KnowledgeBuildPhase.Finished,
+      persistedNodes: 2,
+      persistedEdges: 1,
+    });
+    await expect(readSnapshot(created.buildId)).resolves.toMatchObject({
+      status: KnowledgeSnapshotStatus.Published,
+      isCurrent: true,
+    });
+  });
+
+  it('persists a bounded 199-fact graph batch within the performance baseline', async () => {
+    const owned = await createRunningBuild('bounded-baseline-v1');
+    const graph = createBoundedGraph(100);
+    const startedAt = performance.now();
+
+    const result = await service.persistGraphBatch({ ...owned, ...graph });
+    const elapsedMs = performance.now() - startedAt;
+
+    expect(result).toMatchObject({
+      persistedNodes: 100,
+      persistedEdges: 99,
+    });
+    expect(elapsedMs).toBeLessThan(15_000);
   });
 
   async function createFixture(): Promise<KnowledgeFixture> {
@@ -398,6 +577,53 @@ describe('Knowledge persistence (e2e)', () => {
     };
 
     return { nodes: [serviceNode, repositoryNode], edges: [edge] };
+  }
+
+  function createBoundedGraph(size: number): {
+    nodes: KnowledgeNodeInput[];
+    edges: KnowledgeEdgeInput[];
+  } {
+    const evidence = createGraph().nodes[0].evidence;
+    const nodes = Array.from({ length: size }, (_, index) => ({
+      kind: KnowledgeNodeKind.ArchitecturalComponent,
+      identityKey: `component:bounded-${index}`,
+      name: `BoundedComponent${index}`,
+      summary: null,
+      derivationType: KnowledgeDerivationType.Deterministic,
+      confidence: 1,
+      analyzerName: 'bounded-baseline',
+      analyzerVersion: '1.0.0',
+      contentFingerprint: createHash('sha256')
+        .update(`node:${index}`)
+        .digest('hex'),
+      propertySchemaVersion: 1,
+      properties: { componentType: 'service', index },
+      evidence,
+    }));
+    const edges = Array.from({ length: Math.max(0, size - 1) }, (_, index) => ({
+      identityKey: `calls:bounded-${index}:bounded-${index + 1}`,
+      kind: KnowledgeEdgeKind.Calls,
+      source: {
+        kind: KnowledgeNodeKind.ArchitecturalComponent,
+        identityKey: `component:bounded-${index}`,
+      },
+      target: {
+        kind: KnowledgeNodeKind.ArchitecturalComponent,
+        identityKey: `component:bounded-${index + 1}`,
+      },
+      derivationType: KnowledgeDerivationType.Deterministic,
+      confidence: 1,
+      analyzerName: 'bounded-baseline',
+      analyzerVersion: '1.0.0',
+      contentFingerprint: createHash('sha256')
+        .update(`edge:${index}`)
+        .digest('hex'),
+      propertySchemaVersion: 1,
+      properties: {},
+      evidence,
+    }));
+
+    return { nodes, edges };
   }
 
   async function advanceToPublishing(buildId: number): Promise<void> {
