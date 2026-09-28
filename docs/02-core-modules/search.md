@@ -1,862 +1,144 @@
-The Search Module is the retrieval intelligence layer of CodeMind.
-
-All previous modules create knowledge:
-
-Repository
-      |
-      v
-Indexing
-      |
-      v
-Parser
-      |
-      v
-Analysis
-      |
-      v
-Knowledge
-      |
-      v
-Business Engine
-
-But developers need a way to ask:
-
-"Where is this logic?"
-
-"How does this workflow work?"
-
-"What will break if I change this service?"
-
-The Search Module provides that capability.
-
-# Search Module Design
-
-
-## Document Information
-
-Module: Search Engine
-
-Status: Draft
-
-Version: 1.0
-
-Owner: CodeMind Engineering Team
-
-
-
-# 1. Overview
-
-
-The Search Module provides intelligent retrieval capabilities across the entire CodeMind knowledge system.
-
-
-It allows developers to search:
-
-
-- Source code
-- Code structure
-- Relationships
-- Business rules
-- Documentation
-- Architecture knowledge
-
-
-
-The Search Module is responsible for finding the most relevant information before sending context to AI.
-
-
-
-# 2. Goals
-
-
-The Search Module should:
-
-
-- Provide fast code search
-- Support semantic understanding
-- Search across technical and business knowledge
-- Rank results by relevance
-- Reduce AI token usage
-- Provide accurate context retrieval
-
-
-
-# 3. Problem Statement
-
-
-Traditional search:
-
-
-User:
-
-
-
-invoice creation
-
-
-
-Returns:
-
-
-
-invoice.service.ts
-invoice.controller.ts
-invoice.repository.ts
-
-
-
-But it does not understand:
-
-
-- Business meaning
-- Relationships
-- Workflow
-
-
-
-CodeMind search should understand:
-
-
-Question:
-
-
-
-How is invoice created?
-
-
-
-Result:
-
-
-
-InvoiceController
-
-    |
-
-    v
-
-InvoiceService
-
-    |
-
-    v
-
-PaymentService
-
-    |
-
-    v
-
-InvoiceRepository
-
-Business Rule:
-
-Invoice requires payment validation before creation.
-
-
-
-
-# 4. Search Architecture
-
-
-High-level architecture:
-
-
-             User Query
-
-
-                 |
-
-                 v
-
-
-          Query Processor
-
-
-                 |
-
-    ----------------------------
-
-
-    |             |            |
-
-
-    v             v            v
-
-Keyword Search Vector Search Graph Search
-
-    |             |            |
-
-
-    ----------------------------
-
-
-                 |
-
-                 v
-
-
-          Ranking Engine
-
-
-                 |
-
-                 v
-
-
-          Search Results
-
-
-                 |
-
-                 v
-
-
-                AI
-
-
-
-# 5. Search Types
-
-
-## 5.1 Keyword Search
-
-
-Traditional text search.
-
-
-Example:
-
-
-Query:
-
-
-
-PaymentService
-
-
-
-Finds:
-
-
-
-payment.service.ts
-
-PaymentController
-
-PaymentRepository
-
-
-
-
-Used for:
-
-
-- Exact names
-- File names
-- Class names
-- Function names
-
-
-
----
-
-# 5.2 Semantic Search
-
-
-Semantic search understands meaning.
-
-
-Example:
-
-
-Question:
-
-
-
-How does refund work?
-
-
-
-May find:
-
-
-
-cancelPayment()
-
-reverseTransaction()
-
-creditAdjustment()
-
-
-
-Even if "refund" does not exist in code.
-
-
-
-Powered by:
-
-
-
-Embeddings
-
-Vector Database
-
-
-
-
----
-
-# 5.3 Graph Search
-
-
-Uses relationships from Analysis Module.
-
-
-
-Example:
-
-
-Question:
-
-
-
-What depends on PaymentService?
-
-
-
-Graph query:
-
-
-
-PaymentService
-
-    |
-
-    +---- InvoiceService
-
-    |
-
-    +---- RefundService
-
-    |
-
-    +---- SubscriptionService
-
-
-
-Useful for:
-
-
-- Impact analysis
-- Architecture understanding
-- Dependency tracing
-
-
-
-# 6. Hybrid Search
-
-
-CodeMind combines multiple search strategies.
-
-
-
-Formula:
-
-
-
-Final Score =
-
-Keyword Score
-
-Semantic Score
-
-Graph Score
-
-Business Relevance
-
-
-
-
-Example:
-
-
-A result ranking:
-
-
-
-PaymentService.ts
-
-95% relevance
-
-Payment Documentation
-
-90% relevance
-
-Payment Test File
-
-60% relevance
-
-
-
-
-# 7. Query Processing Pipeline
-
-
-Flow:
-
-
-
-User Question
-
-  |
-
-  v
-
-Query Understanding
-
-  |
-
-  v
-
-Search Multiple Sources
-
-  |
-
-  v
-
-Merge Results
-
-  |
-
-  v
-
-Rank Results
-
-  |
-
-  v
-
-Create Context
-
-  |
-
-  v
-
-AI Response
-
-
-
-
-# 8. Search Index Design
-
-
-## Code Index
-
-
-Stores:
-
-
-
-Classes
-
-Functions
-
-Files
-
-Methods
-
-Variables
-
-
-
-
-Example:
-
-
-
-InvoiceService
-
-type:
-
-CLASS
-
-location:
-
-src/invoice/invoice.service.ts
-
-
-
-
----
-
-## Knowledge Index
-
-
-Stores:
-
-
-
-Business Rules
-
-Workflows
-
-Architecture
-
-Documentation
-
-
-
-
-Example:
-
-
-
-Invoice Creation Workflow
-
-confidence:
-
-92%
-
-
-
-
----
-
-## Vector Index
-
-
-Stores:
-
-
-
-Embeddings
-
-Metadata
-
-References
-
-
-
-
-Example:
-
-
-
-Vector:
-
-[0.234,0.455,...]
-
-Reference:
-
-invoice.service.ts
-
-
-
-
-# 9. Search Ranking System
-
-
-Ranking factors:
-
-
-## Exact Match
-
-
-Example:
-
-
-
-PaymentService
-
-
-
-Higher score.
-
-
-
----
-
-## Relationship Importance
-
-
-Example:
-
-
-A service connected to many modules:
-
-
-
-PaymentService
-
-Used by:
-
-20 modules
-
-
-
-Gets higher priority.
-
-
-
----
-
-## Business Importance
-
-
-Example:
-
-
-Core business workflow:
-
-
-
-Payment Processing
-
-
-
-Higher ranking.
-
-
-
----
-
-## Recency
-
-
-Recently changed code:
-
-
-
-Updated yesterday
-
-
-
-May get higher priority.
-
-
-
-# 10. Search API Design
-
-
-## Search
-
-
-Endpoint:
-
-
-
-GET /search
-
-
-
-Request:
-
-
-```json
-{
- "query":"How invoice creation works"
-}
-
-
-Response:
-
-{
- "results":[
-
- {
-  "type":"workflow",
-  "name":"Invoice Creation",
-  "confidence":92
- },
-
- {
-  "type":"class",
-  "name":"InvoiceService"
- }
-
- ]
-}
-
-11. Context Builder
-
-Before AI receives information:
-
-Search creates optimized context.
-
-Example:
-
-Bad:
-
-Send entire repository
-
-500MB code
-
-
-Good:
-
-InvoiceService
-
-PaymentService
-
-Invoice Workflow
-
-Relevant Database Tables
-
-
-Benefits:
-
-Lower token usage
-Faster responses
-Better answers
-12. Search Storage Strategy
-PostgreSQL
-
-Used for:
-
-Metadata
-Filters
-Permissions
-Elasticsearch / OpenSearch
-
-Used for:
-
-Full text search
-Large scale indexing
-Vector Database
-
-Example:
-
-Qdrant
-
-
-Used for:
-
-Semantic search
-Similarity search
-Graph Database
-
-Example:
-
-Neo4j
-
-
-Used for:
-
-Relationship queries
-13. Search Events
-SearchIndexUpdatedEvent
-
-Triggered when:
-
-New knowledge created
-
-Code changed
-
-Documentation updated
-
-14. Module Structure
-
-NestJS:
-
+# Search Module
+
+## Purpose
+
+The Search module turns published Phase 3 and Phase 4 data into a small,
+rankable retrieval projection. It answers where relevant code or knowledge is
+located; it does not generate AI answers and it does not replace the indexing
+or knowledge sources of truth.
+
+Status: Phase 5 in progress. Architecture and persistence foundation are
+implemented; projection building and query APIs are next.
+
+## Responsibilities
+
+The module owns:
+
+- Versioned search projections and atomic publication
+- Search-document construction from files, symbols, and knowledge nodes
+- Exact identifier, path, and PostgreSQL full-text retrieval
+- Bounded graph-aware result expansion
+- Deterministic ranking, deduplication, filtering, and score explanations
+- Tenant, repository, branch, and commit scope in every result
+- A stable retrieval contract for the web application, AI, and MCP modules
+
+The module does not own:
+
+- Git access or source parsing
+- Structural symbol/dependency truth
+- Knowledge extraction or knowledge-graph truth
+- Repository authorization policy definitions
+- AI prompts, completions, or conversation state
+- Embeddings until a measured retrieval need justifies them
+
+## Dependency direction
+
+```mermaid
+flowchart LR
+    Repositories[Repository authorization]
+    Indexing[Phase 3 read ports]
+    Knowledge[Published knowledge read service]
+    Search[Search module]
+    API[Search API]
+    Web[Web application]
+    AI[Phase 6 AI]
+    MCP[Phase 7 MCP]
+
+    Repositories --> Search
+    Indexing --> Search
+    Knowledge --> Search
+    Search --> API
+    API --> Web
+    Search --> AI
+    Search --> MCP
+```
+
+Search may consume exported read services or ports. Indexing and Knowledge
+must never import Search.
+
+## Projection lifecycle
+
+```mermaid
+stateDiagram-v2
+    [*] --> draft: create for published knowledge snapshot
+    draft --> draft: build and validate documents
+    draft --> published: atomic publish
+    published --> published: mark historical/current
+    published --> [*]
+```
+
+One search index targets exactly one successful index job and published
+knowledge snapshot. Documents remain invisible until publication. A published
+index is immutable, and only one index can be current for a branch.
+
+If the branch advances while a projection is being built, the projection can
+be published as historical but cannot replace the current branch index.
+
+## Search document types
+
+| Source type      | Authoritative record | Typical searchable content                          |
+| ---------------- | -------------------- | --------------------------------------------------- |
+| `file`           | Indexed file + hash  | Path, language, and bounded source/document text    |
+| `symbol`         | Code symbol          | Name, qualified name, kind, signature, and docs     |
+| `knowledge_node` | Knowledge node       | Name, summary, kind, and bounded derived properties |
+
+Every document keeps foreign-key provenance to its source record. Business
+rules and workflows are `knowledge_node` documents whose `kind` describes the
+specific knowledge family.
+
+## Initial query flow
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API as Search API
+    participant Auth as Repository authorization
+    participant Query as Query service
+    participant DB as PostgreSQL
+
+    Client->>API: repository + branch + query + filters
+    API->>Auth: verify organization and repository access
+    Auth-->>API: authorized scope
+    API->>Query: normalized bounded query
+    Query->>DB: current published index
+    Query->>DB: exact + full-text candidates
+    Query->>DB: optional bounded graph neighbors
+    Query-->>API: ranked results with provenance
+    API-->>Client: paginated source-grounded results
+```
+
+The query service will use parameterized SQL and a fixed sort tiebreaker. It
+will not accept raw `tsquery`, SQL fragments, or client-provided ranking
+expressions.
+
+## Planned module layout
+
+```text
 src/modules/search/
-
-
-├── controllers/
-
-├── services/
-
-├── query/
-
-├── ranking/
-
-├── adapters/
-
-│
-├── vector/
-
-│
-├── database/
-
-│
-└── graph/
-
-
-├── context/
-
-├── entities/
-
-├── events/
-
+├── dto/                 # API validation (Milestone 5.7)
+├── entities/            # search indexes and documents
+├── enums/               # persisted search states and source kinds
+├── projection/          # document builders (Milestone 5.3)
+├── ranking/             # deterministic score fusion (Milestone 5.6)
+├── repositories/        # persistence and read queries
+├── services/            # build and query orchestration
+├── search.controller.ts # Milestone 5.7
 └── search.module.ts
+```
 
-15. Dependencies
+Folders are added only with their owning milestone; empty placeholders are not
+kept in source control.
 
-Search Module depends on:
+## Milestones
 
-Knowledge Module
-
-Analysis Module
-
-Embedding Module
-
-Database Module
-
-
-Should NOT depend on:
-
-AI Module
-
-MCP Module
-
-Frontend
-
-16. Performance Strategy
-
-Large systems:
-
-1 Million files
-
-10 Million code entities
-
-
-Required:
-
-Search indexes
-Caching
-Query optimization
-Async indexing
-Distributed processing
-17. Future Enhancements
-Natural Language Search
-
-Example:
-
-Show me all payment related logic
-
-Developer Assistant Mode
-
-Example:
-
-Explain this function
-
-Change Impact Search
-
-Example:
-
-What files should I update for changing invoice rules?
-
-Summary
-
-The Search Module connects CodeMind knowledge with developers.
-
-Its responsibility:
-
-"Find the right information at the right time."
-
-It enables:
-
-Fast code discovery
-AI context retrieval
-Legacy system understanding
-Token-efficient AI responses
+| Milestone | Outcome                                            | Status   |
+| --------: | -------------------------------------------------- | -------- |
+|       5.1 | Architecture, boundaries, ranking and engine ADR   | Complete |
+|       5.2 | Versioned search-index and document schema         | Complete |
+|       5.3 | Projection builder and atomic publication          | Next     |
+|       5.4 | Exact identifier, path, symbol, and lexical search | Planned  |
+|       5.5 | Bounded dependency and knowledge-graph expansion   | Planned  |
+|       5.6 | Ranking, deduplication, filters, and explanations  | Planned  |
+|       5.7 | Tenant-scoped search APIs                          | Planned  |
+|       5.8 | Web search experience                              | Planned  |
+|       5.9 | Quality, security, performance tests and docs      | Planned  |

@@ -8,7 +8,8 @@
 | Phase 2 — Repository Management            | Complete |
 | Phase 3 — Indexing & Code Intelligence     | Complete |
 | Phase 4 — Knowledge Graph & Business Logic | Complete |
-| Phases 5–7                                 | Planned  |
+| Phase 5 — Search Engine                    | In progress |
+| Phases 6–7                                 | Planned  |
 | Phase 8                                    | Future   |
 
 Milestones 3.1 through 3.12 are implemented. They define the indexing data model,
@@ -539,12 +540,56 @@ The result is tenant-scoped, commit-scoped, reproducible by analyzer version,
 migration-backed, atomically published, and covered by unit plus PostgreSQL
 integration tests.
 
+## Phase 5 — Search Engine
+
+Status: In progress
+
+Goal: retrieve a small, relevant, permission-scoped set of source and knowledge
+records for developers and downstream AI consumers.
+
+### 5.1 Architecture foundation
+
+Status: Complete
+
+Delivered:
+
+- PostgreSQL-first search strategy and module boundaries
+- Versioned, atomically published search projections
+- Exact, lexical, symbol, and graph retrieval sequence
+- Deterministic ranking and source-provenance requirements
+- Explicit deferral criteria for embeddings and external search engines
+
+### 5.2 Search document model
+
+Status: Complete
+
+Delivered:
+
+- Search-index and search-document entities
+- Migration-backed enums, foreign keys, checks, B-tree and GIN indexes
+- File, symbol, and knowledge-node source provenance
+- Tenant/commit/source-scope validation triggers
+- Database-maintained weighted full-text vectors
+- Draft visibility and published-content immutability rules
+
+### 5.3 Search projection builder
+
+Status: Next
+
+Build bounded, retry-safe file, symbol, and knowledge documents and publish a
+complete search index atomically.
+
+### 5.4–5.9 Retrieval and delivery
+
+Planned:
+
+- Exact identifier, path, symbol, and lexical retrieval
+- Bounded dependency and knowledge-graph expansion
+- Ranking, deduplication, filters, and score explanations
+- Tenant-scoped search APIs and web experience
+- Quality corpus, security, PostgreSQL integration, and performance tests
+
 ## Later phases
-
-### Phase 5 — Search Engine
-
-Add lexical, symbol, graph, and semantic retrieval with permission-aware hybrid
-ranking and source provenance.
 
 ### Phase 6 — AI Assistant (RAG)
 

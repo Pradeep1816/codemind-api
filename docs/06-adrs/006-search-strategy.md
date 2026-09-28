@@ -1,1007 +1,154 @@
-This ADR defines how CodeMind finds relevant information from large software repositories.
-
-Search is one of the most important layers because:
-
-AI quality depends on retrieving the correct context.
-
-A bad search system creates bad AI answers.
-
-Create:
-
-docs/06-adrs/006-search-strategy.md
-
-Content:
-
 # ADR-006: Search Strategy
-
 
 ## Status
 
-Accepted
-
+Accepted for Phase 5
 
 ## Date
 
-2026-07-29
+2026-09-28
+
+## Context
+
+Phase 3 produces commit-scoped files, content hashes, symbols, and structural
+dependencies. Phase 4 publishes immutable knowledge snapshots containing
+architecture, domain, rule, workflow, state, and event facts with source
+evidence.
+
+Search must retrieve a small, relevant, explainable subset of that information
+without reading an entire repository on every request. Results must remain
+organization scoped and tied to the exact commit from which they were derived.
+
+The earlier search draft proposed keyword, vector, and graph systems at once.
+That would introduce multiple ranking systems and another database before the
+product has measured retrieval quality or scale requirements.
+
+## Decision
+
+CodeMind will build search incrementally around a versioned search projection.
+
+1. PostgreSQL is the initial search engine.
+2. Each searchable file, symbol, or knowledge node becomes a bounded
+   `search_document`.
+3. Documents belong to an immutable `search_index` tied to one published
+   knowledge snapshot, successful indexing job, branch, and commit.
+4. Draft search indexes are invisible. A complete index is published
+   atomically, and only one published index may be current per branch.
+5. Initial retrieval combines exact identifier/path matching and PostgreSQL
+   full-text search using the `simple` text-search configuration.
+6. Symbol and graph signals are read from Phase 3 and Phase 4 through module
+   services; Search does not create a second authoritative code graph.
+7. Ranking is deterministic and returns source type, commit, path, source IDs,
+   and score explanations.
+8. Embeddings and `pgvector` are deferred until lexical and graph retrieval
+   have an evaluation baseline proving that semantic retrieval adds value.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Index[(Phase 3 index snapshot)]
+    Knowledge[(Published knowledge snapshot)]
+    Builder[Search projection builder]
+    Draft[(Draft search index)]
+    Current[(Current published search index)]
+    Query[Permission-scoped query]
+    Lexical[Exact and full-text retrieval]
+    Graph[Bounded graph expansion]
+    Rank[Deterministic ranking]
+    Results[Source-grounded results]
+
+    Index --> Builder
+    Knowledge --> Builder
+    Builder --> Draft
+    Draft -->|validate and publish| Current
+    Query --> Lexical
+    Current --> Lexical
+    Query --> Graph
+    Knowledge --> Graph
+    Lexical --> Rank
+    Graph --> Rank
+    Rank --> Results
+```
+
+## Version and publication model
+
+A search index records:
+
+- organization, repository, and branch
+- successful source index job
+- published knowledge snapshot
+- target commit SHA
+- search indexer version and configuration digest
+- draft/published state and document count
+
+Documents can be written or replaced while their index is a draft. Publishing
+validates the document count and makes the projection immutable. If the branch
+moved or the knowledge snapshot is no longer current, the search index may be
+kept as historical but cannot become current.
+
+This prevents a failed rebuild from replacing a working search index and makes
+search results reproducible.
+
+## Retrieval stages
+
+### Initial stages
+
+- Exact, case-normalized title and identifier lookup
+- Path lookup
+- Weighted PostgreSQL full-text retrieval
+- Repository, branch, language, kind, and source-type filters
+- Symbol metadata and bounded knowledge-graph expansion
+- Stable score fusion and result deduplication
+
+### Deferred semantic stage
+
+Embeddings may be added as a separate derived projection. Before adoption, the
+team must define an evaluation set, measure recall and ranking improvement,
+set embedding/version lifecycle rules, and document cost and retention.
+Embeddings never replace source provenance or permission checks.
 
+## Security and limits
 
-## Decision Makers
+- Every build and query is explicitly organization/repository/branch scoped.
+- Search projections never grant access; repository authorization is checked
+  before retrieval.
+- Source content is treated as untrusted data and is never executed.
+- Document content and JSON metadata have database-enforced byte limits.
+- Result counts, query length, graph depth, context bytes, and execution time
+  must be bounded by the application layer.
+- Errors and logs must not contain repository source or credentials.
 
-CodeMind Engineering Team
+## Alternatives considered
 
+### Elasticsearch/OpenSearch first
 
+Rejected for the initial release because it adds another operational system,
+index lifecycle, and tenant-security boundary before PostgreSQL limits have
+been measured.
 
-# 1. Context
+### Vector-only search
 
+Rejected because identifiers, paths, and code symbols require exact lexical
+precision, and vector similarity alone is difficult to explain and reproduce.
 
-CodeMind needs to answer developer questions about complex
-software systems.
+### Query Phase 3 and Phase 4 tables directly
 
+Rejected as the only strategy because heterogeneous rows are expensive to
+rank consistently. A derived projection gives one bounded retrieval contract
+while preserving foreign-key provenance to authoritative records.
 
-Examples:
+### Mutable search rows per branch
 
+Rejected because readers could observe partial rebuilds and results would not
+be reproducible after a branch advances.
 
+## Consequences
 
-Where is payment validation implemented?
-
-Why does invoice generation fail?
-
-Explain the user registration flow.
-
-Which modules depend on authentication?
-
-
-
-Traditional search is not enough.
-
-
-A developer may search:
-
-
-
-payment
-
-
-
-But the actual logic may exist in:
-
-
-
-transaction.service.ts
-
-billing.processor.ts
-
-invoice.manager.ts
-
-payment-rule.ts
-
-
-
-Therefore CodeMind requires intelligent search.
-
-
-
-# 2. Search Requirements
-
-
-
-The search system must support:
-
-
-
-## Exact Search
-
-
-Find exact matches.
-
-
-
-Example:
-
-
-
-PaymentService
-
-calculateInvoice()
-
-UserEntity
-
-
-
-
----
-
-
-
-## Semantic Search
-
-
-Understand meaning.
-
-
-
-Example:
-
-
-Question:
-
-
-
-How are customers charged?
-
-
-
-Should find:
-
-
-
-
-Payment Processing
-
-Invoice Creation
-
-Subscription Billing
-
-
-
-
----
-
-
-
-## Code Relationship Search
-
-
-Understand dependencies.
-
-
-
-Example:
-
-
-
-
-Controller
-
-|
-
-
-v
-
-Service
-
-|
-
-
-v
-
-Repository
-
-
-
-
----
-
-
-
-## Business Knowledge Search
-
-
-Find:
-
-
-- Rules
-- Workflows
-- Decisions
-- Documentation
-
-
-
-# 3. Search Challenges
-
-
-
-## Large Repository Size
-
-
-
-Example:
-
-
-
-Enterprise Application
-
-50,000 Files
-
-5 Million Lines
-
-
-
-
-Searching everything every time is impossible.
-
-
-
----
-
-
-
-## Different Developer Language
-
-
-
-Developer:
-
-
-
-Why is account locked?
-
-
-
-Code:
-
-
-
-user.status = INACTIVE
-
-securityPolicy.validate()
-
-
-
-
-Search must bridge human language and code language.
-
-
-
-# 4. Options Considered
-
-
-
-# Option 1: Keyword Search Only
-
-
-
-Architecture:
-
-
-
-User Query
-
-|
-
-v
-
-Text Search
-
-|
-
-v
-
-Results
-
-
-
-
-Technology examples:
-
-
-- PostgreSQL LIKE
-- Regex
-- Basic indexing
-
-
-
-Advantages:
-
-
-- Simple
-- Fast
-- Easy implementation
-
-
-
-Problems:
-
-
-- Does not understand meaning
-- Poor with business questions
-- Misses related concepts
-
-
-
-Decision:
-
-
-Rejected.
-
-
-
----
-
-
-
-# Option 2: Vector Search Only
-
-
-
-Architecture:
-
-
-
-Question
-
-|
-
-v
-
-Embedding
-
-|
-
-v
-
-Vector Similarity
-
-
-
-
-Advantages:
-
-
-- Understands meaning
-- Good for AI queries
-
-
-
-Problems:
-
-
-- Can miss exact symbols
-- Weak for file names
-- Weak for identifiers
-
-
-
-Example:
-
-
-Searching:
-
-
-
-UserService
-
-
-
-may not always find exact class name.
-
-
-
-Decision:
-
-
-Rejected as the only search method.
-
-
-
----
-
-
-
-# Option 3: Hybrid Search
-
-
-
-Architecture:
-
-
-          Query
-
-
-            |
-
-
-   +--------+--------+
-
-   |                 |
-
-Keyword Search Semantic Search
-
-   |                 |
-
-
-   +--------+--------+
-
-
-            |
-
-
-            v
-
-
-      Ranking Engine
-
-
-            |
-
-
-            v
-
-
-        Results
-
-
-
-Advantages:
-
-
-- Best accuracy
-- Combines exact and semantic understanding
-- Suitable for code intelligence
-
-
-
-Decision:
-
-
-Selected.
-
-
-
-# 5. Decision
-
-
-
-CodeMind will use:
-
-
-
-
-Hybrid Search Architecture
-
-Keyword Search
-
-    +
-
-Vector Search
-
-    +
-
-Code Graph Search
-
-    +
-
-Ranking System
-
-
-
-
-# 6. Search Architecture
-
-
-
-Complete flow:
-
-
-
-
-Developer Question
-
-    |
-
-    v
-
-Query Analyzer
-
-    |
-
-    +----------------+
-
-    |                |
-
-Keyword Search Semantic Search
-
-    |                |
-
-
-    +----------------+
-
-             |
-
-             v
-
-
-      Result Ranking
-
-
-             |
-
-             v
-
-
-      Context Builder
-
-
-             |
-
-             v
-
-
-          AI Layer
-
-
-
-# 7. Search Components
-
-
-
-## Query Analyzer
-
-
-
-Responsibility:
-
-
-Understand user intent.
-
-
-
-Example:
-
-
-
-Input:
-
-
-
-Explain invoice calculation
-
-
-
-
-Detect:
-
-
-
-Type:
-
-Business Question
-
-Domain:
-
-Invoice
-
-Intent:
-
-Explanation
-
-
-
-
----
-
-
-
-## Keyword Search Engine
-
-
-
-Searches:
-
-
-
-
-File names
-
-Class names
-
-Functions
-
-Variables
-
-Database tables
-
-
-
-
-Technology:
-
-
-
-Initial:
-
-
-
-PostgreSQL Full Text Search
-
-
-
-
-Future:
-
-
-
-Elasticsearch / OpenSearch
-
-
-
-
----
-
-
-
-## Semantic Search Engine
-
-
-
-Uses:
-
-
-
-
-Embeddings
-
-Vector Similarity
-
-
-
-
-Searches:
-
-
-
-
-Code meaning
-
-Documentation meaning
-
-Business concepts
-
-
-
-
----
-
-
-
-## Code Graph Search
-
-
-
-Uses relationships:
-
-
-
-Example:
-
-
-
-InvoiceController
-
-    |
-
-
-    v
-
-InvoiceService
-
-    |
-
-
-    v
-
-PaymentRepository
-
-
-
-
-Finds:
-
-
-- Dependencies
-- Call relationships
-- Impact areas
-
-
-
-# 8. Ranking Strategy
-
-
-
-Search results are scored.
-
-
-
-Example:
-
-
-
-
-Final Score =
-
-Keyword Match
-
-Vector Similarity
-
-Code Importance
-
-Relationship Score
-
-Recent Changes
-
-
-
-
-Example:
-
-
-
-
-PaymentService.ts
-
-Score: 95%
-
-payment-helper.ts
-
-Score: 55%
-
-
-
-
-# 9. Search Index Model
-
-
-
-Main entity:
-
-
-
-
-search_documents
-
-
-
-
-Example:
-
-
-
-```sql
-search_documents
-
-
-id
-
-organization_id
-
-repository_id
-
-entity_type
-
-title
-
-content
-
-metadata
-
-embedding
-
-created_at
-
-
-Entity types:
-
-FILE
-
-CLASS
-
-FUNCTION
-
-DOCUMENTATION
-
-BUSINESS_RULE
-
-API
-
-DATABASE_ENTITY
-
-10. Code Search Strategy
-
-Code is indexed by:
-
-File Level
-
-Example:
-
-payment.service.ts
-
-Symbol Level
-
-Example:
-
-PaymentService.calculate()
-
-Function Level
-
-Example:
-
-calculateInvoiceTotal()
-
-Relationship Level
-
-Example:
-
-Function calls another function
-
-11. Indexing Flow
-
-When repository changes:
-
-Git Change
-
-
-     |
-
-     v
-
-
-Parser
-
-
-     |
-
-     v
-
-
-Extract Symbols
-
-
-     |
-
-     v
-
-
-Create Search Documents
-
-
-     |
-
-     v
-
-
-Generate Embeddings
-
-
-     |
-
-     v
-
-
-Update Index
-
-12. Search Optimization
-Metadata Filtering
-
-Before searching:
-
-Filter:
-
-Repository
-
-Language
-
-Module
-
-Branch
-
-Organization
-
-Caching
-
-Frequently searched queries can be cached.
-
-Example:
-
-Explain authentication flow
-
-Incremental Indexing
-
-Do not rebuild everything.
-
-Only update:
-
-Changed Files
-
-Changed Symbols
-
-Changed Knowledge
-
-13. Search Security
-
-Every search must enforce:
-
-Organization Isolation
-
-
-Permission Check
-
-
-Repository Access Control
-
-
-Example:
-
-Developer cannot search another company's repository.
-
-14. Future Improvements
-AI Query Planner
-
-AI decides:
-
-Should I use:
-
-Keyword search?
-
-Vector search?
-
-Graph search?
-
-Learning Ranking
-
-System learns:
-
-Which results developers open
-Which answers are accepted
-Which files are useful
-Cross Repository Search
-
-Enterprise users can search:
-
-All company repositories
-
-15. Consequences
-Positive
-Better AI Answers
-
-Relevant context improves reasoning.
-
-Lower Token Usage
-
-Only useful information reaches the LLM.
-
-Developer Friendly
-
-Supports natural language questions.
-
-Scalable
-
-Can evolve into dedicated search infrastructure.
-
-Negative
-More Complexity
-
-Multiple search strategies must work together.
-
-Ranking Requires Tuning
-
-Quality depends on scoring.
-
-More Storage
-
-Need search metadata and embeddings.
-
-16. Final Decision Summary
-Area	Decision
-Search Type	Hybrid Search
-Keyword Engine	PostgreSQL Full Text
-Semantic Engine	pgvector
-Relationship Search	Code Graph
-Ranking	Multi-factor Score
-Future Search Engine	OpenSearch/Elasticsearch
-Conclusion
-
-CodeMind search will combine traditional and AI-powered search.
-
-The goal:
-
-"Find the right code, knowledge, and business context before asking AI to reason."
+- Phase 5 can ship useful search without a new database service.
+- Publication and rollback behavior match the proven knowledge-snapshot model.
+- PostgreSQL storage increases because searchable text is materialized.
+- Search indexing must be rerun when the indexer version or configuration
+  changes.
+- Semantic retrieval remains an additive future capability rather than a
+  prerequisite for the search API.

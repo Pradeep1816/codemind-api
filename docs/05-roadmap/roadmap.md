@@ -35,7 +35,7 @@ The product goal is:
 |     2 | Repository Management            | Register, share, synchronize, and inspect repositories        | Complete |
 |     3 | Indexing & Code Intelligence     | Convert Git source into structured code metadata              | Complete |
 |     4 | Knowledge Graph & Business Logic | Convert code structure into navigable system knowledge        | Complete |
-|     5 | Search Engine                    | Retrieve precise lexical, symbol, graph, and semantic context | Planned  |
+|     5 | Search Engine                    | Retrieve precise lexical, symbol, graph, and semantic context | In progress |
 |     6 | AI Assistant (RAG)               | Answer and reason from retrieved CodeMind knowledge           | Planned  |
 |     7 | MCP Server                       | Expose CodeMind safely to external AI tools                   | Planned  |
 |     8 | Enterprise & Observability       | Operate securely at organizational scale                      | Future   |
@@ -98,6 +98,12 @@ Phase 4 with focused analyzer/projector coverage and a real-PostgreSQL suite for
 claimed processing, retry idempotency, identity conflicts, evidence and tenant
 scope, draft visibility, publication immutability, branch movement, and a
 bounded 199-fact persistence baseline.
+
+Phase 5.1 establishes a PostgreSQL-first search architecture with immutable,
+atomically published projections. Phase 5.2 adds migration-backed search
+indexes and bounded file, symbol, and knowledge-node documents with exact
+source provenance, tenant/commit validation, weighted full-text vectors, and
+GIN indexing. Projection construction and query behavior begin in 5.3.
 
 Architecture decisions:
 
@@ -254,6 +260,20 @@ Canonical Phase 4 documents:
 
 Goal: retrieve the smallest, most relevant source-grounded context.
 
+Milestones:
+
+| Milestone | Scope                                                | Status   |
+| --------: | ---------------------------------------------------- | -------- |
+|       5.1 | Architecture, boundaries, ranking and engine decision | Complete |
+|       5.2 | Versioned search-index and document schema            | Complete |
+|       5.3 | Projection builder and atomic publication             | Next     |
+|       5.4 | Exact identifier, path, symbol, and lexical search    | Planned  |
+|       5.5 | Bounded dependency and knowledge-graph expansion      | Planned  |
+|       5.6 | Ranking, deduplication, filters, and explanations     | Planned  |
+|       5.7 | Tenant-scoped search APIs                             | Planned  |
+|       5.8 | Web search experience                                 | Planned  |
+|       5.9 | Quality, security, performance tests and documentation | Planned  |
+
 Planned capabilities:
 
 - File, path, and text search
@@ -262,6 +282,12 @@ Planned capabilities:
 - PostgreSQL full-text retrieval
 - Embeddings and vector retrieval when justified
 - Hybrid ranking, filters, access control, and result provenance
+
+Canonical Phase 5 documents:
+
+- [Search module](../02-core-modules/search.md)
+- [Search database schema](../03-database/search.md)
+- [ADR-006: Search Strategy](../06-adrs/006-search-strategy.md)
 
 ## Phase 6 — AI Assistant (RAG)
 

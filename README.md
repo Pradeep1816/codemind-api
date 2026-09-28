@@ -32,11 +32,10 @@ MCP and developer tools
 
 ## Current Status
 
-CodeMind has completed Phase 3 indexing and code intelligence. Phase 4,
-knowledge graph and business-logic extraction, is in progress with its
-architecture, persistence foundation, call graph, domain concepts, business
-rules, states, events, route-backed workflows, and read-only knowledge APIs
-implemented. Background publication remains pending.
+CodeMind has completed Phase 4 knowledge-graph and business-logic extraction.
+Phase 5 search is in progress: its PostgreSQL-first architecture and versioned
+search projection schema are implemented, with projection construction and
+retrieval APIs next.
 
 Implemented:
 

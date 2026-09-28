@@ -7,6 +7,7 @@ import { HealthModule } from './modules/health/health.module';
 import { IndexingModule } from './modules/indexing/indexing.module';
 import { KnowledgeModule } from './modules/knowledge/knowledge.module';
 import { RepositoriesModule } from './modules/repositories/repositories.module';
+import { SearchModule } from './modules/search/search.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { RepositoriesModule } from './modules/repositories/repositories.module';
     IndexingModule,
     AnalysisModule,
     KnowledgeModule,
+    SearchModule,
     HealthModule,
   ],
 })

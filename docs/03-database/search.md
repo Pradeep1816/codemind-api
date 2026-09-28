@@ -1,1002 +1,132 @@
-This document defines the retrieval intelligence layer of CodeMind.
-
-The Indexing Engine creates understanding.
-
-The Search Engine finds the correct understanding.
-
-This is the layer responsible for answering:
-
-"From millions of lines of code, what small amount of information does the AI actually need?"
-
-Create:
-
-docs/03-database/search-schema.md
-
-Content:
-
-# Search Schema Design
-
-
-## Document Information
-
-Module: Search Intelligence Engine
-
-Document: Search Schema
-
-Status: Draft
-
-Version: 1.0
-
-Owner: CodeMind Engineering Team
-
-
-
-# 1. Overview
-
-
-The Search Engine is responsible for retrieving the most relevant
-information from CodeMind's knowledge base.
-
-
-It combines multiple search strategies:
-
-
-- Keyword search
-- Semantic search
-- Code symbol search
-- Business knowledge search
-- Relationship search
-
-
-
-The goal:
-
-
-"Find the smallest and most accurate context required by AI."
-
-
-
-# 2. Problem Statement
-
-
-Traditional AI coding assistants:
-
-
-
-User Question
-
-  |
-
-  v
-
-Search Files
-
-  |
-
-  v
-
-Send Large Context
-
-  |
-
-  v
-
-LLM Response
-
-
-
-Problems:
-
-
-- Too many tokens
-- Slow responses
-- Missing important relationships
-- Repeated repository scanning
-
-
-
-CodeMind:
-
-
-
-Question
-
-|
-
-v
-
-Search Intelligence Layer
-
-|
-
-v
-
-Relevant Knowledge
-
-|
-
-v
-
-Small AI Context
-
-|
-
-v
-
-Answer
-
-
-
-
-# 3. Search Architecture
-
-
-
-             User Query
-
-
-                 |
-
-                 v
-
-
-          Query Understanding
-
-
-                 |
-
-    +------------+-------------+
-
-    |            |             |
-
-Keyword Search Vector Search Graph Search
-
-    |            |             |
-
-
-    +------------+-------------+
-
-
-                 |
-
-                 v
-
-
-          Ranking Engine
-
-
-                 |
-
-                 v
-
-
-         Context Selection
-
-
-                 |
-
-                 v
-
-
-              AI Model
-
-
-
-# 4. Search Components
-
-
-
-## 4.1 Keyword Search
-
-
-Traditional text matching.
-
-
-
-Example:
-
-
-Question:
-
-
-
-payment retry logic
-
-
-
-Finds:
-
-
-
-paymentRetry()
-
-retryPayment()
-
-PaymentService
-
-
-
-
-Technology:
-
-
-- PostgreSQL Full Text Search
-- Elasticsearch (future)
-
-
-
----
-
-
-
-## 4.2 Semantic Search
-
-
-Understands meaning.
-
-
-
-Example:
-
-
-
-Question:
-
-
-
-How does failed payment recover?
-
-
-
-
-Finds:
-
-
-
-
-Payment retry workflow
-
-Transaction recovery
-
-Payment exception handler
-
-
-
-
-Technology:
-
-
-- pgvector
-- Vector Database
-
-
-
----
-
-
-
-## 4.3 Code Symbol Search
-
-
-
-Searches code identifiers.
-
-
-
-Example:
-
-
-
-
-InvoiceService
-
-calculateDiscount
-
-PaymentRepository
-
-
-
-
-Uses:
-
-
-
-code_symbols
-
-
-
-
----
-
-
-
-## 4.4 Knowledge Search
-
-
-
-Searches generated understanding.
-
-
-
-Example:
-
-
-
-
-Business rule:
-
-Paid invoice cannot be deleted.
-
-
-
-
-Uses:
-
-
-
-knowledge_items
-
-business_rules
-
-
-
-
----
-
-
-
-# 5. Search Entity Overview
-
-
-
-
-search_queries
-
-    |
-
-    v
-
-search_results
-
-    |
-
-    v
-
-search_feedback
-
-    |
-
-    v
-
-search_analytics
-
-
-
-
-# 6. Search Query Table
-
-
-
-Table:
-
-
-
-
-search_queries
-
-
-
-
-Purpose:
-
-
-Stores user searches.
-
-
-
-Schema:
-
-
-
-```sql
-search_queries
-
-
-id
-
-repository_id
-
-user_id
-
-query
-
-search_type
-
-created_at
-
-
-Example:
-
-Query:
-
-How invoice creation works?
-
-
-Type:
-
-HYBRID
-
-7. Search Result Table
-
-Table:
-
-search_results
-
-
-Purpose:
-
-Stores retrieved results.
-
-Schema:
-
-search_results
-
-
-id
-
-query_id
-
-source_type
-
-source_id
-
-score
-
-rank
-
-created_at
-
-
-Example:
-
-Result:
-
-InvoiceService.createInvoice()
-
-
-Score:
-
-0.94
-
-
-Rank:
-
-1
-
-8. Search Source Types
-
-Supported:
-
-CODE_ENTITY
-
-CODE_CHUNK
-
-KNOWLEDGE_ITEM
-
-BUSINESS_RULE
-
-DOCUMENTATION
-
-API_ENDPOINT
-
-DATABASE_ENTITY
-
-9. Ranking Algorithm
-
-Search ranking combines multiple signals.
-
-Example:
-
-Final Score =
-
-
-Semantic Similarity
-
-+
-
-Keyword Match
-
-+
-
-Business Importance
-
-+
-
-Usage Frequency
-
-+
-
-Confidence Score
-
-
-Example:
-
-PaymentService
-
-
-Vector Score:
-
-0.92
-
-
-Keyword:
-
-0.80
-
-
-Business Importance:
-
-0.95
-
-
-Final:
-
-0.91
-
-10. Search Context Selection
-
-Important concept:
-
-Do not send everything to AI.
-
-Example:
-
-Repository:
-
-5000 Files
-
-
-Search result:
-
-Top Relevant:
-
-
-1. PaymentService
-
-2. InvoiceService
-
-3. Payment Entity
-
-4. Payment Workflow
-
-
-AI receives:
-
-4 relevant contexts
-
-
-Not:
-
-5000 files
-
-11. Search Context Table
-
-Table:
-
-search_contexts
-
-
-Purpose:
-
-Stores AI-ready context.
-
-Schema:
-
-search_contexts
-
-
-id
-
-query_id
-
-source_id
-
-content
-
-token_count
-
-importance_score
-
-created_at
-
-12. Query Understanding
-
-Before searching:
-
-Analyze user intent.
-
-Example:
-
-Question:
-
-Why invoice is not generated?
-
-
-Detected:
-
-Intent:
-
-DEBUGGING
-
-
-Domain:
-
-INVOICE
-
-
-Action:
-
-FIND_FAILURE_REASON
-
-
-Table:
-
-query_intents
-
-
-Schema:
-
-query_intents
-
-
-id
-
-query_id
-
-intent
-
-domain
-
-entity
-
-created_at
-
-13. Search Intent Types
-
-Supported:
-
-EXPLANATION
-
-DEBUGGING
-
-ARCHITECTURE
-
-DOCUMENTATION
-
-BUSINESS_FLOW
-
-IMPACT_ANALYSIS
-
-CODE_REVIEW
-
-14. Relationship Based Search
-
-Some questions require dependency understanding.
-
-Example:
-
-Question:
-
-What happens when payment fails?
-
-
-Search graph:
-
-PaymentService
-
-
-     |
-
-     v
-
-
-PaymentFailureHandler
-
-
-     |
-
-     v
-
-
-NotificationService
-
-
-     |
-
-     v
-
-
-CreditService
-
-
-Uses:
-
-code_relationships
-
-business_relationships
-
-15. Search Feedback
-
-Table:
-
-search_feedback
-
-
-Purpose:
-
-Improve retrieval quality.
-
-Schema:
-
-search_feedback
-
-
-id
-
-query_id
-
-user_id
-
-rating
-
-comment
-
-created_at
-
-
-Example:
-
-Result useful:
-
-Yes
-
-
-Score:
-
-5
-
-16. Search Analytics
-
-Table:
-
-search_analytics
-
-
-Tracks:
-
-Popular questions
-Missing knowledge
-Failed searches
-Response quality
-
-Schema:
-
-search_analytics
-
-
-id
-
-query
-
-result_count
-
-response_time
-
-created_at
-
-17. Hybrid Search Flow
-
-Example:
-
-Question:
-
-Explain refund process
-
-
-Step 1:
-
-Keyword search:
-
-refund()
-
-RefundService
-
-
-Step 2:
-
-Vector search:
-
-Refund workflow
-
-Credit creation
-
-Customer reimbursement
-
-
-Step 3:
-
-Graph search:
-
-RefundService
-
-    |
-
-    v
-
-PaymentService
-
-    |
-
-    v
-
-InvoiceService
-
-
-Step 4:
-
-Ranking:
-
-Best Context Selected
-
-18. TypeORM Example
-@Entity()
-export class SearchResult {
-
-
-@PrimaryGeneratedColumn("uuid")
-id:string;
-
-
-@Column()
-sourceType:string;
-
-
-@Column()
-sourceId:string;
-
-
-@Column({
-type:"float"
-})
-score:number;
-
-
-}
-19. Index Strategy
-
-search_queries:
-
-repository_id
-
-user_id
-
-created_at
-
-
-search_results:
-
-query_id
-
-source_type
-
-score
-
-
-Knowledge search:
-
-embedding_vector
-
-full_text_index
-
-20. Performance Strategy
-
-For large repositories:
-
-Cache Popular Queries
-
-Example:
-
-"How payment works"
-
-
-
-Store previous retrieval.
-
-Incremental Search Index Update
-
-Only update changed code.
-
-Query Result Ranking
-
-Prioritize:
-
-Business critical modules
-Recently changed code
-High confidence knowledge
-21. Security
-
-Search must respect:
-
-Repository permissions
-User access
-Organization isolation
-
-Example:
-
-Developer A:
-
-Can search Project A
-
-
-Developer B:
-
-Cannot access Project A
-
-22. Future Enhancements
-AI Query Planner
-
-AI decides:
-
-Need business search?
-
-
-Need code search?
-
-
-Need architecture search?
-
-Cross Repository Search
-
-Example:
-
-Frontend
-
-
-    |
-
-Backend
-
-
-    |
-
-Mobile App
-
-
-Understand complete ecosystem.
-
-Search Explanation
-
-Show why result was selected:
-
-Example:
-
-Selected PaymentService because:
-
-
-- Similarity: 94%
-
-- Called by InvoiceService
-
-- Contains payment workflow
-
-Summary
-
-The Search Engine is the retrieval brain of CodeMind.
-
-It solves the biggest limitation of current AI coding tools:
-
-"Finding the right information before asking AI."
-
-Core principle:
-
-"Better retrieval creates better AI answers with fewer tokens."
+# Search Database Schema
+
+## Scope
+
+The Phase 5 foundation stores immutable, commit-scoped search projections in
+PostgreSQL. It does not add vectors or another database.
+
+## Entity relationship model
+
+```mermaid
+erDiagram
+    ORGANIZATIONS ||--o{ SEARCH_INDEXES : owns
+    REPOSITORIES ||--o{ SEARCH_INDEXES : contains
+    REPOSITORY_BRANCHES ||--o{ SEARCH_INDEXES : targets
+    INDEX_JOBS ||--o{ SEARCH_INDEXES : supplies
+    KNOWLEDGE_SNAPSHOTS ||--o{ SEARCH_INDEXES : supplies
+    SEARCH_INDEXES ||--o{ SEARCH_DOCUMENTS : contains
+    INDEXED_FILES ||--o{ SEARCH_DOCUMENTS : file_source
+    FILE_HASHES ||--o{ SEARCH_DOCUMENTS : version_source
+    CODE_SYMBOLS ||--o{ SEARCH_DOCUMENTS : symbol_source
+    KNOWLEDGE_NODES ||--o{ SEARCH_DOCUMENTS : knowledge_source
+```
+
+## `search_indexes`
+
+A row identifies one complete search projection version.
+
+| Column                  | Type         | Purpose                                    |
+| ----------------------- | ------------ | ------------------------------------------ |
+| `id`                    | integer      | Auto-increment internal identifier         |
+| `organization_id`       | uuid         | Tenant scope                               |
+| `repository_id`         | integer      | Repository scope                           |
+| `branch_id`             | integer      | Branch scope                               |
+| `source_index_job_id`   | integer      | Successful Phase 3 snapshot                |
+| `knowledge_snapshot_id` | integer      | Published Phase 4 snapshot                 |
+| `target_commit_sha`     | varchar(64)  | Exact 40- or 64-character Git object ID    |
+| `indexer_version`       | varchar(100) | Projection algorithm version               |
+| `configuration_digest`  | varchar(64)  | SHA-256 digest of effective build policy   |
+| `status`                | enum         | `draft` or `published`                     |
+| `is_current`            | boolean      | Current searchable version for the branch |
+| `document_count`        | integer      | Validated number of projection documents   |
+| `published_at`          | timestamptz  | Publication time                           |
+| `superseded_at`         | timestamptz  | Time replaced as current                   |
+| `created_at`            | timestamptz  | Creation time                              |
+
+Important constraints:
+
+- The source index job must be successful.
+- The knowledge snapshot must be published and match the same organization,
+  repository, branch, source job, and commit.
+- `(knowledge_snapshot_id, indexer_version, configuration_digest)` is unique.
+- At most one search index is current per branch.
+- Publication requires at least one document and an exact document count.
+- A stale branch/knowledge snapshot cannot be selected as current.
+- Identity and published content are immutable.
+
+## `search_documents`
+
+Each row is a bounded retrieval projection with direct source provenance.
+
+| Column                | Type         | Purpose                                    |
+| --------------------- | ------------ | ------------------------------------------ |
+| `id`                  | integer      | Auto-increment internal identifier         |
+| tenant/scope columns  | uuid/integer | Organization, repository, branch, index    |
+| `source_type`         | enum         | `file`, `symbol`, or `knowledge_node`      |
+| `source_identity_key` | varchar(512) | Stable identity within one search index    |
+| source foreign keys   | integer/null | File/hash/symbol/knowledge provenance      |
+| `title`               | varchar(512) | Primary exact-match and display value      |
+| `content`             | text         | Bounded searchable projection text         |
+| `path`                | varchar(1024)| Optional repository-relative source path   |
+| `language`            | varchar(64)  | Optional language filter                   |
+| `kind`                | varchar(100) | Symbol or knowledge kind filter            |
+| `metadata`            | jsonb        | Bounded display/ranking metadata            |
+| `search_vector`       | tsvector     | Database-maintained weighted lexical terms |
+| `created_at`          | timestamptz  | Creation time                              |
+
+Source-reference rules:
+
+- A file document references one indexed file and its exact current hash.
+- A symbol document references one symbol, its indexed file, and file hash.
+- A knowledge document references one node from the target knowledge snapshot.
+- All source records must match the document's tenant, repository, branch, and
+  search-index version.
+- A source identity occurs once per source type and search index.
+
+`content` is capped at 128 KiB and serialized `metadata` at 64 KiB. Projection
+builders must apply smaller application-level limits where possible.
+
+## Full-text index
+
+A trigger constructs the vector with PostgreSQL's `simple` configuration:
+
+| Weight | Fields             |
+| ------ | ------------------ |
+| A      | `title`, `path`    |
+| B      | `kind`, `language` |
+| C      | `content`          |
+
+The `simple` configuration preserves technical tokens without English
+stemming. A GIN index supports full-text lookup. A separate lower-case title
+index supports exact/prefix identifier lookup.
+
+Camel-case, snake-case, and qualified-name aliases will be normalized by the
+Milestone 5.3 projection builder and included in bounded document content.
+
+## Publication transaction
+
+```mermaid
+sequenceDiagram
+    participant Builder
+    participant DB as PostgreSQL
+
+    Builder->>DB: create draft search index
+    loop bounded batches
+        Builder->>DB: upsert source-grounded documents
+    end
+    Builder->>DB: begin publication transaction
+    Builder->>DB: validate scope and document count
+    Builder->>DB: supersede old current index
+    Builder->>DB: publish new index if source is still current
+    Builder->>DB: commit
+```
+
+Readers filter to `status = 'published' AND is_current = true`, so incomplete
+drafts are never visible.
+
+## Deferred schema
+
+No embedding table or `vector` column is included in this milestone. A future
+semantic-search migration must record embedding provider/model/version,
+dimension, source content fingerprint, and search-index identity. It must not
+overwrite lexical documents or remove source foreign keys.
