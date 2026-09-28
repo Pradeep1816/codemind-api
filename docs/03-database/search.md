@@ -100,6 +100,11 @@ The `simple` configuration preserves technical tokens without English
 stemming. A GIN index supports full-text lookup. A separate lower-case title
 index supports exact/prefix identifier lookup.
 
+Additional partial/expression indexes support exact and prefix lookup for
+lower-cased repository paths and symbol names stored in document metadata.
+These indexes are migration-managed and marked as manual in TypeORM metadata so
+schema synchronization does not attempt to remove them.
+
 Camel-case, snake-case, and qualified-name aliases will be normalized by the
 Milestone 5.3 projection builder and included in bounded document content.
 

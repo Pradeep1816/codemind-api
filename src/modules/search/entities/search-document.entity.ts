@@ -38,6 +38,8 @@ import { SearchIndexEntity } from './search-index.entity';
 @Index('idx_search_documents_code_symbol_id', ['codeSymbolId'])
 @Index('idx_search_documents_knowledge_node_id', ['knowledgeNodeId'])
 @Index('idx_search_documents_search_vector', { synchronize: false })
+@Index('idx_search_documents_path_lower', { synchronize: false })
+@Index('idx_search_documents_symbol_name_lower', { synchronize: false })
 @Check(
   'CHK_search_documents_source_identity_key',
   `length(trim("source_identity_key")) > 0`,

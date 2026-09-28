@@ -7,8 +7,8 @@ rankable retrieval projection. It answers where relevant code or knowledge is
 located; it does not generate AI answers and it does not replace the indexing
 or knowledge sources of truth.
 
-Status: Phase 5 in progress. Architecture, persistence, and projection building
-are implemented; lexical retrieval is next.
+Status: Phase 5 in progress. Architecture, persistence, projection building,
+and exact/lexical retrieval are implemented; graph expansion is next.
 
 ## Responsibilities
 
@@ -136,8 +136,8 @@ kept in source control.
 |       5.1 | Architecture, boundaries, ranking and engine ADR   | Complete |
 |       5.2 | Versioned search-index and document schema         | Complete |
 |       5.3 | Projection builder and atomic publication          | Complete |
-|       5.4 | Exact identifier, path, symbol, and lexical search | Next     |
-|       5.5 | Bounded dependency and knowledge-graph expansion   | Planned  |
+|       5.4 | Exact identifier, path, symbol, and lexical search | Complete |
+|       5.5 | Bounded dependency and knowledge-graph expansion   | Next     |
 |       5.6 | Ranking, deduplication, filters, and explanations  | Planned  |
 |       5.7 | Tenant-scoped search APIs                          | Planned  |
 |       5.8 | Web search experience                              | Planned  |
@@ -166,3 +166,30 @@ snapshot and its successful Phase 3 index job:
 
 The service is exported for the retrieval/API orchestration added by later
 milestones. Search projection building is not exposed as an HTTP endpoint yet.
+
+## Implemented lexical query behavior
+
+Milestone 5.4 searches only the current published index for an explicitly
+scoped organization, repository, and branch.
+
+Candidate signals are:
+
+- Exact symbol identifier
+- Exact document title
+- Exact repository-relative path
+- Identifier and title prefix
+- Path containment
+- Weighted PostgreSQL full-text match
+
+Exact identifier, title, and path matches receive the strongest deterministic
+weights. Full-text rank is then added, followed by stable source-type, title,
+and document-ID tiebreakers. Responses include each match signal and immutable
+file/hash/symbol/knowledge-node provenance.
+
+Queries support optional source-type, language, and kind filters plus bounded
+pagination. Query text is trimmed, length checked, and normalized with the same
+technical-token rules used by projection building. SQL remains parameterized;
+clients cannot provide raw `tsquery`, SQL, or ranking expressions.
+
+The query service is an internal exported boundary until the permission-guarded
+HTTP endpoints are added in Milestone 5.7.

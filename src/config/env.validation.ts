@@ -388,6 +388,18 @@ class EnvironmentVariables {
 
   @Type(() => Number)
   @IsInt()
+  @Min(1)
+  @Max(1_000)
+  SEARCH_MAX_QUERY_LENGTH = 200;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(500)
+  SEARCH_MAX_RESULTS_PER_PAGE = 100;
+
+  @Type(() => Number)
+  @IsInt()
   @Min(1_024)
   @Max(10_737_418_240)
   ANALYSIS_MAX_TOTAL_SOURCE_BYTES = 536_870_912;

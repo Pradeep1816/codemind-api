@@ -5,6 +5,7 @@ import {
 } from '../../indexing/ports/code-intelligence-reader.port';
 import { KnowledgeNodeResponseDto } from '../../knowledge/dto/knowledge-response.dto';
 import { SearchDocumentSourceType } from '../enums/search-document-source-type.enum';
+import { normalizeTechnicalSearchText } from '../utils/search-text.utils';
 import { SearchDocumentInput } from './search-projection.types';
 
 export interface SearchDocumentScope {
@@ -25,7 +26,7 @@ export class SearchDocumentBuilderService {
     sourceContent: string,
     maxContentBytes: number,
   ): SearchDocumentInput[] {
-    const normalizedPath = this.normalizeTechnicalText(file.path);
+    const normalizedPath = normalizeTechnicalSearchText(file.path);
     const fileDocument: SearchDocumentInput = {
       ...scope,
       sourceType: SearchDocumentSourceType.File,
@@ -38,7 +39,7 @@ export class SearchDocumentBuilderService {
       content: this.truncateUtf8(
         this.joinContent([
           normalizedPath,
-          this.normalizeTechnicalText(this.sanitizeText(sourceContent)),
+          normalizeTechnicalSearchText(this.sanitizeText(sourceContent)),
         ]),
         maxContentBytes,
       ),
@@ -79,7 +80,7 @@ export class SearchDocumentBuilderService {
       title: this.truncateCharacters(node.name, 512),
       content: this.truncateUtf8(
         this.joinContent([
-          this.normalizeTechnicalText(node.name),
+          normalizeTechnicalSearchText(node.name),
           node.summary,
           node.kind,
           ...propertyTerms,
@@ -117,8 +118,8 @@ export class SearchDocumentBuilderService {
       title: this.truncateCharacters(symbol.qualifiedName, 512),
       content: this.truncateUtf8(
         this.joinContent([
-          this.normalizeTechnicalText(symbol.name),
-          this.normalizeTechnicalText(symbol.qualifiedName),
+          normalizeTechnicalSearchText(symbol.name),
+          normalizeTechnicalSearchText(symbol.qualifiedName),
           symbol.signature,
           symbol.documentation,
           symbol.kind,
@@ -181,7 +182,7 @@ export class SearchDocumentBuilderService {
         seen.add(current);
 
         for (const [key, item] of Object.entries(current)) {
-          terms.push(this.normalizeTechnicalText(key));
+          terms.push(normalizeTechnicalSearchText(key));
           visit(item, depth + 1);
 
           if (terms.length >= MAX_PROPERTY_TERMS) {
@@ -193,15 +194,6 @@ export class SearchDocumentBuilderService {
 
     visit(value, 0);
     return terms;
-  }
-
-  private normalizeTechnicalText(value: string): string {
-    return value
-      .replace(/([A-Z]+)([A-Z][a-z])/gu, '$1 $2')
-      .replace(/([a-z\d])([A-Z])/gu, '$1 $2')
-      .replace(/[^\p{L}\p{N}]+/gu, ' ')
-      .trim()
-      .toLowerCase();
   }
 
   private sanitizeText(value: string): string {
