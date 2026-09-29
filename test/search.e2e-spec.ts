@@ -43,6 +43,7 @@ import { SearchIndexEntity } from '../src/modules/search/entities/search-index.e
 import { SearchDocumentSourceType } from '../src/modules/search/enums/search-document-source-type.enum';
 import { SearchIndexStatus } from '../src/modules/search/enums/search-index-status.enum';
 import { SearchProjectionService } from '../src/modules/search/projection/search-projection.service';
+import type { SearchProjectionResult } from '../src/modules/search/projection/search-projection.types';
 import { SearchQueryService } from '../src/modules/search/query/search-query.service';
 import type { SearchQueryResult } from '../src/modules/search/query/search-query.types';
 import { inviteAcceptAndLogin, registerAndLoginOwner } from './support/auth';
@@ -54,6 +55,8 @@ describe('Search projection (e2e)', () => {
   const smallFixtureQueryBudgetMs = 2_000;
   const targetCommitSha = '1'.repeat(40);
   const gitBlobOid = '2'.repeat(40);
+  const nextTargetCommitSha = '9'.repeat(40);
+  const nextGitBlobOid = 'a'.repeat(40);
   const source = Buffer.from(`
     export class DoctorScheduleService {
       calculateRoundingWindow(minutes: number): number {
@@ -61,6 +64,15 @@ describe('Search projection (e2e)', () => {
       }
     }
   `);
+  const nextSource = Buffer.from(`
+    export class DoctorScheduleService {
+      calculateAvailabilityWindow(minutes: number): number {
+        return Math.floor(minutes / 30) * 30;
+      }
+    }
+  `);
+  const sourceByBlobOid = new Map<string, Buffer>();
+  let failingBlobOid: string | null = null;
   let app: INestApplication;
   let dataSource: DataSource;
   let httpServer: App;
@@ -79,8 +91,27 @@ describe('Search projection (e2e)', () => {
           branches: [],
         }),
       ),
-      readBlob: jest.fn(() =>
-        Promise.resolve({ objectId: gitBlobOid, content: source }),
+      readBlob: jest.fn(
+        (
+          _organizationId: string,
+          _repositoryId: number,
+          _commitSha: string,
+          requestedBlobOid: string,
+        ) => {
+          if (requestedBlobOid === failingBlobOid) {
+            return Promise.reject(
+              new Error('Forced search projection failure'),
+            );
+          }
+
+          const content = sourceByBlobOid.get(requestedBlobOid);
+
+          if (!content) {
+            return Promise.reject(new Error('E2E Git blob was not found'));
+          }
+
+          return Promise.resolve({ objectId: requestedBlobOid, content });
+        },
       ),
     };
 
@@ -91,6 +122,9 @@ describe('Search projection (e2e)', () => {
   });
 
   beforeEach(async () => {
+    failingBlobOid = null;
+    sourceByBlobOid.clear();
+    sourceByBlobOid.set(gitBlobOid, source);
     await resetE2eDatabase(dataSource);
   });
 
@@ -501,6 +535,140 @@ describe('Search projection (e2e)', () => {
       .expect(404);
   });
 
+  it('keeps the previous index available until a newer revision publishes', async () => {
+    const runIdentity = `search-revision-${Date.now().toString(36)}`;
+    const owner = await registerAndLoginOwner(httpServer, runIdentity);
+    const fixture = await createPublishedKnowledgeFixture(
+      owner.organizationId,
+      owner.userId,
+    );
+    const firstBuild = await request(httpServer)
+      .post(`/api/v1/repositories/${fixture.repositoryId}/search/indexes`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ branchId: fixture.branchId })
+      .expect(201);
+    const firstBuildResult = firstBuild.body as SearchProjectionResult;
+    const firstSearchIndexId = firstBuildResult.searchIndexId;
+
+    sourceByBlobOid.set(nextGitBlobOid, nextSource);
+    const revision = await createPublishedRevisionFixture(
+      fixture,
+      owner.userId,
+    );
+    failingBlobOid = nextGitBlobOid;
+
+    await request(httpServer)
+      .post(`/api/v1/repositories/${fixture.repositoryId}/search/indexes`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ branchId: fixture.branchId })
+      .expect(500);
+
+    const availableAfterFailure = await request(httpServer)
+      .get(`/api/v1/repositories/${fixture.repositoryId}/search`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .query({ branchId: fixture.branchId, query: 'rounding' })
+      .expect(200);
+    const availableAfterFailureResult =
+      availableAfterFailure.body as SearchQueryResult;
+    expect(availableAfterFailureResult).toMatchObject({
+      searchIndex: {
+        id: firstSearchIndexId,
+        targetCommitSha,
+      },
+    });
+    expect(availableAfterFailureResult.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          title: 'DoctorScheduleRoundingRule',
+        }),
+      ]),
+    );
+
+    const indexesAfterFailure = await dataSource
+      .getRepository(SearchIndexEntity)
+      .find({
+        where: { repositoryId: fixture.repositoryId },
+        order: { id: 'ASC' },
+      });
+    expect(indexesAfterFailure).toHaveLength(2);
+    expect(indexesAfterFailure[0]).toMatchObject({
+      id: firstSearchIndexId,
+      status: SearchIndexStatus.Published,
+      isCurrent: true,
+      targetCommitSha,
+    });
+    expect(indexesAfterFailure[1]).toMatchObject({
+      knowledgeSnapshotId: revision.knowledgeSnapshotId,
+      status: SearchIndexStatus.Draft,
+      isCurrent: false,
+      targetCommitSha: nextTargetCommitSha,
+    });
+
+    failingBlobOid = null;
+    const retry = await request(httpServer)
+      .post(`/api/v1/repositories/${fixture.repositoryId}/search/indexes`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ branchId: fixture.branchId })
+      .expect(201);
+    const retryResult = retry.body as SearchProjectionResult;
+    const nextSearchIndexId = retryResult.searchIndexId;
+    expect(retryResult).toMatchObject({
+      isCurrent: true,
+      reused: false,
+      targetCommitSha: nextTargetCommitSha,
+      knowledgeSnapshotId: revision.knowledgeSnapshotId,
+    });
+    expect(nextSearchIndexId).not.toBe(firstSearchIndexId);
+
+    const indexesAfterRetry = await dataSource
+      .getRepository(SearchIndexEntity)
+      .find({
+        where: { repositoryId: fixture.repositoryId },
+        order: { id: 'ASC' },
+      });
+    expect(indexesAfterRetry[0]).toMatchObject({
+      id: firstSearchIndexId,
+      status: SearchIndexStatus.Published,
+      isCurrent: false,
+    });
+    expect(indexesAfterRetry[0]?.supersededAt).toBeInstanceOf(Date);
+    expect(indexesAfterRetry[1]).toMatchObject({
+      id: nextSearchIndexId,
+      status: SearchIndexStatus.Published,
+      isCurrent: true,
+      targetCommitSha: nextTargetCommitSha,
+    });
+
+    const currentRevision = await request(httpServer)
+      .get(`/api/v1/repositories/${fixture.repositoryId}/search`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .query({ branchId: fixture.branchId, query: 'availability' })
+      .expect(200);
+    const currentRevisionResult = currentRevision.body as SearchQueryResult;
+    expect(currentRevisionResult).toMatchObject({
+      searchIndex: {
+        id: nextSearchIndexId,
+        targetCommitSha: nextTargetCommitSha,
+      },
+    });
+    expect(currentRevisionResult.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          title: 'DoctorAvailabilityRule',
+        }),
+      ]),
+    );
+
+    await expect(
+      dataSource
+        .getRepository(SearchDocumentEntity)
+        .update(
+          { searchIndexId: firstSearchIndexId },
+          { content: 'historical content changed' },
+        ),
+    ).rejects.toThrow('published search index content is immutable');
+  });
+
   async function createPublishedKnowledgeFixture(
     organizationId: string,
     ownerUserId: string,
@@ -783,6 +951,186 @@ describe('Search projection (e2e)', () => {
       organizationId,
       repositoryId: repository.id,
       branchId: branch.id,
+      indexJobId: indexJob.id,
+      knowledgeSnapshotId: published.snapshotId,
+    };
+  }
+
+  async function createPublishedRevisionFixture(
+    fixture: {
+      organizationId: string;
+      repositoryId: number;
+      branchId: number;
+    },
+    ownerUserId: string,
+  ): Promise<{ indexJobId: number; knowledgeSnapshotId: number }> {
+    const now = new Date();
+    await dataSource
+      .getRepository(RepositoryBranchEntity)
+      .update(
+        { id: fixture.branchId, repositoryId: fixture.repositoryId },
+        { commitSha: nextTargetCommitSha, lastIndexedAt: now },
+      );
+    const indexJob = await dataSource.getRepository(IndexJobEntity).save({
+      organizationId: fixture.organizationId,
+      repositoryId: fixture.repositoryId,
+      branchId: fixture.branchId,
+      requestedByUserId: ownerUserId,
+      retryOfJobId: null,
+      trigger: IndexJobTrigger.Manual,
+      mode: IndexingMode.Incremental,
+      status: IndexJobStatus.Succeeded,
+      phase: IndexJobPhase.Finished,
+      targetCommitSha: nextTargetCommitSha,
+      totalFiles: 1,
+      processedFiles: 1,
+      skippedFiles: 0,
+      failedFiles: 0,
+      processedSymbols: 1,
+      processedDependencies: 0,
+      attemptCount: 1,
+      maxAttempts: 3,
+      claimedBy: null,
+      leaseToken: null,
+      failureCode: null,
+      failureMessage: null,
+      startedAt: now,
+      completedAt: now,
+      lastHeartbeatAt: null,
+      leaseExpiresAt: null,
+      nextAttemptAt: null,
+      cancellationRequestedAt: null,
+      currentFile: null,
+    });
+    const indexedFile = await dataSource
+      .getRepository(IndexedFileEntity)
+      .findOneByOrFail({
+        organizationId: fixture.organizationId,
+        repositoryId: fixture.repositoryId,
+        branchId: fixture.branchId,
+        path: 'src/doctor-schedule.service.ts',
+      });
+    const fileHash = await dataSource.getRepository(FileHashEntity).save({
+      organizationId: fixture.organizationId,
+      indexedFileId: indexedFile.id,
+      observedByJobId: indexJob.id,
+      analyzedByJobId: indexJob.id,
+      algorithm: FileHashAlgorithm.Sha256,
+      value: 'b'.repeat(64),
+      gitBlobOid: nextGitBlobOid,
+      sizeBytes: nextSource.length,
+      analysisCompletedAt: now,
+    });
+    await dataSource.getRepository(IndexedFileEntity).update(
+      { id: indexedFile.id },
+      {
+        lastSeenJobId: indexJob.id,
+        currentFileHashId: fileHash.id,
+        sizeBytes: nextSource.length,
+        lastSeenCommitSha: nextTargetCommitSha,
+      },
+    );
+    const symbol = await dataSource.getRepository(CodeSymbolEntity).save({
+      organizationId: fixture.organizationId,
+      repositoryId: fixture.repositoryId,
+      branchId: fixture.branchId,
+      indexedFileId: indexedFile.id,
+      fileHashId: fileHash.id,
+      observedByJobId: indexJob.id,
+      name: 'calculateAvailabilityWindow',
+      qualifiedName: 'DoctorScheduleService.calculateAvailabilityWindow',
+      kind: CodeSymbolKind.Method,
+      visibility: CodeSymbolVisibility.Public,
+      exported: false,
+      defaultExport: false,
+      signature: 'calculateAvailabilityWindow(minutes: number): number',
+      documentation: 'Calculates doctor availability in thirty-minute windows.',
+      startLine: 3,
+      startColumn: 7,
+      startOffset: 46,
+      endLine: 5,
+      endColumn: 8,
+      endOffset: Math.min(nextSource.length, 150),
+    });
+    const created = await knowledgeService.createBuild({
+      organizationId: fixture.organizationId,
+      repositoryId: fixture.repositoryId,
+      branchId: fixture.branchId,
+      sourceIndexJobId: indexJob.id,
+      requestedByUserId: ownerUserId,
+      trigger: KnowledgeBuildTrigger.Manual,
+      analyzerBundleVersion: 'search-e2e-v2',
+      configurationDigest: 'c'.repeat(64),
+      maxAttempts: 3,
+    });
+    const leaseToken = randomUUID();
+    await dataSource.getRepository(KnowledgeBuildEntity).update(
+      { id: created.buildId },
+      {
+        status: KnowledgeBuildStatus.Running,
+        phase: KnowledgeBuildPhase.Analyzing,
+        attemptCount: 1,
+        claimedBy: 'search-e2e-revision-worker',
+        leaseToken,
+        startedAt: now,
+        lastHeartbeatAt: now,
+        leaseExpiresAt: new Date(now.getTime() + 60_000),
+      },
+    );
+    await knowledgeService.persistGraphBatch({
+      organizationId: fixture.organizationId,
+      repositoryId: fixture.repositoryId,
+      buildId: created.buildId,
+      leaseToken,
+      nodes: [
+        {
+          identityKey: 'rule:doctor-availability',
+          kind: KnowledgeNodeKind.BusinessRule,
+          name: 'DoctorAvailabilityRule',
+          summary: 'Doctor availability uses thirty-minute scheduling windows.',
+          derivationType: KnowledgeDerivationType.Deterministic,
+          confidence: 1,
+          analyzerName: 'search-e2e-analyzer',
+          analyzerVersion: '2.0.0',
+          contentFingerprint: 'd'.repeat(64),
+          propertySchemaVersion: 1,
+          properties: { intervalMinutes: 30 },
+          evidence: [
+            {
+              indexedFileId: indexedFile.id,
+              fileHashId: fileHash.id,
+              codeSymbolId: symbol.id,
+              role: KnowledgeEvidenceRole.Declaration,
+              range: {
+                startLine: 3,
+                startColumn: 7,
+                startOffset: 46,
+                endLine: 5,
+                endColumn: 8,
+                endOffset: Math.min(nextSource.length, 150),
+              },
+            },
+          ],
+        },
+      ],
+      edges: [],
+    });
+    await dataSource.getRepository(KnowledgeBuildEntity).update(
+      { id: created.buildId },
+      {
+        phase: KnowledgeBuildPhase.Publishing,
+        processedFiles: 1,
+        currentFile: null,
+      },
+    );
+    const published = await knowledgeService.publishSnapshot({
+      organizationId: fixture.organizationId,
+      repositoryId: fixture.repositoryId,
+      buildId: created.buildId,
+      leaseToken,
+    });
+
+    return {
       indexJobId: indexJob.id,
       knowledgeSnapshotId: published.snapshotId,
     };

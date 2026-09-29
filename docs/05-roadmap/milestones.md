@@ -680,10 +680,11 @@ Delivered:
 - Cross-tenant, oversized-query, invalid-filter, missing-snapshot, and
   idempotent-rebuild regression coverage
 - Small deterministic-fixture projection and query latency budgets
+- Failed-rebuild availability and atomic current-index replacement across
+  repository revisions
 
 Remaining:
 
-- Current-index replacement and failed-rebuild availability tests
 - Larger-repository throughput, latency, and query-plan baseline
 - Final Phase 5 documentation and completion review
 

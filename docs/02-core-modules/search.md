@@ -73,6 +73,11 @@ One search index targets exactly one successful index job and published
 knowledge snapshot. Documents remain invisible until publication. A published
 index is immutable, and only one index can be current for a branch.
 
+If a newer projection fails, its draft remains non-current and the previous
+published index stays available for queries. A successful retry publishes the
+new projection and atomically marks the previous index as historical, without
+mutating its documents.
+
 If the branch advances while a projection is being built, the projection can
 be published as historical but cannot replace the current branch index.
 
