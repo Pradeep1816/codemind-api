@@ -337,6 +337,21 @@ Base path:
 
 /api/v1/repositories/{repositoryId}/search
 
+Build Current Search Index
+POST /repositories/{repositoryId}/search/indexes
+
+Required permissions:
+
+- repository.read
+- repository.index
+- search.use
+
+Request:
+
+{
+"branchId":2
+}
+
 Repository Search
 GET /repositories/{repositoryId}/search
 
@@ -381,7 +396,9 @@ Response:
 }
 
 See [Search API](search-api.md) for validation, response metadata, security,
-and error details. 11. Knowledge APIs
+and error details.
+
+11. Knowledge APIs
 
 Base path:
 

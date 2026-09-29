@@ -654,11 +654,23 @@ Delivered:
   coverage
 - Public API contract documentation
 
-### 5.8–5.9 Search experience and quality
+### 5.8 Web search experience
+
+Status: Complete
+
+Delivered:
+
+- Repository branch search with source, language, and kind filters
+- Ranked file, symbol, and knowledge results with content previews
+- Score explanations, graph influence, commit scope, and source provenance
+- Explicit retry-safe search projection build for existing knowledge snapshots
+- Permission-aware missing-index recovery and automatic query refresh
+- Responsive result selection, details, empty, loading, and error states
+
+### 5.9 Search quality and hardening
 
 Planned:
 
-- Web search experience
 - Quality corpus, security, PostgreSQL integration, and performance tests
 
 ## Later phases

@@ -9,8 +9,8 @@ or knowledge sources of truth.
 
 Status: Phase 5 in progress. Architecture, persistence, projection building,
 exact/lexical retrieval, bounded graph expansion, and explainable ranking are
-implemented and exposed through a tenant-scoped API. The web search experience
-is next.
+implemented and exposed through a tenant-scoped API and repository web search
+experience. Quality and performance hardening are next.
 
 ## Responsibilities
 
@@ -142,8 +142,8 @@ kept in source control.
 |       5.5 | Bounded dependency and knowledge-graph expansion   | Complete |
 |       5.6 | Ranking, deduplication, filters, and explanations  | Complete |
 |       5.7 | Tenant-scoped search APIs                          | Complete |
-|       5.8 | Web search experience                              | Next     |
-|       5.9 | Quality, security, performance tests and docs      | Planned  |
+|       5.8 | Web search experience                              | Complete |
+|       5.9 | Quality, security, performance tests and docs      | Next     |
 
 ## Implemented projection behavior
 
@@ -255,3 +255,11 @@ Cross-organization repository identifiers return `404`, and branches without a
 current published search index return `404`. The public response omits internal
 organization scope while retaining repository, branch, commit, source-index,
 knowledge-snapshot, ranking, and source-provenance information.
+
+Milestone 5.8 adds an explicit `POST
+/api/v1/repositories/:repositoryId/search/indexes` recovery and bootstrap path.
+It resolves the branch's current published knowledge snapshot inside the token
+tenant, builds or reuses its immutable search projection, and requires
+`repository.read`, `repository.index`, and `search.use`. The web repository
+workspace offers this action when a query reports that no published search
+index exists, then automatically retries the pending query.

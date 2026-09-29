@@ -21,6 +21,7 @@ import {
 } from './search-projection.errors';
 import { SearchProjectionRepository } from './search-projection.repository';
 import {
+  BuildCurrentSearchProjectionInput,
   BuildSearchProjectionInput,
   SearchDocumentCounts,
   SearchDocumentInput,
@@ -44,6 +45,24 @@ export class SearchProjectionService {
     private readonly documentBuilder: SearchDocumentBuilderService,
     private readonly projectionRepository: SearchProjectionRepository,
   ) {}
+
+  /** Builds the projection for the published snapshot currently selected by a branch. */
+  async buildCurrent(
+    input: BuildCurrentSearchProjectionInput,
+  ): Promise<SearchProjectionResult> {
+    const knowledgeSnapshot =
+      await this.knowledgeQueryService.findCurrentSnapshot(
+        input.organizationId,
+        input.repositoryId,
+        { branchId: input.branchId },
+      );
+
+    return this.build({
+      organizationId: input.organizationId,
+      repositoryId: input.repositoryId,
+      knowledgeSnapshotId: knowledgeSnapshot.id,
+    });
+  }
 
   /**
    * Rebuilds one deterministic search projection from immutable Phase 3 and

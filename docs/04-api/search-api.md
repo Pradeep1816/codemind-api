@@ -2,10 +2,32 @@
 
 ## Status
 
-Milestone 5.7 is complete. The API exposes the current published search index
-for one repository branch through authenticated, tenant-scoped retrieval.
+Milestones 5.7 and 5.8 are complete. The API builds or reuses a branch's current
+search projection and exposes it through authenticated, tenant-scoped
+retrieval.
 
-## Endpoint
+## Build the current search index
+
+```http
+POST /api/v1/repositories/:repositoryId/search/indexes
+Authorization: Bearer <access-token>
+Content-Type: application/json
+
+{
+  "branchId": 3
+}
+```
+
+The caller must have `repository.read`, `repository.index`, and `search.use`.
+The server resolves the branch's current published knowledge snapshot, builds
+and atomically publishes its projection, or reuses an identical published
+projection. The operation is retry safe and returns `201 Created` with document
+counts and immutable source identifiers.
+
+If the branch does not have a published knowledge snapshot, the endpoint
+returns `404 Not Found` without creating a partial search index.
+
+## Search the current index
 
 ```http
 GET /api/v1/repositories/:repositoryId/search
@@ -128,7 +150,8 @@ pageable lexical matches.
 ## Security and visibility
 
 - Missing, invalid, or expired access tokens return `401 Unauthorized`.
-- Missing either required permission returns `403 Forbidden`.
+- Missing any permissions required by the selected operation returns `403
+Forbidden`.
 - A repository belonging to another organization returns `404 Not Found`.
 - Only the current published search index for the requested branch is visible.
 - Draft, historical, and partially built search indexes are never selected.
@@ -142,6 +165,6 @@ pageable lexical matches.
 | -----: | -------------------------------------------------------- |
 |  `400` | Invalid query, identifier, filter, pagination, or field  |
 |  `401` | Access token missing, invalid, or expired                |
-|  `403` | `repository.read` or `search.use` permission is missing  |
-|  `404` | Repository or current published search index not found   |
+|  `403` | A required repository or search permission is missing    |
+|  `404` | Repository, knowledge snapshot, or search index missing  |
 |  `503` | Authorization or another required service is unavailable |

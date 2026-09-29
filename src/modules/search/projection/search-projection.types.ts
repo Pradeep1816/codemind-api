@@ -7,6 +7,12 @@ export interface BuildSearchProjectionInput {
   knowledgeSnapshotId: number;
 }
 
+export interface BuildCurrentSearchProjectionInput {
+  organizationId: string;
+  repositoryId: number;
+  branchId: number;
+}
+
 export interface CreateSearchIndexInput {
   organizationId: string;
   repositoryId: number;

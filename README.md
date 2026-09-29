@@ -40,8 +40,9 @@ identifier/path plus PostgreSQL full-text retrieval. Lexical seeds can also be
 expanded through bounded structural dependencies and knowledge relationships;
 exact, lexical, and graph candidates are now fused into a deterministic,
 deduplicated result list with score explanations and exposed through a
-permission-guarded, tenant-scoped repository Search API. The web search
-experience is next.
+permission-guarded, tenant-scoped repository Search API. Repository workspaces
+can build the current branch projection and search files, symbols, and
+knowledge through ranked, source-grounded results.
 
 Implemented:
 

@@ -112,11 +112,39 @@ describe('Search projection (e2e)', () => {
       owner.userId,
     );
 
-    const built = await searchService.build({
-      organizationId: fixture.organizationId,
-      repositoryId: fixture.repositoryId,
-      knowledgeSnapshotId: fixture.knowledgeSnapshotId,
-    });
+    await request(httpServer)
+      .post(`/api/v1/repositories/${fixture.repositoryId}/search/indexes`)
+      .send({ branchId: fixture.branchId })
+      .expect(401);
+
+    await request(httpServer)
+      .post(`/api/v1/repositories/${fixture.repositoryId}/search/indexes`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ branchId: 0 })
+      .expect(400);
+
+    const buildResponse = await request(httpServer)
+      .post(`/api/v1/repositories/${fixture.repositoryId}/search/indexes`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ branchId: fixture.branchId })
+      .expect(201);
+    const built = buildResponse.body as {
+      searchIndexId: number;
+      repositoryId: number;
+      branchId: number;
+      knowledgeSnapshotId: number;
+      sourceIndexJobId: number;
+      targetCommitSha: string;
+      isCurrent: boolean;
+      reused: boolean;
+      documentCount: number;
+      documents: {
+        files: number;
+        symbols: number;
+        knowledgeNodes: number;
+        total: number;
+      };
+    };
 
     expect(built).toMatchObject({
       repositoryId: fixture.repositoryId,
@@ -315,6 +343,11 @@ describe('Search projection (e2e)', () => {
       .get(`/api/v1/repositories/${fixture.repositoryId}/search`)
       .set('Authorization', `Bearer ${foreignOwner.accessToken}`)
       .query({ branchId: fixture.branchId, query: 'rounding' })
+      .expect(404);
+    await request(httpServer)
+      .post(`/api/v1/repositories/${fixture.repositoryId}/search/indexes`)
+      .set('Authorization', `Bearer ${foreignOwner.accessToken}`)
+      .send({ branchId: fixture.branchId })
       .expect(404);
   });
 

@@ -88,6 +88,40 @@ describe('SearchProjectionService', () => {
     expect(repository.publish).not.toHaveBeenCalled();
   });
 
+  it('builds from the current published snapshot selected by a branch', async () => {
+    const repository = projectionRepository({
+      status: SearchIndexStatus.Published,
+      isCurrent: true,
+      documentCount: 3,
+      publishedAt,
+    });
+    const knowledgeService = knowledgeQueryService();
+    const service = createService({ repository, knowledgeService });
+
+    const result = await service.buildCurrent({
+      organizationId,
+      repositoryId: 2,
+      branchId: 3,
+    });
+
+    expect(knowledgeService.findCurrentSnapshot).toHaveBeenCalledWith(
+      organizationId,
+      2,
+      { branchId: 3 },
+    );
+    expect(knowledgeService.findSnapshot).toHaveBeenCalledWith(
+      organizationId,
+      2,
+      8,
+    );
+    expect(result).toMatchObject({
+      searchIndexId: 11,
+      branchId: 3,
+      knowledgeSnapshotId: 8,
+      reused: true,
+    });
+  });
+
   it('rejects code and knowledge snapshots from different commits', async () => {
     const codeReader = codeIntelligenceReader([]);
     codeReader.getSnapshot.mockResolvedValue({
@@ -119,8 +153,10 @@ describe('SearchProjectionService', () => {
     files?: CodeIntelligenceFile[];
     codeReader?: ReturnType<typeof codeIntelligenceReader>;
     sourceReader?: ReturnType<typeof immutableSourceReader>;
+    knowledgeService?: ReturnType<typeof knowledgeQueryService>;
   }): SearchProjectionService {
-    const knowledgeService = knowledgeQueryService();
+    const knowledgeService =
+      options.knowledgeService ?? knowledgeQueryService();
 
     return new SearchProjectionService(
       configuration,
@@ -214,23 +250,26 @@ describe('SearchProjectionService', () => {
   }
 
   function knowledgeQueryService() {
+    const snapshot = {
+      id: 8,
+      repositoryId: 2,
+      branchId: 3,
+      knowledgeBuildId: 9,
+      sourceIndexJobId: 7,
+      targetCommitSha,
+      analyzerBundleVersion: 'phase4-v3',
+      configurationDigest: 'd'.repeat(64),
+      status: KnowledgeSnapshotStatus.Published,
+      isCurrent: true,
+      publishedAt: publishedAt.toISOString(),
+      supersededAt: null,
+      createdAt: publishedAt.toISOString(),
+      graph: { nodes: 1, edges: 0 },
+    };
+
     return {
-      findSnapshot: jest.fn().mockResolvedValue({
-        id: 8,
-        repositoryId: 2,
-        branchId: 3,
-        knowledgeBuildId: 9,
-        sourceIndexJobId: 7,
-        targetCommitSha,
-        analyzerBundleVersion: 'phase4-v3',
-        configurationDigest: 'd'.repeat(64),
-        status: KnowledgeSnapshotStatus.Published,
-        isCurrent: true,
-        publishedAt: publishedAt.toISOString(),
-        supersededAt: null,
-        createdAt: publishedAt.toISOString(),
-        graph: { nodes: 1, edges: 0 },
-      }),
+      findCurrentSnapshot: jest.fn().mockResolvedValue(snapshot),
+      findSnapshot: jest.fn().mockResolvedValue(snapshot),
       listNodes: jest.fn().mockResolvedValue({
         data: [
           {
