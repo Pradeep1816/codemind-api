@@ -669,9 +669,23 @@ Delivered:
 
 ### 5.9 Search quality and hardening
 
-Planned:
+Status: In progress
 
-- Quality corpus, security, PostgreSQL integration, and performance tests
+Delivered:
+
+- PostgreSQL ranking corpus for exact symbols, repository paths, business
+  rules, and domain knowledge
+- Search-read coverage for OWNER, ADMIN, DEVELOPER, and VIEWER
+- Projection-build authorization coverage for writable and read-only roles
+- Cross-tenant, oversized-query, invalid-filter, missing-snapshot, and
+  idempotent-rebuild regression coverage
+- Small deterministic-fixture projection and query latency budgets
+
+Remaining:
+
+- Current-index replacement and failed-rebuild availability tests
+- Larger-repository throughput, latency, and query-plan baseline
+- Final Phase 5 documentation and completion review
 
 ## Later phases
 

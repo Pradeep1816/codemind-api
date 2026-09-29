@@ -115,7 +115,8 @@ deduplicated result list with bounded graph influence and score explanations.
 Phase 5.7 exposes that pipeline through a validated, permission-guarded,
 tenant-scoped repository Search API. Phase 5.8 adds projection bootstrap and a
 repository web experience with filters, ranking explanations, previews, and
-source provenance. Quality and performance hardening are next.
+source provenance. Phase 5.9 quality, security, lifecycle, and performance
+hardening is in progress.
 
 Architecture decisions:
 
@@ -274,17 +275,17 @@ Goal: retrieve the smallest, most relevant source-grounded context.
 
 Milestones:
 
-| Milestone | Scope                                                  | Status   |
-| --------: | ------------------------------------------------------ | -------- |
-|       5.1 | Architecture, boundaries, ranking and engine decision  | Complete |
-|       5.2 | Versioned search-index and document schema             | Complete |
-|       5.3 | Projection builder and atomic publication              | Complete |
-|       5.4 | Exact identifier, path, symbol, and lexical search     | Complete |
-|       5.5 | Bounded dependency and knowledge-graph expansion       | Complete |
-|       5.6 | Ranking, deduplication, filters, and explanations      | Complete |
-|       5.7 | Tenant-scoped search APIs                              | Complete |
-|       5.8 | Web search experience                                  | Complete |
-|       5.9 | Quality, security, performance tests and documentation | Next     |
+| Milestone | Scope                                                  | Status      |
+| --------: | ------------------------------------------------------ | ----------- |
+|       5.1 | Architecture, boundaries, ranking and engine decision  | Complete    |
+|       5.2 | Versioned search-index and document schema             | Complete    |
+|       5.3 | Projection builder and atomic publication              | Complete    |
+|       5.4 | Exact identifier, path, symbol, and lexical search     | Complete    |
+|       5.5 | Bounded dependency and knowledge-graph expansion       | Complete    |
+|       5.6 | Ranking, deduplication, filters, and explanations      | Complete    |
+|       5.7 | Tenant-scoped search APIs                              | Complete    |
+|       5.8 | Web search experience                                  | Complete    |
+|       5.9 | Quality, security, performance tests and documentation | In progress |
 
 Planned capabilities:
 

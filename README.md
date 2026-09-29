@@ -42,7 +42,8 @@ exact, lexical, and graph candidates are now fused into a deterministic,
 deduplicated result list with score explanations and exposed through a
 permission-guarded, tenant-scoped repository Search API. Repository workspaces
 can build the current branch projection and search files, symbols, and
-knowledge through ranked, source-grounded results.
+knowledge through ranked, source-grounded results. Phase 5 search quality,
+security, lifecycle, and performance hardening is in progress.
 
 Implemented:
 

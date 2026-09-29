@@ -45,11 +45,13 @@ import { SearchIndexStatus } from '../src/modules/search/enums/search-index-stat
 import { SearchProjectionService } from '../src/modules/search/projection/search-projection.service';
 import { SearchQueryService } from '../src/modules/search/query/search-query.service';
 import type { SearchQueryResult } from '../src/modules/search/query/search-query.types';
-import { registerAndLoginOwner } from './support/auth';
+import { inviteAcceptAndLogin, registerAndLoginOwner } from './support/auth';
 import { resetE2eDatabase } from './support/database';
 import { createE2eApplication, E2eGitService } from './support/e2e-application';
 
 describe('Search projection (e2e)', () => {
+  const smallFixtureBuildBudgetMs = 10_000;
+  const smallFixtureQueryBudgetMs = 2_000;
   const targetCommitSha = '1'.repeat(40);
   const gitBlobOid = '2'.repeat(40);
   const source = Buffer.from(`
@@ -123,11 +125,15 @@ describe('Search projection (e2e)', () => {
       .send({ branchId: 0 })
       .expect(400);
 
+    const buildStartedAt = performance.now();
     const buildResponse = await request(httpServer)
       .post(`/api/v1/repositories/${fixture.repositoryId}/search/indexes`)
       .set('Authorization', `Bearer ${owner.accessToken}`)
       .send({ branchId: fixture.branchId })
       .expect(201);
+    expect(performance.now() - buildStartedAt).toBeLessThan(
+      smallFixtureBuildBudgetMs,
+    );
     const built = buildResponse.body as {
       searchIndexId: number;
       repositoryId: number;
@@ -234,6 +240,43 @@ describe('Search projection (e2e)', () => {
       name: 'exactIdentifier',
       contribution: 120,
     });
+
+    const qualityCorpus = [
+      {
+        query: 'calculateRoundingWindow',
+        expectedTitle: 'DoctorScheduleService.calculateRoundingWindow',
+        expectedSourceType: SearchDocumentSourceType.Symbol,
+      },
+      {
+        query: 'src/doctor-schedule.service.ts',
+        expectedTitle: 'src/doctor-schedule.service.ts',
+        expectedSourceType: SearchDocumentSourceType.File,
+      },
+      {
+        query: 'DoctorScheduleRoundingRule',
+        expectedTitle: 'DoctorScheduleRoundingRule',
+        expectedSourceType: SearchDocumentSourceType.KnowledgeNode,
+      },
+      {
+        query: 'ScheduleWindow',
+        expectedTitle: 'ScheduleWindow',
+        expectedSourceType: SearchDocumentSourceType.KnowledgeNode,
+      },
+    ] as const;
+
+    for (const qualityCase of qualityCorpus) {
+      const qualityResult = await searchQueryService.search({
+        organizationId: fixture.organizationId,
+        repositoryId: fixture.repositoryId,
+        branchId: fixture.branchId,
+        query: qualityCase.query,
+      });
+
+      expect(qualityResult.data[0]).toMatchObject({
+        title: qualityCase.expectedTitle,
+        sourceType: qualityCase.expectedSourceType,
+      });
+    }
     expect(new Set(exact.data.map((item) => item.id)).size).toBe(
       exact.data.length,
     );
@@ -308,6 +351,7 @@ describe('Search projection (e2e)', () => {
       })
       .expect(400);
 
+    const queryStartedAt = performance.now();
     const apiResponse = await request(httpServer)
       .get(`/api/v1/repositories/${fixture.repositoryId}/search`)
       .set('Authorization', `Bearer ${owner.accessToken}`)
@@ -321,6 +365,9 @@ describe('Search projection (e2e)', () => {
         limit: 10,
       })
       .expect(200);
+    expect(performance.now() - queryStartedAt).toBeLessThan(
+      smallFixtureQueryBudgetMs,
+    );
     const apiResult = apiResponse.body as SearchQueryResult;
 
     expect(apiResult.searchIndex).not.toHaveProperty('organizationId');
@@ -334,6 +381,109 @@ describe('Search projection (e2e)', () => {
       repositoryId: fixture.repositoryId,
       branchId: fixture.branchId,
     });
+
+    const foreignOwner = await registerAndLoginOwner(
+      httpServer,
+      `${runIdentity}-foreign`,
+    );
+    await request(httpServer)
+      .get(`/api/v1/repositories/${fixture.repositoryId}/search`)
+      .set('Authorization', `Bearer ${foreignOwner.accessToken}`)
+      .query({ branchId: fixture.branchId, query: 'rounding' })
+      .expect(404);
+    await request(httpServer)
+      .post(`/api/v1/repositories/${fixture.repositoryId}/search/indexes`)
+      .set('Authorization', `Bearer ${foreignOwner.accessToken}`)
+      .send({ branchId: fixture.branchId })
+      .expect(404);
+  });
+
+  it('enforces the search permission matrix and lifecycle boundaries', async () => {
+    const runIdentity = `search-security-${Date.now().toString(36)}`;
+    const owner = await registerAndLoginOwner(httpServer, runIdentity);
+    const fixture = await createPublishedKnowledgeFixture(
+      owner.organizationId,
+      owner.userId,
+    );
+
+    const firstBuild = await request(httpServer)
+      .post(`/api/v1/repositories/${fixture.repositoryId}/search/indexes`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ branchId: fixture.branchId })
+      .expect(201);
+    expect(firstBuild.body).toMatchObject({ reused: false, isCurrent: true });
+
+    const admin = await inviteAcceptAndLogin(
+      httpServer,
+      owner.accessToken,
+      `${runIdentity}-admin`,
+      'ADMIN',
+    );
+    const developer = await inviteAcceptAndLogin(
+      httpServer,
+      owner.accessToken,
+      `${runIdentity}-developer`,
+      'DEVELOPER',
+    );
+    const viewer = await inviteAcceptAndLogin(
+      httpServer,
+      owner.accessToken,
+      `${runIdentity}-viewer`,
+      'VIEWER',
+    );
+
+    for (const identity of [owner, admin, developer, viewer]) {
+      await request(httpServer)
+        .get(`/api/v1/repositories/${fixture.repositoryId}/search`)
+        .set('Authorization', `Bearer ${identity.accessToken}`)
+        .query({ branchId: fixture.branchId, query: 'rounding' })
+        .expect(200);
+    }
+
+    for (const identity of [owner, admin, developer]) {
+      const reused = await request(httpServer)
+        .post(`/api/v1/repositories/${fixture.repositoryId}/search/indexes`)
+        .set('Authorization', `Bearer ${identity.accessToken}`)
+        .send({ branchId: fixture.branchId })
+        .expect(201);
+      expect(reused.body).toMatchObject({ reused: true, isCurrent: true });
+    }
+
+    await request(httpServer)
+      .post(`/api/v1/repositories/${fixture.repositoryId}/search/indexes`)
+      .set('Authorization', `Bearer ${viewer.accessToken}`)
+      .send({ branchId: fixture.branchId })
+      .expect(403);
+
+    await request(httpServer)
+      .get(`/api/v1/repositories/${fixture.repositoryId}/search`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .query({ branchId: fixture.branchId, query: 'a'.repeat(201) })
+      .expect(400);
+    await request(httpServer)
+      .get(`/api/v1/repositories/${fixture.repositoryId}/search`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .query({
+        branchId: fixture.branchId,
+        query: 'rounding',
+        sourceType: 'unsupported',
+      })
+      .expect(400);
+
+    const branchWithoutKnowledge = await dataSource
+      .getRepository(RepositoryBranchEntity)
+      .save({
+        repositoryId: fixture.repositoryId,
+        name: 'without-knowledge',
+        commitSha: targetCommitSha,
+        status: BranchStatus.Active,
+        lastIndexedAt: null,
+      });
+    await request(httpServer)
+      .post(`/api/v1/repositories/${fixture.repositoryId}/search/indexes`)
+      .set('Authorization', `Bearer ${owner.accessToken}`)
+      .send({ branchId: branchWithoutKnowledge.id })
+      .expect(404);
 
     const foreignOwner = await registerAndLoginOwner(
       httpServer,

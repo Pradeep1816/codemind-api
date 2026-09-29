@@ -10,7 +10,7 @@ or knowledge sources of truth.
 Status: Phase 5 in progress. Architecture, persistence, projection building,
 exact/lexical retrieval, bounded graph expansion, and explainable ranking are
 implemented and exposed through a tenant-scoped API and repository web search
-experience. Quality and performance hardening are next.
+experience. Quality and performance hardening are in progress.
 
 ## Responsibilities
 
@@ -133,17 +133,17 @@ kept in source control.
 
 ## Milestones
 
-| Milestone | Outcome                                            | Status   |
-| --------: | -------------------------------------------------- | -------- |
-|       5.1 | Architecture, boundaries, ranking and engine ADR   | Complete |
-|       5.2 | Versioned search-index and document schema         | Complete |
-|       5.3 | Projection builder and atomic publication          | Complete |
-|       5.4 | Exact identifier, path, symbol, and lexical search | Complete |
-|       5.5 | Bounded dependency and knowledge-graph expansion   | Complete |
-|       5.6 | Ranking, deduplication, filters, and explanations  | Complete |
-|       5.7 | Tenant-scoped search APIs                          | Complete |
-|       5.8 | Web search experience                              | Complete |
-|       5.9 | Quality, security, performance tests and docs      | Next     |
+| Milestone | Outcome                                            | Status      |
+| --------: | -------------------------------------------------- | ----------- |
+|       5.1 | Architecture, boundaries, ranking and engine ADR   | Complete    |
+|       5.2 | Versioned search-index and document schema         | Complete    |
+|       5.3 | Projection builder and atomic publication          | Complete    |
+|       5.4 | Exact identifier, path, symbol, and lexical search | Complete    |
+|       5.5 | Bounded dependency and knowledge-graph expansion   | Complete    |
+|       5.6 | Ranking, deduplication, filters, and explanations  | Complete    |
+|       5.7 | Tenant-scoped search APIs                          | Complete    |
+|       5.8 | Web search experience                              | Complete    |
+|       5.9 | Quality, security, performance tests and docs      | In progress |
 
 ## Implemented projection behavior
 
