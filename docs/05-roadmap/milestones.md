@@ -2,15 +2,16 @@
 
 ## Current delivery state
 
-| Phase                                      | Status   |
-| ------------------------------------------ | -------- |
-| Phase 1 — Platform & Identity              | Complete |
-| Phase 2 — Repository Management            | Complete |
-| Phase 3 — Indexing & Code Intelligence     | Complete |
-| Phase 4 — Knowledge Graph & Business Logic | Complete |
-| Phase 5 — Search Engine                    | Complete |
-| Phases 6–7                                 | Planned  |
-| Phase 8                                    | Future   |
+| Phase                                      | Status      |
+| ------------------------------------------ | ----------- |
+| Phase 1 — Platform & Identity              | Complete    |
+| Phase 2 — Repository Management            | Complete    |
+| Phase 3 — Indexing & Code Intelligence     | Complete    |
+| Phase 4 — Knowledge Graph & Business Logic | Complete    |
+| Phase 5 — Search Engine                    | Complete    |
+| Phase 6 — AI Assistant (RAG)               | In progress |
+| Phase 7 — MCP Server                       | Planned     |
+| Phase 8                                    | Future      |
 
 Milestones 3.1 through 3.12 are implemented. They define the indexing data model,
 durable queued-job API, immutable commit verification, and isolated job
@@ -686,12 +687,84 @@ Delivered:
   query-plan baseline
 - Final Search module, schema, API, ADR, test-runbook, and roadmap review
 
+## Phase 6 — AI Assistant (RAG)
+
+Status: In progress
+
+Goal: turn permission-scoped Phase 5 results into bounded, source-cited
+developer answers without making model output authoritative.
+
+### 6.1 RAG architecture and ADR
+
+Status: Complete
+
+Delivered:
+
+- Search-retrieves/AI-reasons responsibility boundary
+- AI-to-Search dependency direction and forbidden direct table access
+- `AiRequest`, `AiRun`, `Conversation`, `Message`, `RetrievedContext`,
+  `SourceCitation`, `ContextBuilder`, `TokenBudget`, and `AiProvider` ownership
+- Authorization, provider, prompt-injection, and tenant-isolation boundaries
+- Context selection, token budgeting, citation validation, and provenance rules
+- Timeout, retry, cancellation, privacy, usage, and cost-accounting policies
+- Explicit deferral criteria for embeddings, `pgvector`, fine-tuning, and agents
+
+### 6.2 AI data model
+
+Status: Planned
+
+Define migration-backed conversations, messages, runs, attempts, context
+manifests, citations, usage, lifecycle constraints, retention fields, and
+tenant/commit provenance.
+
+### 6.3 Provider abstraction
+
+Status: Planned
+
+Implement the application-owned `AiProvider` contract, validated generation
+limits, normalized errors/usage, timeout and cancellation propagation, bounded
+retries, and the first configured provider adapter.
+
+### 6.4 RAG context builder
+
+Status: Planned
+
+Consume Phase 5 Search through an exported contract, deduplicate and select
+ranked evidence, enforce token/byte/source budgets, delimit untrusted content,
+and create the immutable citation manifest.
+
+### 6.5 Grounded Q&A pipeline
+
+Status: Planned
+
+Orchestrate authorization, retrieval, context construction, generation,
+structured-output validation, citations, run lifecycle, usage, and
+insufficient-evidence behavior.
+
+### 6.6 Tenant-scoped AI APIs
+
+Status: Planned
+
+Expose validated repository questions, conversation history, run status, and
+cancellation with `ai.query`, `repository.read`, and `search.use` enforcement.
+
+### 6.7 Frontend assistant
+
+Status: Planned
+
+Add a repository assistant with conversations, bounded streaming behavior,
+clickable citations, immutable commit scope, usage display, and complete
+loading/error/empty states.
+
+### 6.8 Evaluation and security
+
+Status: Planned
+
+Add retrieval/answer/citation evaluation, cross-tenant and prompt-injection
+tests, provider-failure tests, token/cost gates, performance baselines, and
+final Phase 6 documentation.
+
 ## Later phases
-
-### Phase 6 — AI Assistant (RAG)
-
-Use bounded retrieved context for repository Q&A, explanations, impact
-analysis, reviews, and migration assistance.
 
 ### Phase 7 — MCP Server
 

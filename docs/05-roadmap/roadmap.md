@@ -307,6 +307,24 @@ Canonical Phase 5 documents:
 
 Goal: provide grounded developer assistance from CodeMind retrieval.
 
+Status: In progress. Milestone 6.1 defines the accepted RAG architecture,
+security invariants, provider boundary, context/token policy, and trusted
+citation lifecycle. Runtime implementation begins with the Milestone 6.2 data
+model.
+
+Milestones:
+
+| Milestone | Scope                                         | Status   |
+| --------: | --------------------------------------------- | -------- |
+|       6.1 | RAG architecture and ADR                      | Complete |
+|       6.2 | AI data model and migration                   | Planned  |
+|       6.3 | Provider abstraction and first adapter        | Planned  |
+|       6.4 | Retrieval context builder and token budgeting | Planned  |
+|       6.5 | Grounded question-answering pipeline          | Planned  |
+|       6.6 | Tenant-scoped AI APIs                         | Planned  |
+|       6.7 | Repository assistant web experience           | Planned  |
+|       6.8 | Evaluation, security, and operational gates   | Planned  |
+
 Planned capabilities:
 
 - Repository question answering
@@ -318,6 +336,12 @@ Planned capabilities:
 
 AI output must not become the source of truth for code metadata. Retrieval is
 built on versioned Phase 3–5 data.
+
+Canonical Phase 6 documents:
+
+- [AI Assistant module](../02-core-modules/ai.md)
+- [ADR-005: AI Assistant and RAG Architecture](../06-adrs/005-ai-architecture.md)
+- [Search module](../02-core-modules/search.md)
 
 ## Phase 7 — MCP Server
 
