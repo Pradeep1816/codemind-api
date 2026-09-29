@@ -2,15 +2,15 @@
 
 ## Current delivery state
 
-| Phase                                      | Status      |
-| ------------------------------------------ | ----------- |
-| Phase 1 — Platform & Identity              | Complete    |
-| Phase 2 — Repository Management            | Complete    |
-| Phase 3 — Indexing & Code Intelligence     | Complete    |
-| Phase 4 — Knowledge Graph & Business Logic | Complete    |
-| Phase 5 — Search Engine                    | In progress |
-| Phases 6–7                                 | Planned     |
-| Phase 8                                    | Future      |
+| Phase                                      | Status   |
+| ------------------------------------------ | -------- |
+| Phase 1 — Platform & Identity              | Complete |
+| Phase 2 — Repository Management            | Complete |
+| Phase 3 — Indexing & Code Intelligence     | Complete |
+| Phase 4 — Knowledge Graph & Business Logic | Complete |
+| Phase 5 — Search Engine                    | Complete |
+| Phases 6–7                                 | Planned  |
+| Phase 8                                    | Future   |
 
 Milestones 3.1 through 3.12 are implemented. They define the indexing data model,
 durable queued-job API, immutable commit verification, and isolated job
@@ -542,7 +542,7 @@ integration tests.
 
 ## Phase 5 — Search Engine
 
-Status: In progress
+Status: Complete
 
 Goal: retrieve a small, relevant, permission-scoped set of source and knowledge
 records for developers and downstream AI consumers.
@@ -669,7 +669,7 @@ Delivered:
 
 ### 5.9 Search quality and hardening
 
-Status: In progress
+Status: Complete
 
 Delivered:
 
@@ -682,11 +682,9 @@ Delivered:
 - Small deterministic-fixture projection and query latency budgets
 - Failed-rebuild availability and atomic current-index replacement across
   repository revisions
-
-Remaining:
-
-- Larger-repository throughput, latency, and query-plan baseline
-- Final Phase 5 documentation and completion review
+- Reproducible 5,000-file projection throughput, query-latency, and PostgreSQL
+  query-plan baseline
+- Final Search module, schema, API, ADR, test-runbook, and roadmap review
 
 ## Later phases
 

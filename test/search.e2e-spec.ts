@@ -53,6 +53,9 @@ import { createE2eApplication, E2eGitService } from './support/e2e-application';
 describe('Search projection (e2e)', () => {
   const smallFixtureBuildBudgetMs = 10_000;
   const smallFixtureQueryBudgetMs = 2_000;
+  const largeFixtureFileCount = 5_000;
+  const largeFixtureBuildBudgetMs = 60_000;
+  const largeFixtureQueryBudgetMs = 2_000;
   const targetCommitSha = '1'.repeat(40);
   const gitBlobOid = '2'.repeat(40);
   const nextTargetCommitSha = '9'.repeat(40);
@@ -669,6 +672,135 @@ describe('Search projection (e2e)', () => {
     ).rejects.toThrow('published search index content is immutable');
   });
 
+  it('meets the larger-repository projection and query-plan baseline', async () => {
+    const runIdentity = `search-performance-${Date.now().toString(36)}`;
+    const owner = await registerAndLoginOwner(httpServer, runIdentity);
+    const fixture = await createPublishedKnowledgeFixture(
+      owner.organizationId,
+      owner.userId,
+    );
+    await extendCodeSnapshotFiles(fixture, largeFixtureFileCount);
+
+    const buildStartedAt = performance.now();
+    const projection = await searchService.build({
+      organizationId: fixture.organizationId,
+      repositoryId: fixture.repositoryId,
+      knowledgeSnapshotId: fixture.knowledgeSnapshotId,
+    });
+    const buildDurationMs = performance.now() - buildStartedAt;
+    const documentsPerSecond =
+      projection.documentCount / (buildDurationMs / 1_000);
+
+    expect(projection).toMatchObject({
+      isCurrent: true,
+      reused: false,
+      documents: {
+        files: largeFixtureFileCount,
+        symbols: 1,
+        knowledgeNodes: 2,
+        total: largeFixtureFileCount + 3,
+      },
+    });
+    expect(buildDurationMs).toBeLessThan(largeFixtureBuildBudgetMs);
+    expect(documentsPerSecond).toBeGreaterThan(50);
+
+    const targetPath =
+      'src/performance/module-04999/performance-target-04999.service.ts';
+    const queryStartedAt = performance.now();
+    const query = await searchQueryService.search({
+      organizationId: fixture.organizationId,
+      repositoryId: fixture.repositoryId,
+      branchId: fixture.branchId,
+      query: targetPath,
+      page: 1,
+      limit: 10,
+    });
+    const queryDurationMs = performance.now() - queryStartedAt;
+
+    expect(queryDurationMs).toBeLessThan(largeFixtureQueryBudgetMs);
+    expect(query.data[0]).toMatchObject({
+      title: targetPath,
+      match: { exactPath: true },
+    });
+
+    await dataSource.query('ANALYZE "search_documents"');
+    const fullTextPlanRows = await dataSource.query<SearchPlanRow[]>(
+      `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+         SELECT document."id"
+         FROM "search_documents" document
+         WHERE document."search_index_id" = $1
+           AND document."search_vector" @@
+             plainto_tsquery('simple'::regconfig, $2)
+         LIMIT 10`,
+      [projection.searchIndexId, 'performance target 04999'],
+    );
+    const exactPathPlanRows = await dataSource.query<SearchPlanRow[]>(
+      `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+         SELECT document."id"
+         FROM "search_documents" document
+         WHERE document."search_index_id" = $1
+           AND lower(document."path") = lower($2)
+         LIMIT 10`,
+      [projection.searchIndexId, targetPath],
+    );
+    const fullTextPlan = fullTextPlanRows[0]?.['QUERY PLAN'][0];
+    const exactPathPlan = exactPathPlanRows[0]?.['QUERY PLAN'][0];
+    const fullTextIndexNames = fullTextPlan
+      ? collectPlanIndexNames(fullTextPlan.Plan)
+      : [];
+    const exactPathIndexNames = exactPathPlan
+      ? collectPlanIndexNames(exactPathPlan.Plan)
+      : [];
+    const configuredIndexes = await dataSource.query<
+      Array<{ indexName: string }>
+    >(
+      `SELECT indexname AS "indexName"
+       FROM pg_indexes
+       WHERE schemaname = 'public'
+         AND tablename = 'search_documents'
+         AND indexname IN (
+           'idx_search_documents_search_vector',
+           'idx_search_documents_path_lower'
+         )
+       ORDER BY indexname`,
+    );
+
+    expect(configuredIndexes.map(({ indexName }) => indexName)).toEqual([
+      'idx_search_documents_path_lower',
+      'idx_search_documents_search_vector',
+    ]);
+    expect(fullTextPlan?.['Execution Time']).toBeLessThan(
+      largeFixtureQueryBudgetMs,
+    );
+    expect(exactPathPlan?.['Execution Time']).toBeLessThan(
+      largeFixtureQueryBudgetMs,
+    );
+
+    console.log(
+      'search performance baseline',
+      JSON.stringify({
+        files: largeFixtureFileCount,
+        documents: projection.documentCount,
+        buildDurationMs: Number(buildDurationMs.toFixed(2)),
+        documentsPerSecond: Number(documentsPerSecond.toFixed(2)),
+        queryDurationMs: Number(queryDurationMs.toFixed(2)),
+        fullTextPlan: {
+          nodeType: fullTextPlan?.Plan['Node Type'] ?? null,
+          executionMs: fullTextPlan?.['Execution Time'] ?? null,
+          planningMs: fullTextPlan?.['Planning Time'] ?? null,
+          indexes: fullTextIndexNames,
+        },
+        exactPathPlan: {
+          nodeType: exactPathPlan?.Plan['Node Type'] ?? null,
+          executionMs: exactPathPlan?.['Execution Time'] ?? null,
+          planningMs: exactPathPlan?.['Planning Time'] ?? null,
+          indexes: exactPathIndexNames,
+        },
+        configuredIndexes: configuredIndexes.map(({ indexName }) => indexName),
+      }),
+    );
+  }, 90_000);
+
   async function createPublishedKnowledgeFixture(
     organizationId: string,
     ownerUserId: string,
@@ -1135,4 +1267,106 @@ describe('Search projection (e2e)', () => {
       knowledgeSnapshotId: published.snapshotId,
     };
   }
+
+  async function extendCodeSnapshotFiles(
+    fixture: {
+      organizationId: string;
+      repositoryId: number;
+      branchId: number;
+      indexJobId: number;
+    },
+    targetFileCount: number,
+  ): Promise<void> {
+    const additionalFileCount = targetFileCount - 1;
+    const fileRepository = dataSource.getRepository(IndexedFileEntity);
+    const hashRepository = dataSource.getRepository(FileHashEntity);
+    const files = fileRepository.create(
+      Array.from({ length: additionalFileCount }, (_, index) => {
+        const sequence = index + 1;
+        const paddedSequence = sequence.toString().padStart(5, '0');
+
+        return {
+          organizationId: fixture.organizationId,
+          repositoryId: fixture.repositoryId,
+          branchId: fixture.branchId,
+          lastSeenJobId: fixture.indexJobId,
+          currentFileHashId: null,
+          path:
+            `src/performance/module-${paddedSequence}/` +
+            `performance-target-${paddedSequence}.service.ts`,
+          extension: '.ts',
+          language: SourceLanguage.TypeScript,
+          sizeBytes: source.length,
+          status: IndexedFileStatus.Active,
+          lastSeenCommitSha: targetCommitSha,
+        };
+      }),
+    );
+    const savedFiles = await fileRepository.save(files, { chunk: 250 });
+    const observedAt = new Date();
+    const hashes = hashRepository.create(
+      savedFiles.map((file) => ({
+        organizationId: fixture.organizationId,
+        indexedFileId: file.id,
+        observedByJobId: fixture.indexJobId,
+        analyzedByJobId: fixture.indexJobId,
+        algorithm: FileHashAlgorithm.Sha256,
+        value: '3'.repeat(64),
+        gitBlobOid,
+        sizeBytes: source.length,
+        analysisCompletedAt: observedAt,
+      })),
+    );
+    await hashRepository.save(hashes, { chunk: 250 });
+    await dataSource.query(
+      `UPDATE "indexed_files" file
+       SET "current_file_hash_id" = hash."id"
+       FROM "file_hashes" hash
+       WHERE hash."indexed_file_id" = file."id"
+         AND file."organization_id" = $1
+         AND file."repository_id" = $2
+         AND file."branch_id" = $3
+         AND file."last_seen_job_id" = $4
+         AND file."current_file_hash_id" IS NULL`,
+      [
+        fixture.organizationId,
+        fixture.repositoryId,
+        fixture.branchId,
+        fixture.indexJobId,
+      ],
+    );
+    await dataSource.getRepository(IndexJobEntity).update(
+      { id: fixture.indexJobId },
+      {
+        totalFiles: targetFileCount,
+        processedFiles: targetFileCount,
+      },
+    );
+  }
 });
+
+interface SearchPlanNode {
+  'Node Type': string;
+  'Index Name'?: string;
+  Plans?: SearchPlanNode[];
+}
+
+interface SearchPlan {
+  Plan: SearchPlanNode;
+  'Planning Time': number;
+  'Execution Time': number;
+}
+
+interface SearchPlanRow {
+  'QUERY PLAN': SearchPlan[];
+}
+
+function collectPlanIndexNames(plan: SearchPlanNode): string[] {
+  const names = plan['Index Name'] ? [plan['Index Name']] : [];
+
+  for (const child of plan.Plans ?? []) {
+    names.push(...collectPlanIndexNames(child));
+  }
+
+  return names;
+}

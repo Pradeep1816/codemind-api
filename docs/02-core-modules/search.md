@@ -7,10 +7,10 @@ rankable retrieval projection. It answers where relevant code or knowledge is
 located; it does not generate AI answers and it does not replace the indexing
 or knowledge sources of truth.
 
-Status: Phase 5 in progress. Architecture, persistence, projection building,
-exact/lexical retrieval, bounded graph expansion, and explainable ranking are
-implemented and exposed through a tenant-scoped API and repository web search
-experience. Quality and performance hardening are in progress.
+Status: Phase 5 complete. Architecture, persistence, projection building,
+exact/lexical retrieval, bounded graph expansion, explainable ranking,
+tenant-scoped APIs, the repository web experience, and quality/performance
+hardening are implemented.
 
 ## Responsibilities
 
@@ -114,11 +114,11 @@ sequenceDiagram
     API-->>Client: paginated source-grounded results
 ```
 
-The query service will use parameterized SQL and a fixed sort tiebreaker. It
-will not accept raw `tsquery`, SQL fragments, or client-provided ranking
+The query service uses parameterized SQL and a fixed sort tiebreaker. It does
+not accept raw `tsquery`, SQL fragments, or client-provided ranking
 expressions.
 
-## Planned module layout
+## Module layout
 
 ```text
 src/modules/search/
@@ -138,17 +138,17 @@ kept in source control.
 
 ## Milestones
 
-| Milestone | Outcome                                            | Status      |
-| --------: | -------------------------------------------------- | ----------- |
-|       5.1 | Architecture, boundaries, ranking and engine ADR   | Complete    |
-|       5.2 | Versioned search-index and document schema         | Complete    |
-|       5.3 | Projection builder and atomic publication          | Complete    |
-|       5.4 | Exact identifier, path, symbol, and lexical search | Complete    |
-|       5.5 | Bounded dependency and knowledge-graph expansion   | Complete    |
-|       5.6 | Ranking, deduplication, filters, and explanations  | Complete    |
-|       5.7 | Tenant-scoped search APIs                          | Complete    |
-|       5.8 | Web search experience                              | Complete    |
-|       5.9 | Quality, security, performance tests and docs      | In progress |
+| Milestone | Outcome                                            | Status   |
+| --------: | -------------------------------------------------- | -------- |
+|       5.1 | Architecture, boundaries, ranking and engine ADR   | Complete |
+|       5.2 | Versioned search-index and document schema         | Complete |
+|       5.3 | Projection builder and atomic publication          | Complete |
+|       5.4 | Exact identifier, path, symbol, and lexical search | Complete |
+|       5.5 | Bounded dependency and knowledge-graph expansion   | Complete |
+|       5.6 | Ranking, deduplication, filters, and explanations  | Complete |
+|       5.7 | Tenant-scoped search APIs                          | Complete |
+|       5.8 | Web search experience                              | Complete |
+|       5.9 | Quality, security, performance tests and docs      | Complete |
 
 ## Implemented projection behavior
 
@@ -171,8 +171,9 @@ snapshot and its successful Phase 3 index job:
 - Publishes a historical projection without selecting it as current when its
   branch or knowledge snapshot has advanced
 
-The service is exported for the retrieval/API orchestration added by later
-milestones. Search projection building is not exposed as an HTTP endpoint yet.
+The service is exported for internal retrieval consumers. Projection building
+is exposed through the permission-guarded
+`POST /api/v1/repositories/:repositoryId/search/indexes` bootstrap endpoint.
 
 ## Implemented lexical query behavior
 
@@ -268,3 +269,32 @@ tenant, builds or reuses its immutable search projection, and requires
 `repository.read`, `repository.index`, and `search.use`. The web repository
 workspace offers this action when a query reports that no published search
 index exists, then automatically retries the pending query.
+
+## Performance baseline
+
+Milestone 5.9 includes a deterministic PostgreSQL baseline representing 5,000
+indexed source files and 5,003 search documents. On the recorded local
+PostgreSQL 18.3 runs:
+
+| Measurement                | Result                            |
+| -------------------------- | --------------------------------- |
+| Projection duration        | 6.89–9.71 seconds                 |
+| Projection throughput      | 515–727 documents/second          |
+| Exact-path service query   | 26.97–36.43 milliseconds          |
+| Full-text SQL execution    | 2.60–2.99 milliseconds            |
+| Exact-path SQL execution   | 0.04 milliseconds                 |
+| Exact-path database access | `idx_search_documents_path_lower` |
+
+The query planner selected a sequential scan for the rare full-text lookup at
+this fixture size because scanning the 5,003-document projection was cheaper
+than the GIN path. This is recorded as a baseline, not treated as a failure;
+the full-text GIN index remains available for larger or less cache-resident
+projections. The reusable E2E gate enforces a 60-second projection ceiling,
+minimum throughput of 50 documents/second, two-second query ceilings, and the
+presence of the full-text GIN and exact-path expression indexes. It records
+analyzed plans without requiring PostgreSQL to make the same cost-based plan
+choice on different hardware.
+
+These figures are development-machine baselines rather than production SLOs.
+Production load testing must use representative repository sizes, concurrent
+users, storage, and deployment hardware.
